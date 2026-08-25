@@ -1,0 +1,56 @@
+- generic [ref=f2e3]:
+  - img "친구들의 후기가 표시된 동네 지도" [ref=f2e4]:
+    - button "몽돌식당" [ref=f2e17] [cursor=pointer]
+    - button "연남 화덕피자" [ref=f2e19] [cursor=pointer]
+    - button "망원 우육면가" [ref=f2e21] [cursor=pointer]
+    - button "합정 티라미수바" [ref=f2e23] [cursor=pointer]
+    - button "상수 곱창골목" [ref=f2e25] [cursor=pointer]
+  - generic [ref=f2e27]:
+    - banner [ref=f2e28]:
+      - button "맵필터 3" [active] [ref=f2e29] [cursor=pointer]:
+        - text: 맵필터
+        - generic [ref=f2e32]: "3"
+      - heading "인터맵" [level=1] [ref=f2e33]:
+        - generic [ref=f2e34]: 인
+        - generic [ref=f2e35]: 터
+        - generic [ref=f2e36]: 맵
+    - list "24시간 내 올라온 친구들 후기" [ref=f2e37]:
+      - listitem [ref=f2e38] [cursor=pointer]:
+        - generic [ref=f2e39]: 민
+        - generic [ref=f2e41]: 민지
+      - listitem [ref=f2e42] [cursor=pointer]:
+        - generic [ref=f2e43]: 서
+        - generic [ref=f2e45]: 서준
+      - listitem [ref=f2e46] [cursor=pointer]:
+        - generic [ref=f2e47]: 하
+        - generic [ref=f2e49]: 하윤
+      - listitem [ref=f2e50] [cursor=pointer]:
+        - generic [ref=f2e51]: 지
+        - generic [ref=f2e53]: 지우
+      - listitem [ref=f2e54] [cursor=pointer]:
+        - generic [ref=f2e55]: 예
+        - generic [ref=f2e57]: 예린
+  - dialog "맵필터" [ref=f2e59]:
+    - heading "맵필터" [level=2] [ref=f2e61]
+    - paragraph [ref=f2e62]: 겹치는 지도에서는 우선순위가 높은 그룹 색이 먼저 보여요.
+    - list [ref=f2e63]:
+      - listitem [ref=f2e64]:
+        - button "1순위 친한친구 표시중" [pressed] [ref=f2e65] [cursor=pointer]:
+          - generic [ref=f2e66]: 1순위
+          - generic [ref=f2e68]: 친한친구
+          - generic [ref=f2e69]: 표시중
+      - listitem [ref=f2e70]:
+        - button "2순위 회사사람 표시중" [pressed] [ref=f2e71] [cursor=pointer]:
+          - generic [ref=f2e72]: 2순위
+          - generic [ref=f2e74]: 회사사람
+          - generic [ref=f2e75]: 표시중
+      - listitem [ref=f2e76]:
+        - button "3순위 대학동기 표시중" [pressed] [ref=f2e77] [cursor=pointer]:
+          - generic [ref=f2e78]: 3순위
+          - generic [ref=f2e80]: 대학동기
+          - generic [ref=f2e81]: 표시중
+    - button "지도에 적용하기" [ref=f2e82] [cursor=pointer]
+  - generic:
+    - dialog
+  - generic:
+    - dialog "약속잡기"

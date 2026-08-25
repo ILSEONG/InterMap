@@ -1,0 +1,57 @@
+- generic [ref=f3e3]:
+  - img "친구들의 후기가 표시된 동네 지도" [ref=f3e4]:
+    - button "몽돌식당" [ref=f3e17] [cursor=pointer]
+    - button "연남 화덕피자" [ref=f3e19] [cursor=pointer]
+    - button "망원 우육면가" [ref=f3e21] [cursor=pointer]
+    - button "합정 티라미수바" [ref=f3e23] [cursor=pointer]
+    - button "상수 곱창골목" [ref=f3e25] [cursor=pointer]
+  - generic [ref=f3e27]:
+    - banner [ref=f3e28]:
+      - button "맵필터 3" [ref=f3e29] [cursor=pointer]:
+        - text: 맵필터
+        - generic [ref=f3e32]: "3"
+      - heading "인터맵" [level=1] [ref=f3e33]:
+        - generic [ref=f3e34]: 인
+        - generic [ref=f3e35]: 터
+        - generic [ref=f3e36]: 맵
+    - list "24시간 내 올라온 친구들 후기" [ref=f3e37]:
+      - listitem [ref=f3e38] [cursor=pointer]:
+        - generic [ref=f3e39]: 민
+        - generic [ref=f3e41]: 민지
+      - listitem [ref=f3e42] [cursor=pointer]:
+        - generic [ref=f3e43]: 서
+        - generic [ref=f3e45]: 서준
+      - listitem [ref=f3e46] [cursor=pointer]:
+        - generic [ref=f3e47]: 하
+        - generic [ref=f3e49]: 하윤
+      - listitem [ref=f3e50] [cursor=pointer]:
+        - generic [ref=f3e51]: 지
+        - generic [ref=f3e53]: 지우
+      - listitem [ref=f3e54] [cursor=pointer]:
+        - generic [ref=f3e55]: 예
+        - generic [ref=f3e57]: 예린
+  - generic:
+    - dialog:
+      - heading [level=2]: 맵필터
+      - paragraph: 겹치는 지도에서는 우선순위가 높은 그룹 색이 먼저 보여요.
+      - list:
+        - listitem:
+          - button [pressed]:
+            - generic: 1순위
+            - generic: 친한친구
+            - generic: 표시중
+        - listitem:
+          - button [pressed]:
+            - generic: 2순위
+            - generic: 회사사람
+            - generic: 표시중
+        - listitem:
+          - button [pressed]:
+            - generic: 3순위
+            - generic: 대학동기
+            - generic: 표시중
+      - button: 지도에 적용하기
+  - generic:
+    - dialog
+  - generic:
+    - dialog "약속잡기"

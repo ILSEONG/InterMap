@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "createdAt": "2026-08-16T16:41:17.500Z",
+        "reason": "Doodle-inspired playful world (user-pinned Google Doodle reference): map pin pop/bounce is intentional character motion, not incidental"
+      }
+    ]
+  }
+}

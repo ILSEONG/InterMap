@@ -1,0 +1,88 @@
+@import '@fontsource/jua';
+@import '@fontsource/pretendard/400.css';
+@import '@fontsource/pretendard/500.css';
+@import '@fontsource/pretendard/600.css';
+@import '@fontsource/pretendard/700.css';
+
+:root {
+  color-scheme: light;
+
+  --sky-top: #ffb199;
+  --sky-bottom: #ffd9a0;
+  --ground: #bfe6b0;
+  --ground-path: #f5e3c6;
+  --ink: #2b2140;
+  --ink-soft: #6b5f82;
+  --surface: #fffaf3;
+  --surface-raised: #ffffff;
+  --line: #2b2140;
+
+  --accent: #ff7a45;
+  --accent-ink: #7a2f10;
+
+  --group-close: #ff5d73;
+  --group-work: #2fbfa6;
+  --group-college: #8b6bff;
+
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+
+  --shadow-float: 0 14px 30px -10px rgba(43, 33, 64, 0.35);
+  --shadow-pop: 0 6px 16px -6px rgba(43, 33, 64, 0.28);
+
+  --font-display: 'Jua', 'Pretendard', system-ui, sans-serif;
+  --font-body: 'Pretendard', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--sky-top);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff9f2;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent-ink);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(43, 33, 64, 0.28);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
