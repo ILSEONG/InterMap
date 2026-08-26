@@ -36,7 +36,8 @@
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  filter: drop-shadow(var(--shadow-pop));
+  /* filter: drop-shadow는 마커 수백 개가 지도 이동마다 재래스터라이즈되어 끊긴다.
+     그림자는 box-shadow로 dot에만 준다. */
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -67,6 +68,7 @@
   background: var(--pin-color, var(--accent));
   border: 1.5px solid var(--ink);
   display: block;
+  box-shadow: var(--shadow-pop);
 }
 
 .map-pin--cluster {
@@ -94,6 +96,11 @@
 .map-pin:focus-visible,
 .map-pin--focused {
   z-index: 3;
+}
+
+/* 멀리서 볼 때(핀이 빽빽할 때)는 이름 라벨을 그리지 않는다 — 페인트 비용 절감 */
+.map-canvas--far .map-pin__name {
+  display: none;
 }
 
 /* 겹치지 않은 핀은 이름을 항상 아래에 붙여둔다 (터치엔 hover가 없으므로) */

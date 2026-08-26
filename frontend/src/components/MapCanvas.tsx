@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Restaurant, FriendGroup } from '../data/mock'
 import { loadNaverMaps } from '../lib/loadNaverMaps'
-import { clusterPins, isSeparatedAt, latAtWorldY, worldPoint } from '../lib/cluster'
+import { clusterPins, isSeparatedAt } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
 import './MapCanvas.css'
 
@@ -21,15 +21,14 @@ const MAX_ZOOM = 21
 // 사용자가 더 당겨볼 여지를 남긴다.
 // 지도 이동은 확대 없이, 살짝 감속하며 미끄러지듯.
 const PAN_TRANSITION = { duration: 700, easing: 'easeOutCubic' }
-// 목록 한 줄 높이(대략) — 팝업이 얼마나 위로 뻗을지 어림잡는 데 쓴다.
-const PIN_LIST_ROW_HEIGHT = 56
-const PIN_LIST_MAX_HEIGHT = 232
 // 이보다 많이 묶인 군집은 목록으로 고르기 버거우니 탭하면 확대해서 풀어준다.
 const ZOOM_INSTEAD_OF_LIST = 6
 const CLUSTER_TAP_ZOOM_STEP = 2
 // 아무리 확대해도 안 갈라지는 가게(같은 건물)를 골랐을 때 최소 이만큼은 확대해서
 // 어느 골목·건물인지 맥락을 보여준다. 18 ≈ 건물 단위가 보이는 수준.
 const DETAIL_ZOOM = 18
+// 이보다 멀리서 보면 핀 이름 라벨을 숨긴다 (빽빽할 때 페인트 비용 절감)
+const NAME_LABEL_MIN_ZOOM = 16
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] ?? ch)
@@ -161,42 +160,13 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
     }
   }, [])
 
-  // 핀을 화면 세로 targetY 위치로 옮긴다 (지도 중심을 그만큼 북쪽으로 당기는 것과 같다).
-  const movePinBelowChrome = useCallback((pin: Pin) => {
-    const map = mapRef.current
-    const mapHeight = mapDivRef.current?.clientHeight ?? 0
-    if (!map || !window.naver || !mapHeight) return
-
-    const chromeBottom = document.querySelector('.app__chrome')?.getBoundingClientRect().bottom ?? 0
-    const popupHeight = Math.min(PIN_LIST_MAX_HEIGHT, pin.items.length * PIN_LIST_ROW_HEIGHT + 12)
-    const targetY = Math.min(mapHeight - 48, Math.max(mapHeight / 2, chromeBottom + popupHeight + 48))
-
-    const zoomLevel = map.getZoom()
-    const point = worldPoint(pin.lat, pin.lng, zoomLevel)
-    const centerLat = latAtWorldY(point.y - (targetY - mapHeight / 2), zoomLevel)
-    map.panTo(new window.naver.maps.LatLng(centerLat, pin.lng), PAN_TRANSITION)
-  }, [])
-
-  // 상세 시트가 화면 아래를 덮으므로, 시트가 열릴 때는 핀을 화면 위쪽 1/3 지점에 둔다.
-  // targetZoom을 주면 그 레벨로 확대하면서 옮긴다 (기본은 현재 줌 유지).
-  const movePinToUpperThird = useCallback((lat: number, lng: number, targetZoom?: number) => {
-    const map = mapRef.current
-    const mapHeight = mapDivRef.current?.clientHeight ?? 0
-    if (!map || !window.naver || !mapHeight) return
-
-    const zoomLevel = targetZoom ?? map.getZoom()
-    const point = worldPoint(lat, lng, zoomLevel)
-    const centerLat = latAtWorldY(point.y - (mapHeight / 3 - mapHeight / 2), zoomLevel)
-    map.morph(new window.naver.maps.LatLng(centerLat, lng), zoomLevel, PAN_TRANSITION)
-  }, [])
-
   const openPinList = useCallback(
     (pin: Pin, marker: naver.maps.Marker) => {
       const infoWindow = infoWindowRef.current
       if (!infoWindow || !mapRef.current) return
 
-      // 목록은 핀 위로 펼쳐지므로, 헤더·스토리 영역에 가리지 않는 높이까지 핀을 내려놓고 연다.
-      movePinBelowChrome(pin)
+      // 어떤 핀을 눌러도 지도는 그 핀을 정가운데로.
+      mapRef.current.panTo(new window.naver.maps.LatLng(pin.lat, pin.lng), PAN_TRANSITION)
       infoWindow.setContent(pinListContent(pin.items, groups))
       infoWindow.open(mapRef.current, marker)
 
@@ -235,7 +205,7 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
         }
       })
     },
-    [groups, movePinBelowChrome, movePinToUpperThird, onPick],
+    [groups, onPick],
   )
 
   // 목록이 바뀔 때 마커를 전부 다시 만들면 검색어 한 글자마다 지도가 끊긴다.
@@ -261,11 +231,11 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
         icon: pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current)),
       })
       naver.maps.Event.addListener(marker, 'click', () => {
-        // 한 곳뿐이면 목록을 거칠 이유가 없다. 어느 핀을 골랐는지 링으로 남기고,
-        // 상세 시트가 열리므로 핀을 시트에 안 가리는 위쪽으로 올린다.
+        // 한 곳뿐이면 목록을 거칠 이유가 없다. 어느 핀을 골랐는지 링으로 남기고
+        // 지도는 그 핀을 정가운데로 옮긴다.
         if (pin.items.length === 1) {
           setFocusedId(pin.items[0].id)
-          movePinToUpperThird(pin.lat, pin.lng)
+          mapRef.current?.panTo(new naver.maps.LatLng(pin.lat, pin.lng), PAN_TRANSITION)
           onPick(pin.items[0])
           return
         }
@@ -286,7 +256,7 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
       })
       markers.set(pin.key, marker)
     })
-  }, [visiblePins, groups, mapReady, onPick, openPinList, movePinToUpperThird])
+  }, [visiblePins, groups, mapReady, onPick, openPinList])
 
   // 강조 표시는 바뀐 핀만 다시 그린다 (전체 재생성 방지).
   useEffect(() => {
@@ -311,7 +281,7 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
   }, [focus, mapReady, focusRestaurant])
 
   return (
-    <div className="map-canvas">
+    <div className={`map-canvas${zoom < NAME_LABEL_MIN_ZOOM ? ' map-canvas--far' : ''}`}>
       <div ref={mapDivRef} className="map-canvas__surface" />
       {mapError && (
         <div className="map-canvas__error">
