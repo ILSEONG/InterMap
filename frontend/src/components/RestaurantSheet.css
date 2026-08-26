@@ -9,6 +9,8 @@
   pointer-events: none;
   transition: opacity 220ms ease;
   z-index: 40;
+  /* 열리는 순간 레이어 승격이 일어나며 화면이 깜빡이는 것을 막는다 (Android WebView) */
+  will-change: opacity;
 }
 
 .restaurant-sheet-overlay--open {
@@ -30,6 +32,7 @@
   transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
   display: flex;
   flex-direction: column;
+  will-change: transform;
 }
 
 .restaurant-sheet-overlay--open .restaurant-sheet {

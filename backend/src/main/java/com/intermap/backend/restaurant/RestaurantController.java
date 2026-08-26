@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-// https://localhost, capacitor://localhost 는 모바일 앱(Capacitor WebView)의 origin
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://localhost", "capacitor://localhost"})
+// https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app"})
 public class RestaurantController {
 
     public record RegisterRequest(String name, String category, String roadAddress, String address, double lat, double lng) {

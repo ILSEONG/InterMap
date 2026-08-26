@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Restaurant, Friend, FriendGroup } from '../data/mock'
 import { groupById } from '../data/mock'
 import './MeetupSheet.css'
@@ -13,6 +13,10 @@ export default function MeetupSheet({ restaurant, friends, onClose }: MeetupShee
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmed, setConfirmed] = useState(false)
   const open = restaurant !== null
+  // 닫히는 애니메이션 동안 내용이 사라져 빈 패널이 번쩍이지 않게 마지막 가게를 유지한다.
+  const lastRestaurantRef = useRef<Restaurant | null>(null)
+  if (restaurant) lastRestaurantRef.current = restaurant
+  const shown = restaurant ?? lastRestaurantRef.current
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -32,9 +36,9 @@ export default function MeetupSheet({ restaurant, friends, onClose }: MeetupShee
     <div className={`meetup-overlay${open ? ' meetup-overlay--open' : ''}`} onClick={handleClose}>
       <div className="meetup-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="약속잡기">
         <div className="meetup-sheet__handle" />
-        {restaurant && !confirmed && (
+        {shown && !confirmed && (
           <>
-            <h2 className="meetup-sheet__title">🎉 {restaurant.name}에서 약속잡기</h2>
+            <h2 className="meetup-sheet__title">🎉 {shown.name}에서 약속잡기</h2>
             <p className="meetup-sheet__hint">함께할 친구를 골라주세요</p>
             <ul className="meetup-sheet__friends">
               {friends.map((friend) => {
@@ -66,11 +70,11 @@ export default function MeetupSheet({ restaurant, friends, onClose }: MeetupShee
             </button>
           </>
         )}
-        {restaurant && confirmed && (
+        {shown && confirmed && (
           <div className="meetup-sheet__done">
             <p className="meetup-sheet__done-emoji">🎊</p>
             <p className="meetup-sheet__done-text">
-              {restaurant.name}에서 {selected.size}명과의 약속이 만들어졌어요!
+              {shown.name}에서 {selected.size}명과의 약속이 만들어졌어요!
             </p>
             <button type="button" className="meetup-sheet__confirm" onClick={handleClose}>
               닫기

@@ -74,7 +74,8 @@ export default function App() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [focusId, setFocusId] = useState<string | null>(null)
+  // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
+  const [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null)
   const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
 
   // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
@@ -112,7 +113,7 @@ export default function App() {
   // 검색 결과 선택은 지도만 옮긴다. 상세는 지도에서 핀을 눌러 연다.
   // 고르고 나면 결과 목록이 지도를 가리지 않도록 검색어를 비운다.
   const focusFromSearch = useCallback((restaurant: Restaurant) => {
-    setFocusId(restaurant.id)
+    setFocusTarget({ id: restaurant.id })
     setQuery('')
   }, [])
 
@@ -149,7 +150,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={pickRestaurant} focusId={focusId ?? undefined} />
+      <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={pickRestaurant} focus={focusTarget ?? undefined} />
 
       <div className="app__chrome">
         <Header

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Comment, Restaurant, FriendGroup } from '../data/mock'
 import { friendById, groupById } from '../data/mock'
 import './RestaurantSheet.css'
@@ -33,6 +33,11 @@ export default function RestaurantSheet({
   onAddComment,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
+  // 닫힐 때 restaurant이 즉시 null이 되는데 패널은 애니메이션으로 내려간다.
+  // 내용을 바로 비우면 빈 패널이 한 프레임 번쩍이므로 마지막 가게를 유지한 채 닫는다.
+  const lastRestaurantRef = useRef<Restaurant | null>(null)
+  if (restaurant) lastRestaurantRef.current = restaurant
+  const shown = restaurant ?? lastRestaurantRef.current
 
   return (
     <div className={`restaurant-sheet-overlay${open ? ' restaurant-sheet-overlay--open' : ''}`} onClick={onClose}>
@@ -40,10 +45,10 @@ export default function RestaurantSheet({
         className="restaurant-sheet"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={restaurant ? `${restaurant.name} 상세` : '음식점 상세'}
+        aria-label={shown ? `${shown.name} 상세` : '음식점 상세'}
         aria-hidden={!open}
       >
-        {restaurant && (
+        {shown && (
           <>
             <div className="restaurant-sheet__handle" />
             <button type="button" className="restaurant-sheet__close" onClick={onClose} aria-label="닫기">
@@ -51,8 +56,8 @@ export default function RestaurantSheet({
             </button>
             {/* key를 걸어 가게가 바뀌면 작성 중이던 후기·댓글 입력값이 비워지도록 한다 */}
             <SheetBody
-              key={restaurant.id}
-              restaurant={restaurant}
+              key={shown.id}
+              restaurant={shown}
               groups={groups}
               onStartMeetup={onStartMeetup}
               onAddReview={onAddReview}
