@@ -5,11 +5,10 @@ import MapCanvas from './components/MapCanvas'
 import GroupFilterSheet from './components/GroupFilterSheet'
 import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
-import PlaceSearchSheet from './components/PlaceSearchSheet'
 import { groups, friends, restaurants as initialRestaurants, groupById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
-import { fetchRestaurants, registerRestaurant } from './lib/api'
-import type { PlaceSearchResult, RestaurantRecord } from './lib/api'
+import { fetchRestaurants } from './lib/api'
+import type { RestaurantRecord } from './lib/api'
 import './App.css'
 
 /*
@@ -36,7 +35,6 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
     lat: record.lat,
     lng: record.lng,
     groupIds: [],
-    menu: [],
     reviews: [],
     comments: [],
     closed: record.status === 'CLOSED',
@@ -70,13 +68,21 @@ export default function App() {
   }, [])
   const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
   const [filterOpen, setFilterOpen] = useState(false)
-  const [placeSearchOpen, setPlaceSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null)
   const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
 
   const visibleRestaurants = useMemo(
-    () => restaurants.filter((r) => r.groupIds.length === 0 || r.groupIds.some((g) => activeGroupIds.has(g))),
-    [restaurants, activeGroupIds],
+    () => {
+      const keyword = query.trim().toLowerCase()
+      return restaurants.filter(
+        (r) =>
+          (r.groupIds.length === 0 || r.groupIds.some((g) => activeGroupIds.has(g))) &&
+          (keyword === '' ||
+            `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)),
+      )
+    },
+    [restaurants, activeGroupIds, query],
   )
 
   const todayStories = useMemo(() => {
@@ -87,32 +93,6 @@ export default function App() {
       .filter((f) => activeFriendIds.has(f.id) && activeGroupIds.has(f.groupId))
       .map((f) => ({ ...f, group: groupById(f.groupId) }))
   }, [restaurants, activeGroupIds])
-
-  async function handlePlacePicked(place: PlaceSearchResult) {
-    let newRestaurant: Restaurant
-    try {
-      newRestaurant = toRestaurant(await registerRestaurant(place))
-    } catch {
-      // 백엔드 미기동 시 로컬 상태로만 추가
-      newRestaurant = {
-        id: `place-${Date.now()}`,
-        name: place.name,
-        category: place.category || '음식점',
-        address: place.roadAddress || place.address,
-        lat: place.lat,
-        lng: place.lng,
-        groupIds: [],
-        menu: [],
-        reviews: [],
-        comments: [],
-      }
-    }
-    setRestaurants((prev) =>
-      prev.some((r) => r.id === newRestaurant.id) ? prev : [...prev, newRestaurant],
-    )
-    setPlaceSearchOpen(false)
-    setSelectedRestaurant(newRestaurant)
-  }
 
   function toggleGroup(id: GroupId) {
     setActiveGroupIds((prev) => {
@@ -127,15 +107,14 @@ export default function App() {
       <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={setSelectedRestaurant} selectedId={selectedRestaurant?.id} />
 
       <div className="app__chrome">
-        <Header onOpenFilter={() => setFilterOpen(true)} activeGroupCount={activeGroupIds.size} />
+        <Header
+          onOpenFilter={() => setFilterOpen(true)}
+          activeGroupCount={activeGroupIds.size}
+          query={query}
+          onQueryChange={setQuery}
+        />
         <StoryStrip stories={todayStories} />
       </div>
-
-      <button type="button" className="app__add-place" onClick={() => setPlaceSearchOpen(true)} aria-label="음식점 등록">
-        +
-      </button>
-
-      <PlaceSearchSheet open={placeSearchOpen} onClose={() => setPlaceSearchOpen(false)} onPick={handlePlacePicked} />
 
       <GroupFilterSheet
         open={filterOpen}

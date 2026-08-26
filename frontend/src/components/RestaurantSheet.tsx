@@ -80,19 +80,6 @@ export default function RestaurantSheet({ restaurant, groups, onClose, onStartMe
               </button>
 
               <section className="restaurant-sheet__section">
-                <h3 className="restaurant-sheet__section-title">메뉴</h3>
-                {restaurant.menu.length > 0 ? (
-                  <ul className="restaurant-sheet__menu">
-                    {restaurant.menu.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="restaurant-sheet__empty">아직 등록된 메뉴가 없어요.</p>
-                )}
-              </section>
-
-              <section className="restaurant-sheet__section">
                 <h3 className="restaurant-sheet__section-title">이웃들의 후기</h3>
                 {restaurant.reviews.length === 0 && <p className="restaurant-sheet__empty">아직 이웃 후기가 없어요. 첫 후기를 남겨보세요!</p>}
                 <div className="restaurant-sheet__reviews">

@@ -36,7 +36,6 @@ export interface Restaurant {
   lat: number
   lng: number
   groupIds: GroupId[]
-  menu: string[]
   reviews: Review[]
   comments: Comment[]
   closed?: boolean
@@ -66,7 +65,6 @@ export const restaurants: Restaurant[] = [
     lat: 37.5625,
     lng: 126.9256,
     groupIds: ['close', 'college'],
-    menu: ['고등어정식 12,000원', '제육볶음 11,000원', '된장찌개 9,000원'],
     reviews: [
       { id: 'rv1', friendId: 'f1', rating: 5, text: '고등어정식 진짜 밥도둑이야. 반찬도 계속 리필해줌.', postedHoursAgo: 3 },
       { id: 'rv2', friendId: 'f5', rating: 4, text: '점심시간엔 웨이팅 있음 주의. 맛은 인정.', postedHoursAgo: 20 },
@@ -81,7 +79,6 @@ export const restaurants: Restaurant[] = [
     lat: 37.5645,
     lng: 126.9235,
     groupIds: ['work'],
-    menu: ['마르게리타 18,000원', '고르곤졸라 22,000원', '하우스와인 9,000원'],
     reviews: [
       { id: 'rv3', friendId: 'f3', rating: 5, text: '도우 존맛. 화요일에 반값 세트 있음.', postedHoursAgo: 6 },
     ],
@@ -95,7 +92,6 @@ export const restaurants: Restaurant[] = [
     lat: 37.5558,
     lng: 126.9020,
     groupIds: ['close', 'work'],
-    menu: ['우육탕면 13,000원', '만두 7,000원'],
     reviews: [
       { id: 'rv4', friendId: 'f2', rating: 5, text: '국물이 미쳤다 진짜.', postedHoursAgo: 1 },
       { id: 'rv5', friendId: 'f4', rating: 4, text: '양 많아서 가성비 좋음.', postedHoursAgo: 40 },
@@ -110,7 +106,6 @@ export const restaurants: Restaurant[] = [
     lat: 37.5495,
     lng: 126.9145,
     groupIds: ['college'],
-    menu: ['클래식 티라미수 8,500원', '말차라떼 6,000원'],
     reviews: [
       { id: 'rv6', friendId: 'f6', rating: 5, text: '여기 티라미수 인생 디저트 등극.', postedHoursAgo: 15 },
     ],
@@ -124,7 +119,6 @@ export const restaurants: Restaurant[] = [
     lat: 37.5470,
     lng: 126.9228,
     groupIds: ['close'],
-    menu: ['모둠곱창 32,000원', '볶음밥 4,000원'],
     reviews: [
       { id: 'rv7', friendId: 'f1', rating: 4, text: '금요일 저녁엔 무조건 예약하고 가야함.', postedHoursAgo: 50 },
     ],

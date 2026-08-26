@@ -23,12 +23,29 @@
   font-size: 13px;
   color: var(--ink);
   cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease;
+  transition: transform 140ms ease, background 140ms ease, padding 220ms ease;
 }
 
 .app-header__filter:hover {
   background: #fff0e0;
   transform: translateY(-1px);
+}
+
+.app-header__filter-label {
+  max-width: 60px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 220ms ease, opacity 160ms ease;
+}
+
+.app-header--searching .app-header__filter {
+  padding: 8px 10px;
+  gap: 0;
+}
+
+.app-header--searching .app-header__filter-label {
+  max-width: 0;
+  opacity: 0;
 }
 
 .app-header__badge {
@@ -45,21 +62,94 @@
   border: 2px solid var(--ink);
 }
 
-.app-header__filter--spacer {
-  visibility: hidden;
+.app-header__center {
+  position: relative;
+  grid-column: 2;
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
 }
 
 .app-header__wordmark {
-  grid-column: 2;
-  justify-self: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   margin: 0;
   font-family: var(--font-display);
   font-size: 22px;
   letter-spacing: 0.02em;
   display: flex;
+  transition: opacity 200ms ease, transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1), filter 200ms ease;
 }
 
 .app-header__wordmark span {
   -webkit-text-stroke: 1.4px var(--ink);
   paint-order: stroke fill;
+}
+
+.app-header--searching .app-header__wordmark {
+  opacity: 0;
+  transform: translate(-50%, -150%) scale(0.7) rotate(-6deg);
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.app-header__search {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 14px;
+  background: var(--surface);
+  border: 2.5px solid var(--ink);
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  opacity: 0;
+  transform: scaleX(0.7);
+  transform-origin: right center;
+  pointer-events: none;
+  transition: opacity 180ms ease 60ms, transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1) 60ms;
+}
+
+.app-header__search:focus {
+  outline: none;
+  background: #fff0e0;
+}
+
+.app-header--searching .app-header__search {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.app-header__search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--surface);
+  border: 2.5px solid var(--ink);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.app-header__search-toggle:hover {
+  background: #fff0e0;
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header__wordmark,
+  .app-header__search,
+  .app-header__filter,
+  .app-header__filter-label {
+    transition-duration: 1ms;
+  }
 }
