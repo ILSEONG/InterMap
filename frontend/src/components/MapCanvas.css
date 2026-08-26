@@ -54,10 +54,9 @@
   top: 1px;
   width: 14px;
   height: 14px;
-  border-radius: 50% 50% 50% 3px;
+  border-radius: 50%;
   background: var(--pin-color, var(--accent));
   border: 1.5px solid var(--ink);
-  transform: rotate(45deg);
   display: block;
 }
 

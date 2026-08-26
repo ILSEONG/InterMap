@@ -26,6 +26,7 @@ export interface Comment {
   id: string
   friendId: string
   text: string
+  parentId?: string // 있으면 해당 댓글의 대댓글
 }
 
 export interface Restaurant {
@@ -126,8 +127,11 @@ export const restaurants: Restaurant[] = [
   },
 ]
 
+// 내가 남긴 후기·댓글의 작성자. 초대 목록에 섞이지 않도록 friends 배열과 분리해 둔다.
+export const me: Friend = { id: 'me', name: '나', groupId: 'close', initials: '나' }
+
 export function friendById(id: string): Friend | undefined {
-  return friends.find((f) => f.id === id)
+  return id === me.id ? me : friends.find((f) => f.id === id)
 }
 
 export function groupById(id: GroupId): FriendGroup {

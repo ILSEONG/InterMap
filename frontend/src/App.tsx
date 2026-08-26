@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import Header from './components/Header'
+import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
 import MapCanvas from './components/MapCanvas'
 import GroupFilterSheet from './components/GroupFilterSheet'
 import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
-import { groups, friends, restaurants as initialRestaurants, groupById } from './data/mock'
+import { groups, friends, me, restaurants as initialRestaurants, groupById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
 import { fetchRestaurants } from './lib/api'
 import type { RestaurantRecord } from './lib/api'
 import './App.css'
+
+// 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
+const MIN_QUERY_LENGTH = 2
 
 /*
   THESIS: the map is a lively neighborhood scene where a friend's pick pops up
@@ -69,12 +73,20 @@ export default function App() {
   const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
   const [filterOpen, setFilterOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
+
+  // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
+  const deferredQuery = useDeferredValue(query)
+  const selectedRestaurant = useMemo(
+    () => restaurants.find((r) => r.id === selectedId) ?? null,
+    [restaurants, selectedId],
+  )
 
   const visibleRestaurants = useMemo(
     () => {
-      const keyword = query.trim().toLowerCase()
+      const raw = deferredQuery.trim()
+      const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
       return restaurants.filter(
         (r) =>
           (r.groupIds.length === 0 || r.groupIds.some((g) => activeGroupIds.has(g))) &&
@@ -82,7 +94,7 @@ export default function App() {
             `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)),
       )
     },
-    [restaurants, activeGroupIds, query],
+    [restaurants, activeGroupIds, deferredQuery],
   )
 
   const todayStories = useMemo(() => {
@@ -94,6 +106,9 @@ export default function App() {
       .map((f) => ({ ...f, group: groupById(f.groupId) }))
   }, [restaurants, activeGroupIds])
 
+  // 매 렌더마다 새 함수를 넘기면 MapCanvas가 마커를 통째로 다시 그린다.
+  const pickRestaurant = useCallback((restaurant: Restaurant) => setSelectedId(restaurant.id), [])
+
   function toggleGroup(id: GroupId) {
     setActiveGroupIds((prev) => {
       const next = new Set(prev)
@@ -102,9 +117,32 @@ export default function App() {
     })
   }
 
+  function addReview(restaurantId: string, rating: number, text: string) {
+    setRestaurants((prev) =>
+      prev.map((r) =>
+        r.id === restaurantId
+          ? {
+              ...r,
+              reviews: [{ id: `rv-${Date.now()}`, friendId: me.id, rating, text, postedHoursAgo: 0 }, ...r.reviews],
+            }
+          : r,
+      ),
+    )
+  }
+
+  function addComment(restaurantId: string, text: string, parentId?: string) {
+    setRestaurants((prev) =>
+      prev.map((r) =>
+        r.id === restaurantId
+          ? { ...r, comments: [...r.comments, { id: `c-${Date.now()}`, friendId: me.id, text, parentId }] }
+          : r,
+      ),
+    )
+  }
+
   return (
     <div className="app">
-      <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={setSelectedRestaurant} selectedId={selectedRestaurant?.id} />
+      <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={pickRestaurant} selectedId={selectedId ?? undefined} />
 
       <div className="app__chrome">
         <Header
@@ -113,7 +151,17 @@ export default function App() {
           query={query}
           onQueryChange={setQuery}
         />
-        <StoryStrip stories={todayStories} />
+        {query.trim() ? (
+          <SearchResults
+            results={visibleRestaurants}
+            groups={groups}
+            tooShort={query.trim().length < MIN_QUERY_LENGTH}
+            minLength={MIN_QUERY_LENGTH}
+            onPick={pickRestaurant}
+          />
+        ) : (
+          <StoryStrip stories={todayStories} />
+        )}
       </div>
 
       <GroupFilterSheet
@@ -127,8 +175,10 @@ export default function App() {
       <RestaurantSheet
         restaurant={selectedRestaurant}
         groups={groups}
-        onClose={() => setSelectedRestaurant(null)}
+        onClose={() => setSelectedId(null)}
         onStartMeetup={(restaurant) => setMeetupRestaurant(restaurant)}
+        onAddReview={addReview}
+        onAddComment={addComment}
       />
 
       <MeetupSheet restaurant={meetupRestaurant} friends={friends} onClose={() => setMeetupRestaurant(null)} />
