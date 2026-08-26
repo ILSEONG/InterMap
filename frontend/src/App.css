@@ -6,6 +6,8 @@
 }
 
 .app__chrome {
+  /* 빈 여백이 지도 터치를 가로채지 않도록 실제 컨트롤에만 이벤트를 준다 */
+  pointer-events: none;
   position: absolute;
   top: 0;
   left: 0;
@@ -16,3 +18,7 @@
   margin: 0 auto;
 }
 
+
+.app__chrome > * {
+  pointer-events: auto;
+}

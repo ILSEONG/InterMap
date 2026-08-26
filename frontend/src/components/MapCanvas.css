@@ -35,17 +35,26 @@
   border: none;
   padding: 0;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   filter: drop-shadow(var(--shadow-pop));
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 터치 여유를 주되 CLUSTER_PIXEL_DISTANCE(26px)보다 크게 잡지 않는다.
+   더 키우면 이웃 핀의 영역까지 먹어서 원하는 핀이 안 눌린다. */
+.map-pin::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
 }
 
 .map-pin:hover,
 .map-pin:focus-visible {
   transform: scale(1.08);
-}
-
-.map-pin--selected {
-  transform: scale(1.14);
 }
 
 .map-pin__dot {
@@ -60,26 +69,183 @@
   display: block;
 }
 
-.map-pin__label {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translate(-50%, 2px);
+.map-pin--cluster {
+  width: 26px;
+  height: 26px;
+  z-index: 1;
+}
+
+.map-pin--cluster .map-pin__dot {
+  left: 0;
+  top: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-width: 2px;
   font-family: var(--font-display);
-  font-size: 11px;
-  padding: 3px 9px;
+  font-size: 12px;
+  color: #fff9f2;
+  text-shadow: 0 1px 0 rgba(43, 33, 64, 0.55);
+}
+
+.map-pin:hover,
+.map-pin:focus-visible,
+.map-pin--focused {
+  z-index: 3;
+}
+
+/* 겹치지 않은 핀은 이름을 항상 아래에 붙여둔다 (터치엔 hover가 없으므로) */
+.map-pin__name {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 92px;
+  padding: 1px 6px;
   border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 2px solid var(--ink);
+  background: rgba(255, 249, 242, 0.92);
+  border: 1.5px solid var(--ink);
+  font-family: var(--font-display);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--ink);
   white-space: nowrap;
-  opacity: 0;
-  transition: opacity 160ms ease, transform 160ms ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
 }
 
-.map-pin:hover .map-pin__label,
-.map-pin:focus-visible .map-pin__label,
-.map-pin--selected .map-pin__label {
-  opacity: 1;
-  transform: translate(-50%, 0);
+.map-pin--focused .map-pin__name {
+  font-size: 11px;
+  max-width: 130px;
+}
+
+/* 목록에서 방금 고른 핀은 퍼지는 링 하나로만 구분한다 */
+.map-pin--focused::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  /* margin으로 맞추면 크기 바뀔 때 중심이 어긋난다. transform으로 고정. */
+  transform: translate(-50%, -50%) scale(0);
+  border-radius: 50%;
+  border: 2px solid var(--pin-color, var(--accent));
+  animation: map-pin-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+/* 뭉친 핀은 원 자체가 26px이라 링을 더 크게 잡아야 밖으로 퍼져 보인다 */
+.map-pin--cluster.map-pin--focused::after {
+  width: 46px;
+  height: 46px;
+}
+
+@keyframes map-pin-pulse {
+  0% {
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-pin--focused::after {
+    animation: none;
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
+
+/* 겹친 핀을 누르면 핀 위에 뜨는 목록 (InfoWindow 안에 들어간다) */
+.pin-list {
+  max-width: 260px;
+  max-height: 232px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: var(--shadow-float);
+  padding: 6px;
+}
+
+.pin-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pin-list__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pin-list__row:hover,
+.pin-list__row:active {
+  background: var(--surface-raised);
+  border-color: var(--ink);
+}
+
+.pin-list__dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--pin-color);
+}
+
+.pin-list__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pin-list__name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pin-list__name em {
+  font-style: normal;
+  font-size: 10px;
+  color: #fff9f2;
+  background: #9b93ab;
+  border-radius: var(--radius-pill);
+  padding: 1px 6px;
+  margin-left: 4px;
+}
+
+.pin-list__meta {
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
