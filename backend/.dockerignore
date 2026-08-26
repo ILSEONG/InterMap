@@ -1,0 +1,8 @@
+build/
+.gradle/
+# 사내망 PC 전용 JDK 경로 지정 — 컨테이너에서는 이미지의 JDK 17을 쓴다
+gradle.properties
+data/
+*.mv.db
+*.trace.db
+src/main/resources/application-local.properties

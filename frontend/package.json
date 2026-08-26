@@ -10,12 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@fontsource/jua": "^5.3.0",
     "@fontsource/pretendard": "^5.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@types/navermaps": "^3.9.2",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",

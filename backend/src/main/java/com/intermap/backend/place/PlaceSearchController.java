@@ -8,7 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174"})
+// https://localhost, capacitor://localhost 는 모바일 앱(Capacitor WebView)의 origin
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://localhost", "capacitor://localhost"})
 public class PlaceSearchController {
 
     private final PlaceSearchService placeSearchService;
