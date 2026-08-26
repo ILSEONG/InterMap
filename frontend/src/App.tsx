@@ -110,7 +110,11 @@ export default function App() {
   // 매 렌더마다 새 함수를 넘기면 MapCanvas가 마커를 통째로 다시 그린다.
   const pickRestaurant = useCallback((restaurant: Restaurant) => setSelectedId(restaurant.id), [])
   // 검색 결과 선택은 지도만 옮긴다. 상세는 지도에서 핀을 눌러 연다.
-  const focusFromSearch = useCallback((restaurant: Restaurant) => setFocusId(restaurant.id), [])
+  // 고르고 나면 결과 목록이 지도를 가리지 않도록 검색어를 비운다.
+  const focusFromSearch = useCallback((restaurant: Restaurant) => {
+    setFocusId(restaurant.id)
+    setQuery('')
+  }, [])
 
   function toggleGroup(id: GroupId) {
     setActiveGroupIds((prev) => {
