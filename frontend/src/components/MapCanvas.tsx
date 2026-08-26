@@ -231,6 +231,8 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
         icon: pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current)),
       })
       naver.maps.Event.addListener(marker, 'click', () => {
+        // 다른 핀의 목록이 열려 있었다면 먼저 닫는다.
+        infoWindowRef.current?.close()
         // 한 곳뿐이면 목록을 거칠 이유가 없다. 어느 핀을 골랐는지 링으로 남기고
         // 지도는 그 핀을 정가운데로 옮긴다.
         if (pin.items.length === 1) {

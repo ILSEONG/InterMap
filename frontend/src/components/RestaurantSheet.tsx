@@ -24,6 +24,9 @@ function Stars({ value }: { value: number }) {
   )
 }
 
+// 손잡이를 이보다 아래로 끌어내리면 시트를 닫는다.
+const MIN_SHEET_HEIGHT = 140
+
 export default function RestaurantSheet({
   restaurant,
   groups,
@@ -39,10 +42,42 @@ export default function RestaurantSheet({
   if (restaurant) lastRestaurantRef.current = restaurant
   const shown = restaurant ?? lastRestaurantRef.current
 
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  // null이면 CSS 기본 높이(마커 바로 아래까지). 손잡이를 끌면 사용자가 정한 높이로.
+  const [height, setHeight] = useState<number | null>(null)
+
+  function onGrabDown(e: React.PointerEvent<HTMLDivElement>) {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    dragRef.current = { startY: e.clientY, startHeight: sheet.getBoundingClientRect().height }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onGrabMove(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (!drag) return
+    const next = drag.startHeight + (drag.startY - e.clientY)
+    setHeight(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
+  }
+
+  function onGrabUp(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    dragRef.current = null
+    if (!drag) return
+    // 최소 높이 아래로 끌어내리면 닫는다. 높이는 기본값으로 되돌린다.
+    if (drag.startHeight + (drag.startY - e.clientY) < MIN_SHEET_HEIGHT) {
+      setHeight(null)
+      onClose()
+    }
+  }
+
   return (
     <div className={`restaurant-sheet-overlay${open ? ' restaurant-sheet-overlay--open' : ''}`} onClick={onClose}>
       <div
+        ref={sheetRef}
         className="restaurant-sheet"
+        style={height !== null ? { height } : undefined}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={shown ? `${shown.name} 상세` : '음식점 상세'}
@@ -50,7 +85,15 @@ export default function RestaurantSheet({
       >
         {shown && (
           <>
-            <div className="restaurant-sheet__handle" />
+            <div
+              className="restaurant-sheet__grab"
+              onPointerDown={onGrabDown}
+              onPointerMove={onGrabMove}
+              onPointerUp={onGrabUp}
+              onPointerCancel={onGrabUp}
+            >
+              <div className="restaurant-sheet__handle" />
+            </div>
             <button type="button" className="restaurant-sheet__close" onClick={onClose} aria-label="닫기">
               ✕
             </button>

@@ -1,0 +1,54 @@
+- generic [ref=e3]:
+  - generic:
+    - banner [ref=e6]:
+      - button "맵필터 3" [ref=e7] [cursor=pointer]:
+        - generic [ref=e10]: 맵필터
+        - generic [ref=e11]: "3"
+      - generic [ref=e12]:
+        - heading "인터맵" [level=1] [ref=e13]:
+          - generic [ref=e14]: 인
+          - generic [ref=e15]: 터
+          - generic [ref=e16]: 맵
+        - searchbox "가게 검색"
+      - button "검색 열기" [ref=e17] [cursor=pointer]
+    - list "24시간 내 올라온 친구들 후기" [ref=e21]:
+      - listitem [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]: 민
+        - generic [ref=e25]: 민지
+      - listitem [ref=e26] [cursor=pointer]:
+        - generic [ref=e27]: 서
+        - generic [ref=e29]: 서준
+      - listitem [ref=e30] [cursor=pointer]:
+        - generic [ref=e31]: 하
+        - generic [ref=e33]: 하윤
+      - listitem [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]: 지
+        - generic [ref=e37]: 지우
+      - listitem [ref=e38] [cursor=pointer]:
+        - generic [ref=e39]: 예
+        - generic [ref=e41]: 예린
+  - generic:
+    - dialog:
+      - heading [level=2]: 맵필터
+      - paragraph: 겹치는 지도에서는 우선순위가 높은 그룹 색이 먼저 보여요.
+      - list:
+        - listitem:
+          - button [pressed]:
+            - generic: 1순위
+            - generic: 친한친구
+            - generic: 표시중
+        - listitem:
+          - button [pressed]:
+            - generic: 2순위
+            - generic: 회사사람
+            - generic: 표시중
+        - listitem:
+          - button [pressed]:
+            - generic: 3순위
+            - generic: 대학동기
+            - generic: 표시중
+      - button: 지도에 적용하기
+  - generic:
+    - dialog
+  - generic:
+    - dialog "약속잡기"

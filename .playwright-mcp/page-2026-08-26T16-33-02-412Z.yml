@@ -1,0 +1,374 @@
+- generic [ref=e3]:
+  - generic [active] [ref=e5]:
+    - generic [ref=e43]:
+      - generic:
+        - generic:
+          - generic:
+            - button "망원 우육면가" [ref=e100] [cursor=pointer]
+            - button "이 자리 35곳" [ref=e104] [cursor=pointer]:
+              - generic [ref=e105]: "35"
+            - button "이 자리 7곳" [ref=e108] [cursor=pointer]:
+              - generic [ref=e109]: "7"
+            - button "이 자리 2곳" [ref=e112] [cursor=pointer]:
+              - generic [ref=e113]: "2"
+            - button "이 자리 2곳" [ref=e116] [cursor=pointer]:
+              - generic [ref=e117]: "2"
+            - button "이 자리 5곳" [ref=e120] [cursor=pointer]:
+              - generic [ref=e121]: "5"
+            - button "이 자리 13곳" [ref=e128] [cursor=pointer]:
+              - generic [ref=e129]: "13"
+            - button "이 자리 4곳" [ref=e132] [cursor=pointer]:
+              - generic [ref=e133]: "4"
+            - button "야키아 웨이브" [ref=e136] [cursor=pointer]
+            - button "55오오초밥 충무김밥" [ref=e140] [cursor=pointer]
+            - button "이 자리 5곳" [ref=e144] [cursor=pointer]:
+              - generic [ref=e145]: "5"
+            - button "육회국밥" [ref=e148] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e152] [cursor=pointer]:
+              - generic [ref=e153]: "4"
+            - button "이 자리 5곳" [ref=e156] [cursor=pointer]:
+              - generic [ref=e157]: "5"
+            - button "이 자리 4곳" [ref=e160] [cursor=pointer]:
+              - generic [ref=e161]: "4"
+            - button "이 자리 4곳" [ref=e164] [cursor=pointer]:
+              - generic [ref=e165]: "4"
+            - button "이 자리 8곳" [ref=e168] [cursor=pointer]:
+              - generic [ref=e169]: "8"
+            - button "이 자리 2곳" [ref=e172] [cursor=pointer]:
+              - generic [ref=e173]: "2"
+            - button "이 자리 4곳" [ref=e176] [cursor=pointer]:
+              - generic [ref=e177]: "4"
+            - button "이 자리 2곳" [ref=e180] [cursor=pointer]:
+              - generic [ref=e181]: "2"
+            - button "이 자리 6곳" [ref=e184] [cursor=pointer]:
+              - generic [ref=e185]: "6"
+            - button "이 자리 3곳" [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]: "3"
+            - button "이 자리 3곳" [ref=e192] [cursor=pointer]:
+              - generic [ref=e193]: "3"
+            - button "이 자리 4곳" [ref=e196] [cursor=pointer]:
+              - generic [ref=e197]: "4"
+            - button "이 자리 6곳" [ref=e200] [cursor=pointer]:
+              - generic [ref=e201]: "6"
+            - button "이 자리 6곳" [ref=e204] [cursor=pointer]:
+              - generic [ref=e205]: "6"
+            - button "이 자리 6곳" [ref=e208] [cursor=pointer]:
+              - generic [ref=e209]: "6"
+            - button "이 자리 2곳" [ref=e216] [cursor=pointer]:
+              - generic [ref=e217]: "2"
+            - button "디 식당 서울" [ref=e220] [cursor=pointer]
+            - button "홍대마마" [ref=e224] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e228] [cursor=pointer]:
+              - generic [ref=e229]: "2"
+            - button "이 자리 2곳" [ref=e232] [cursor=pointer]:
+              - generic [ref=e233]: "2"
+            - button "스톡홀름 샐러드" [ref=e236] [cursor=pointer]
+            - button "히썬" [ref=e240] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e244] [cursor=pointer]:
+              - generic [ref=e245]: "4"
+            - button "이 자리 6곳" [ref=e248] [cursor=pointer]:
+              - generic [ref=e249]: "6"
+            - button "이 자리 4곳" [ref=e252] [cursor=pointer]:
+              - generic [ref=e253]: "4"
+            - button "이 자리 3곳" [ref=e256] [cursor=pointer]:
+              - generic [ref=e257]: "3"
+            - button "이 자리 3곳" [ref=e260] [cursor=pointer]:
+              - generic [ref=e261]: "3"
+            - button "이 자리 13곳" [ref=e264] [cursor=pointer]:
+              - generic [ref=e265]: "13"
+            - button "이 자리 6곳" [ref=e268] [cursor=pointer]:
+              - generic [ref=e269]: "6"
+            - button "이 자리 3곳" [ref=e272] [cursor=pointer]:
+              - generic [ref=e273]: "3"
+            - button "이 자리 5곳" [ref=e276] [cursor=pointer]:
+              - generic [ref=e277]: "5"
+            - button "이 자리 7곳" [ref=e280] [cursor=pointer]:
+              - generic [ref=e281]: "7"
+            - button "(피니) FINI" [ref=e284] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e292] [cursor=pointer]:
+              - generic [ref=e293]: "2"
+            - button "이 자리 3곳" [ref=e296] [cursor=pointer]:
+              - generic [ref=e297]: "3"
+            - button "이 자리 2곳" [ref=e300] [cursor=pointer]:
+              - generic [ref=e301]: "2"
+            - button "광규네" [ref=e304] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e312] [cursor=pointer]:
+              - generic [ref=e313]: "4"
+            - button "시시(sisi)" [ref=e316] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e320] [cursor=pointer]:
+              - generic [ref=e321]: "4"
+            - button "이 자리 4곳" [ref=e324] [cursor=pointer]:
+              - generic [ref=e325]: "4"
+            - button "큐어서울 (Cure Seoul)" [ref=e328] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e332] [cursor=pointer]:
+              - generic [ref=e333]: "2"
+            - button "이 자리 2곳" [ref=e336] [cursor=pointer]:
+              - generic [ref=e337]: "2"
+            - button "커츠" [ref=e340] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e344] [cursor=pointer]:
+              - generic [ref=e345]: "4"
+            - button "라하(raha)" [ref=e348] [cursor=pointer]
+            - button "옥동식" [ref=e352] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e356] [cursor=pointer]:
+              - generic [ref=e357]: "2"
+            - button "이 자리 4곳" [ref=e360] [cursor=pointer]:
+              - generic [ref=e361]: "4"
+            - button "이 자리 5곳" [ref=e364] [cursor=pointer]:
+              - generic [ref=e365]: "5"
+            - button "이 자리 6곳" [ref=e368] [cursor=pointer]:
+              - generic [ref=e369]: "6"
+            - button "이 자리 2곳" [ref=e372] [cursor=pointer]:
+              - generic [ref=e373]: "2"
+            - button "이 자리 5곳" [ref=e376] [cursor=pointer]:
+              - generic [ref=e377]: "5"
+            - button "이 자리 5곳" [ref=e380] [cursor=pointer]:
+              - generic [ref=e381]: "5"
+            - button "이 자리 2곳" [ref=e384] [cursor=pointer]:
+              - generic [ref=e385]: "2"
+            - button "이 자리 2곳" [ref=e388] [cursor=pointer]:
+              - generic [ref=e389]: "2"
+            - button "이름없음" [ref=e392] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e396] [cursor=pointer]:
+              - generic [ref=e397]: "4"
+            - button "이 자리 7곳" [ref=e400] [cursor=pointer]:
+              - generic [ref=e401]: "7"
+            - button "나라수산 상수점" [ref=e404] [cursor=pointer]
+            - button "이 자리 3곳" [ref=e408] [cursor=pointer]:
+              - generic [ref=e409]: "3"
+            - button "이 자리 10곳" [ref=e412] [cursor=pointer]:
+              - generic [ref=e413]: "10"
+            - button "만로" [ref=e416] [cursor=pointer]
+            - button "파우사 커피" [ref=e420] [cursor=pointer]
+            - button "주)짜장상회" [ref=e424] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e428] [cursor=pointer]:
+              - generic [ref=e429]: "2"
+            - button "이 자리 4곳" [ref=e432] [cursor=pointer]:
+              - generic [ref=e433]: "4"
+            - button "이 자리 2곳" [ref=e436] [cursor=pointer]:
+              - generic [ref=e437]: "2"
+            - button "츄럭스 망원점" [ref=e440] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e444] [cursor=pointer]:
+              - generic [ref=e445]: "2"
+            - button "이 자리 3곳" [ref=e448] [cursor=pointer]:
+              - generic [ref=e449]: "3"
+            - button "스시린" [ref=e452] [cursor=pointer]
+            - button "이 자리 5곳" [ref=e456] [cursor=pointer]:
+              - generic [ref=e457]: "5"
+            - button "이 자리 2곳" [ref=e460] [cursor=pointer]:
+              - generic [ref=e461]: "2"
+            - button "노쉬(NOSH)" [ref=e464] [cursor=pointer]
+            - button "믜요" [ref=e468] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e472] [cursor=pointer]:
+              - generic [ref=e473]: "2"
+            - button "이 자리 4곳" [ref=e480] [cursor=pointer]:
+              - generic [ref=e481]: "4"
+            - button "이 자리 2곳" [ref=e484] [cursor=pointer]:
+              - generic [ref=e485]: "2"
+            - button "이 자리 4곳" [ref=e488] [cursor=pointer]:
+              - generic [ref=e489]: "4"
+            - button "이 자리 3곳" [ref=e492] [cursor=pointer]:
+              - generic [ref=e493]: "3"
+            - button "이 자리 2곳" [ref=e496] [cursor=pointer]:
+              - generic [ref=e497]: "2"
+            - button "이 자리 2곳" [ref=e500] [cursor=pointer]:
+              - generic [ref=e501]: "2"
+            - button "이 자리 2곳" [ref=e504] [cursor=pointer]:
+              - generic [ref=e505]: "2"
+            - button "ddd연남" [ref=e508] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e512] [cursor=pointer]:
+              - generic [ref=e513]: "2"
+            - button "구복만두 마포직영점" [ref=e516] [cursor=pointer]
+            - button "이 자리 5곳" [ref=e520] [cursor=pointer]:
+              - generic [ref=e521]: "5"
+            - button "이 자리 2곳" [ref=e524] [cursor=pointer]:
+              - generic [ref=e525]: "2"
+            - button "이 자리 2곳" [ref=e528] [cursor=pointer]:
+              - generic [ref=e529]: "2"
+            - button "모멧커피 momet coffee" [ref=e532] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e536] [cursor=pointer]:
+              - generic [ref=e537]: "4"
+            - button "한식뷔페전주" [ref=e540] [cursor=pointer]
+            - button "샤브로21 홍대" [ref=e544] [cursor=pointer]
+            - button "가온정" [ref=e548] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e552] [cursor=pointer]:
+              - generic [ref=e553]: "2"
+            - button "오늘 김치 삼겹" [ref=e556] [cursor=pointer]
+            - button "김치찜에진심 마포점" [ref=e564] [cursor=pointer]
+            - button "콘크리트서울 CONCRETE SEOUL" [ref=e568] [cursor=pointer]
+            - button "묵사랑" [ref=e572] [cursor=pointer]
+            - button "빠루(BBARU)" [ref=e576] [cursor=pointer]
+            - button "아트뱅하우스(ArtBangHouse)" [ref=e580] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e584] [cursor=pointer]:
+              - generic [ref=e585]: "2"
+            - button "이 자리 4곳" [ref=e588] [cursor=pointer]:
+              - generic [ref=e589]: "4"
+            - button "동양북스" [ref=e592] [cursor=pointer]
+            - button "마이미라운지 MY·ME LOUNGE" [ref=e596] [cursor=pointer]
+            - button "이 자리 4곳" [ref=e600] [cursor=pointer]:
+              - generic [ref=e601]: "4"
+            - button "이 자리 4곳" [ref=e604] [cursor=pointer]:
+              - generic [ref=e605]: "4"
+            - button "가마솥순대국밥 이대앞점" [ref=e608] [cursor=pointer]
+            - button "오름부대" [ref=e612] [cursor=pointer]
+            - button "담솔" [ref=e616] [cursor=pointer]
+            - button "이 자리 6곳" [ref=e620] [cursor=pointer]:
+              - generic [ref=e621]: "6"
+            - button "이 자리 2곳" [ref=e624] [cursor=pointer]:
+              - generic [ref=e625]: "2"
+            - button "누부크" [ref=e628] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e632] [cursor=pointer]:
+              - generic [ref=e633]: "2"
+            - button "팝앤코.(POP&CO.)" [ref=e636] [cursor=pointer]
+            - button "오샤베리" [ref=e640] [cursor=pointer]
+            - button "망원로지" [ref=e644] [cursor=pointer]
+            - button "시머 SIMMER" [ref=e648] [cursor=pointer]
+            - button "달의 뒷면" [ref=e652] [cursor=pointer]
+            - button "평안옥" [ref=e656] [cursor=pointer]
+            - button "팬트리앤코" [ref=e660] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e664] [cursor=pointer]:
+              - generic [ref=e665]: "2"
+            - button "샵벤또" [ref=e668] [cursor=pointer]
+            - button "홍대삼층집 3F" [ref=e672] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e676] [cursor=pointer]:
+              - generic [ref=e677]: "2"
+            - button "이 자리 2곳" [ref=e680] [cursor=pointer]:
+              - generic [ref=e681]: "2"
+            - button "백도어 Back Door" [ref=e684] [cursor=pointer]
+            - button "센트럴사이트 합정점" [ref=e688] [cursor=pointer]
+            - button "써니드라이 SUNNYDRY" [ref=e692] [cursor=pointer]
+            - button "룸(room)3785" [ref=e696] [cursor=pointer]
+            - button "에이셉피자 아현점(ASAP PIZZA)" [ref=e700] [cursor=pointer]
+            - button "키친벤치" [ref=e704] [cursor=pointer]
+            - button "계근상 마포점" [ref=e708] [cursor=pointer]
+            - button "캠핑칼삼겹 마포점" [ref=e712] [cursor=pointer]
+            - button "아이엠 커피 앤 여우애김밥" [ref=e716] [cursor=pointer]
+            - button "수복김밥" [ref=e720] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e724] [cursor=pointer]:
+              - generic [ref=e725]: "2"
+            - button "눅 Nook" [ref=e728] [cursor=pointer]
+            - button "화림" [ref=e732] [cursor=pointer]
+            - button "고등어포차" [ref=e736] [cursor=pointer]
+            - button "아지트 망원" [ref=e740] [cursor=pointer]
+            - button "러브앤피스" [ref=e744] [cursor=pointer]
+            - button "스이(sui)" [ref=e748] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e752] [cursor=pointer]:
+              - generic [ref=e753]: "2"
+            - button "마포래미안129스낵" [ref=e756] [cursor=pointer]
+            - button "이 자리 3곳" [ref=e760] [cursor=pointer]:
+              - generic [ref=e761]: "3"
+            - button "쿠로 대흥" [ref=e764] [cursor=pointer]
+            - button "하츠헤븐" [ref=e768] [cursor=pointer]
+            - button "니혼슈바 요이" [ref=e772] [cursor=pointer]
+            - button "텐텐(10/10) 김밥&떡볶이" [ref=e776] [cursor=pointer]
+            - button "이 자리 2곳" [ref=e780] [cursor=pointer]:
+              - generic [ref=e781]: "2"
+            - button "온데이 on:Day" [ref=e784] [cursor=pointer]
+            - button "우네" [ref=e788] [cursor=pointer]
+            - button "연남달빛 고기집&술집 홍대본점" [ref=e792] [cursor=pointer]
+            - button "마포진짜원조최대포" [ref=e800] [cursor=pointer]
+            - button "보드람치킨 마포용강점" [ref=e804] [cursor=pointer]
+            - button "무수" [ref=e808] [cursor=pointer]
+            - button "오백국수(광흥창점)" [ref=e812] [cursor=pointer]
+            - button "정해횟집 합정점" [ref=e816] [cursor=pointer]
+            - button "워크나잇 - 서울혼술바 홍대망원점" [ref=e820] [cursor=pointer]
+            - button "비비큐 아현역점" [ref=e824] [cursor=pointer]
+            - button "그리즈" [ref=e828] [cursor=pointer]
+            - button "코니스(CONIS)" [ref=e832] [cursor=pointer]
+            - button "자연김밥" [ref=e836] [cursor=pointer]
+            - button "수정옥돌 生 소금구이" [ref=e840] [cursor=pointer]
+            - button "왁버거 홍대역" [ref=e844] [cursor=pointer]
+            - button "그린데이즈" [ref=e848] [cursor=pointer]
+            - button "BBQ 마포서교점" [ref=e852] [cursor=pointer]
+            - button "메로하우스" [ref=e856] [cursor=pointer]
+            - button "오피알엔(OPRN)" [ref=e860] [cursor=pointer]
+            - button "라사 드 키친" [ref=e868] [cursor=pointer]
+            - button "저저" [ref=e872] [cursor=pointer]
+            - button "고향옥얼큰순대국 공덕점" [ref=e876] [cursor=pointer]
+            - button "글리아(GLIA)" [ref=e880] [cursor=pointer]
+            - button "이 자리 3곳" [ref=e896] [cursor=pointer]:
+              - generic [ref=e897]: "3"
+            - button "레테르 Le Ether" [ref=e900] [cursor=pointer]
+          - list [ref=e905]:
+            - listitem [ref=e906]:
+              - button "쓰리베이크(3ake) 폐업 카페" [ref=e907] [cursor=pointer]:
+                - generic [ref=e909]:
+                  - generic [ref=e910]:
+                    - text: 쓰리베이크(3ake)
+                    - emphasis [ref=e911]: 폐업
+                  - generic [ref=e912]: 카페
+            - listitem [ref=e913]:
+              - button "선 일식" [ref=e914] [cursor=pointer]:
+                - generic [ref=e916]:
+                  - generic [ref=e917]: 선
+                  - generic [ref=e918]: 일식
+            - listitem [ref=e919]:
+              - button "하에레 토누(Haere tonu) 기타" [ref=e920] [cursor=pointer]:
+                - generic [ref=e922]:
+                  - generic [ref=e923]: 하에레 토누(Haere tonu)
+                  - generic [ref=e924]: 기타
+            - listitem [ref=e925]:
+              - button "모찌방앗간 망원점 기타" [ref=e926] [cursor=pointer]:
+                - generic [ref=e928]:
+                  - generic [ref=e929]: 모찌방앗간 망원점
+                  - generic [ref=e930]: 기타
+            - listitem [ref=e931]:
+              - button "수족관 식육(숯불구이)" [ref=e932] [cursor=pointer]:
+                - generic [ref=e934]:
+                  - generic [ref=e935]: 수족관
+                  - generic [ref=e936]: 식육(숯불구이)
+    - link [ref=e882] [cursor=pointer]:
+      - /url: https://ssl.pstatic.net/static/maps/mantle/notice/legal.html
+      - img "NAVER" [ref=e883]
+  - generic:
+    - banner [ref=e6]:
+      - button "맵필터 3" [ref=e7] [cursor=pointer]:
+        - generic [ref=e10]: 맵필터
+        - generic [ref=e11]: "3"
+      - generic [ref=e12]:
+        - heading "인터맵" [level=1] [ref=e13]:
+          - generic [ref=e14]: 인
+          - generic [ref=e15]: 터
+          - generic [ref=e16]: 맵
+        - searchbox "가게 검색"
+      - button "검색 열기" [ref=e17] [cursor=pointer]
+    - list "24시간 내 올라온 친구들 후기" [ref=e21]:
+      - listitem [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]: 민
+        - generic [ref=e25]: 민지
+      - listitem [ref=e26] [cursor=pointer]:
+        - generic [ref=e27]: 서
+        - generic [ref=e29]: 서준
+      - listitem [ref=e30] [cursor=pointer]:
+        - generic [ref=e31]: 하
+        - generic [ref=e33]: 하윤
+      - listitem [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]: 지
+        - generic [ref=e37]: 지우
+      - listitem [ref=e38] [cursor=pointer]:
+        - generic [ref=e39]: 예
+        - generic [ref=e41]: 예린
+  - generic:
+    - dialog:
+      - heading [level=2]: 맵필터
+      - paragraph: 겹치는 지도에서는 우선순위가 높은 그룹 색이 먼저 보여요.
+      - list:
+        - listitem:
+          - button [pressed]:
+            - generic: 1순위
+            - generic: 친한친구
+            - generic: 표시중
+        - listitem:
+          - button [pressed]:
+            - generic: 2순위
+            - generic: 회사사람
+            - generic: 표시중
+        - listitem:
+          - button [pressed]:
+            - generic: 3순위
+            - generic: 대학동기
+            - generic: 표시중
+      - button: 지도에 적용하기
+  - generic:
+    - dialog
+  - generic:
+    - dialog "약속잡기"

@@ -22,7 +22,8 @@
   position: relative;
   width: 100%;
   max-width: 480px;
-  height: min(82vh, 720px);
+  /* 고른 마커가 화면 정중앙에 오므로, 기본 높이는 마커 바로 아래(화면 절반)까지만 */
+  height: calc(50vh - 28px);
   background: var(--surface);
   border: 3px solid var(--ink);
   border-bottom: none;
@@ -39,13 +40,24 @@
   transform: translateY(0);
 }
 
+/* 손잡이 터치 영역. 세로 드래그를 브라우저 스크롤에 뺏기지 않게 touch-action 차단 */
+.restaurant-sheet__grab {
+  flex-shrink: 0;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.restaurant-sheet__grab:active {
+  cursor: grabbing;
+}
+
 .restaurant-sheet__handle {
   width: 44px;
   height: 5px;
   border-radius: var(--radius-pill);
   background: rgba(43, 33, 64, 0.25);
-  margin: 10px auto 0;
-  flex-shrink: 0;
+  margin: 0 auto;
 }
 
 .restaurant-sheet__close {
