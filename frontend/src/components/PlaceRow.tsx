@@ -8,8 +8,10 @@ interface PlaceRowProps {
 }
 
 function topGroupColor(restaurant: Restaurant, groups: FriendGroup[]): string {
-  const active = groups.filter((g) => restaurant.groupIds.includes(g.id))
-  return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? '#8B6BFF'
+  const active = groups.filter((g) =>
+    restaurant.groupIds.length > 0 ? restaurant.groupIds.includes(g.id) : g.id === 'none',
+  )
+  return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? 'var(--gc-none)'
 }
 
 // 검색 결과와 겹친 핀 목록이 같은 줄 모양을 쓴다.

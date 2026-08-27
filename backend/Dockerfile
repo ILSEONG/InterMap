@@ -2,13 +2,13 @@
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
 COPY . .
-RUN ./gradlew --no-daemon bootJar
+# Windows에서 커밋되면 gradlew에 실행 권한이 없으므로 sh로 실행
+RUN sh ./gradlew --no-daemon bootJar
 
 # 2단계: JRE만 담은 실행 이미지
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
-# H2 파일 DB는 볼륨 마운트 지점(/data)에 둔다
-ENV JDBC_URL=jdbc:h2:file:/data/intermap
+# DB 접속(JDBC_URL)은 fly secret으로 주입된다 (Postgres)
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -63,8 +63,15 @@
   gap: 10px;
 }
 
+.filter-sheet__row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .filter-sheet__toggle {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: auto auto 1fr auto;
   align-items: center;
@@ -107,6 +114,26 @@
   font-size: 12px;
   font-weight: 700;
   color: var(--accent-ink);
+}
+
+/* 네이티브 컬러 피커를 동그란 스와치 모양으로 */
+.filter-sheet__color {
+  width: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 2.5px solid var(--ink);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.filter-sheet__color::-webkit-color-swatch-wrapper {
+  padding: 4px;
+}
+
+.filter-sheet__color::-webkit-color-swatch {
+  border: 2px solid var(--ink);
+  border-radius: 8px;
 }
 
 .filter-sheet__done {

@@ -5,11 +5,21 @@ interface GroupFilterSheetProps {
   open: boolean
   groups: FriendGroup[]
   activeGroupIds: Set<GroupId>
+  colors: Record<GroupId, string>
   onToggle: (id: GroupId) => void
+  onColorChange: (id: GroupId, color: string) => void
   onClose: () => void
 }
 
-export default function GroupFilterSheet({ open, groups, activeGroupIds, onToggle, onClose }: GroupFilterSheetProps) {
+export default function GroupFilterSheet({
+  open,
+  groups,
+  activeGroupIds,
+  colors,
+  onToggle,
+  onColorChange,
+  onClose,
+}: GroupFilterSheetProps) {
   return (
     <div className={`filter-sheet-overlay${open ? ' filter-sheet-overlay--open' : ''}`} onClick={onClose}>
       <div className="filter-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="맵필터" aria-hidden={!open}>
@@ -35,6 +45,13 @@ export default function GroupFilterSheet({ open, groups, activeGroupIds, onToggl
                     <span className="filter-sheet__label">{group.label}</span>
                     <span className="filter-sheet__check">{active ? '표시중' : '숨김'}</span>
                   </button>
+                  <input
+                    type="color"
+                    className="filter-sheet__color"
+                    value={colors[group.id]}
+                    onChange={(e) => onColorChange(group.id, e.target.value)}
+                    aria-label={`${group.label} 마커 색 바꾸기`}
+                  />
                 </li>
               )
             })}

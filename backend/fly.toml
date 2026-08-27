@@ -7,8 +7,7 @@ app = 'intermap-backend'
 primary_region = 'nrt'
 
 [build]
-[env]
-  JDBC_URL = 'jdbc:h2:file:/data/intermap'
+# JDBC_URL은 secret으로 관리 (Postgres 접속 정보 포함)
 
 [[mounts]]
   source = 'intermap_data'

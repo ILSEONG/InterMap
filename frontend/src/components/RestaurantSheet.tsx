@@ -26,6 +26,8 @@ function Stars({ value }: { value: number }) {
 
 // 손잡이를 이보다 아래로 끌어내리면 시트를 닫는다.
 const MIN_SHEET_HEIGHT = 140
+// 이 속도(px/ms) 이상으로 튕기면 끝까지 펼치거나 닫는다.
+const FLICK_VELOCITY = 0.5
 
 export default function RestaurantSheet({
   restaurant,
@@ -43,20 +45,50 @@ export default function RestaurantSheet({
   const shown = restaurant ?? lastRestaurantRef.current
 
   const sheetRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const dragRef = useRef<{
+    startY: number
+    startHeight: number
+    lastY: number
+    lastT: number
+    velocity: number
+  } | null>(null)
   // null이면 CSS 기본 높이(마커 바로 아래까지). 손잡이를 끌면 사용자가 정한 높이로.
   const [height, setHeight] = useState<number | null>(null)
+  // 드래그 중에는 height transition을 꺼서 손가락을 그대로 따라오게 한다.
+  const [dragging, setDragging] = useState(false)
+
+  // 열릴 때마다 이전에 끌어놓은 높이를 버리고 기본 높이에서 시작한다.
+  // (닫힌 상태에서 리셋되므로 화면에는 보이지 않음)
+  const wasOpenRef = useRef(open)
+  if (open !== wasOpenRef.current) {
+    wasOpenRef.current = open
+    if (open && height !== null) setHeight(null)
+  }
 
   function onGrabDown(e: React.PointerEvent<HTMLDivElement>) {
     const sheet = sheetRef.current
     if (!sheet) return
-    dragRef.current = { startY: e.clientY, startHeight: sheet.getBoundingClientRect().height }
+    dragRef.current = {
+      startY: e.clientY,
+      startHeight: sheet.getBoundingClientRect().height,
+      lastY: e.clientY,
+      lastT: e.timeStamp,
+      velocity: 0,
+    }
+    setDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   function onGrabMove(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     if (!drag) return
+    const dt = e.timeStamp - drag.lastT
+    if (dt > 0) {
+      // 위로 움직이면 양수. 최근 움직임 위주로 지수 평활해 놓는 순간의 속도를 얻는다.
+      drag.velocity = 0.2 * drag.velocity + 0.8 * ((drag.lastY - e.clientY) / dt)
+      drag.lastY = e.clientY
+      drag.lastT = e.timeStamp
+    }
     const next = drag.startHeight + (drag.startY - e.clientY)
     setHeight(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
   }
@@ -64,10 +96,15 @@ export default function RestaurantSheet({
   function onGrabUp(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     dragRef.current = null
+    setDragging(false)
     if (!drag) return
-    // 최소 높이 아래로 끌어내리면 닫는다. 높이는 기본값으로 되돌린다.
-    if (drag.startHeight + (drag.startY - e.clientY) < MIN_SHEET_HEIGHT) {
-      setHeight(null)
+    // 위로 튕기면 끝까지 펼친다 (transition이 다시 켜져 부드럽게 올라감)
+    if (drag.velocity > FLICK_VELOCITY) {
+      setHeight(window.innerHeight * 0.92)
+      return
+    }
+    // 아래로 튕기거나 최소 높이 아래로 끌어내리면 닫는다.
+    if (drag.velocity < -FLICK_VELOCITY || drag.startHeight + (drag.startY - e.clientY) < MIN_SHEET_HEIGHT) {
       onClose()
     }
   }
@@ -76,7 +113,7 @@ export default function RestaurantSheet({
     <div className={`restaurant-sheet-overlay${open ? ' restaurant-sheet-overlay--open' : ''}`} onClick={onClose}>
       <div
         ref={sheetRef}
-        className="restaurant-sheet"
+        className={`restaurant-sheet${dragging ? ' restaurant-sheet--dragging' : ''}`}
         style={height !== null ? { height } : undefined}
         onClick={(e) => e.stopPropagation()}
         role="dialog"

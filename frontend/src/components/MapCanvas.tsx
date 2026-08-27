@@ -28,7 +28,7 @@ const CLUSTER_TAP_ZOOM_STEP = 2
 // 어느 골목·건물인지 맥락을 보여준다. 18 ≈ 건물 단위가 보이는 수준.
 const DETAIL_ZOOM = 18
 // 이보다 멀리서 보면 핀 이름 라벨을 숨긴다 (빽빽할 때 페인트 비용 절감)
-const NAME_LABEL_MIN_ZOOM = 16
+const NAME_LABEL_MIN_ZOOM = 15
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] ?? ch)
@@ -36,8 +36,11 @@ function escapeHtml(value: string): string {
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   if (items.every((r) => r.closed)) return '#9b93ab'
-  const active = groups.filter((g) => items.some((r) => !r.closed && r.groupIds.includes(g.id)))
-  return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? '#8B6BFF'
+  // 그룹 미지정 가게는 'none' 유사 그룹으로 취급해 필터·색을 같이 태운다
+  const active = groups.filter((g) =>
+    items.some((r) => !r.closed && (r.groupIds.length > 0 ? r.groupIds.includes(g.id) : g.id === 'none')),
+  )
+  return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? 'var(--gc-none)'
 }
 
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean) {

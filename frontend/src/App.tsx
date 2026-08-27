@@ -72,6 +72,15 @@ export default function App() {
   }, [])
   const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
   const [filterOpen, setFilterOpen] = useState(false)
+  // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
+  const [groupColors, setGroupColors] = useState<Record<GroupId, string>>({
+    close: '#FF5D73',
+    work: '#2FBFA6',
+    college: '#8B6BFF',
+    none: '#A9746E',
+  })
+  // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
@@ -91,12 +100,13 @@ export default function App() {
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
       return restaurants.filter(
         (r) =>
-          (r.groupIds.length === 0 || r.groupIds.some((g) => activeGroupIds.has(g))) &&
+          (r.groupIds.length === 0 ? activeGroupIds.has('none') : r.groupIds.some((g) => activeGroupIds.has(g))) &&
+          (reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
           (keyword === '' ||
             `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)),
       )
     },
-    [restaurants, activeGroupIds, deferredQuery],
+    [restaurants, activeGroupIds, reviewFilter, deferredQuery],
   )
 
   const todayStories = useMemo(() => {
@@ -149,7 +159,10 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
+    >
       <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={pickRestaurant} focus={focusTarget ?? undefined} />
 
       <div className="app__chrome">
@@ -159,6 +172,25 @@ export default function App() {
           query={query}
           onQueryChange={setQuery}
         />
+        <div className="review-filter" role="group" aria-label="후기 유무 필터">
+          {(
+            [
+              ['all', '전체'],
+              ['with', '후기 있음'],
+              ['without', '후기 없음'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`review-filter__chip${reviewFilter === value ? ' review-filter__chip--active' : ''}`}
+              aria-pressed={reviewFilter === value}
+              onClick={() => setReviewFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {query.trim() ? (
           <SearchResults
             results={visibleRestaurants}
@@ -176,7 +208,9 @@ export default function App() {
         open={filterOpen}
         groups={groups}
         activeGroupIds={activeGroupIds}
+        colors={groupColors}
         onToggle={toggleGroup}
+        onColorChange={(id, color) => setGroupColors((prev) => ({ ...prev, [id]: color }))}
         onClose={() => setFilterOpen(false)}
       />
 

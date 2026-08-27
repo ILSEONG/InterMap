@@ -1,4 +1,4 @@
-export type GroupId = 'close' | 'work' | 'college'
+export type GroupId = 'close' | 'work' | 'college' | 'none'
 
 export interface FriendGroup {
   id: GroupId
@@ -42,10 +42,13 @@ export interface Restaurant {
   closed?: boolean
 }
 
+// 실제 hex 값은 App의 groupColors state가 --gc-* CSS 변수로 내려준다.
+// 여기서 var()로 참조해두면 색을 바꿔도 마커·시트·칩이 전부 한 번에 따라온다.
 export const groups: FriendGroup[] = [
-  { id: 'close', label: '친한친구', color: '#FF5D73', priority: 0 },
-  { id: 'work', label: '회사사람', color: '#2FBFA6', priority: 1 },
-  { id: 'college', label: '대학동기', color: '#8B6BFF', priority: 2 },
+  { id: 'close', label: '친한친구', color: 'var(--gc-close)', priority: 0 },
+  { id: 'work', label: '회사사람', color: 'var(--gc-work)', priority: 1 },
+  { id: 'college', label: '대학동기', color: 'var(--gc-college)', priority: 2 },
+  { id: 'none', label: '그룹없음', color: 'var(--gc-none)', priority: 3 },
 ]
 
 export const friends: Friend[] = [
