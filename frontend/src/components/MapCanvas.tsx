@@ -246,7 +246,8 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
         }
         // 크게 묶인 군집은 목록 대신 확대해서 풀어준다. 확대되면 재군집돼
         // 마커가 갈라지고, 계속 안 갈라지는 자리는 결국 목록으로 떨어진다.
-        if (pin.items.length >= ZOOM_INSTEAD_OF_LIST) {
+        // 단, 최대 줌에서도 안 갈라지는 자리(같은 건물)는 확대해봐야 소용없으니 바로 목록.
+        if (pin.items.length >= ZOOM_INSTEAD_OF_LIST && clusterPins(pin.items, MAX_ZOOM).length > 1) {
           const map = mapRef.current
           if (map && map.getZoom() < MAX_ZOOM) {
             map.morph(

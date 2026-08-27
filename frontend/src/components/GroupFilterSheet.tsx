@@ -45,13 +45,16 @@ export default function GroupFilterSheet({
                     <span className="filter-sheet__label">{group.label}</span>
                     <span className="filter-sheet__check">{active ? '표시중' : '숨김'}</span>
                   </button>
-                  <input
-                    type="color"
-                    className="filter-sheet__color"
-                    value={colors[group.id]}
-                    onChange={(e) => onColorChange(group.id, e.target.value)}
-                    aria-label={`${group.label} 마커 색 바꾸기`}
-                  />
+                  <label className="filter-sheet__color-wrap">
+                    <input
+                      type="color"
+                      className="filter-sheet__color"
+                      value={colors[group.id]}
+                      onChange={(e) => onColorChange(group.id, e.target.value)}
+                      aria-label={`${group.label} 마커 색 바꾸기`}
+                    />
+                    <span className="filter-sheet__color-label">색 변경</span>
+                  </label>
                 </li>
               )
             })}
