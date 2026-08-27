@@ -27,8 +27,16 @@ export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> 
   return res.json()
 }
 
-export async function fetchRestaurants(): Promise<RestaurantRecord[]> {
-  const res = await fetch(`${API_BASE}/api/restaurants`)
+export interface BBox {
+  minLat: number
+  maxLat: number
+  minLng: number
+  maxLng: number
+}
+
+export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]> {
+  const params = bbox ? `?${new URLSearchParams(Object.entries(bbox).map(([k, v]) => [k, String(v)]))}` : ''
+  const res = await fetch(`${API_BASE}/api/restaurants${params}`)
   if (!res.ok) throw new Error(`음식점 목록 조회 실패 (${res.status})`)
   return res.json()
 }

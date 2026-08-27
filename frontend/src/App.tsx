@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useMemo, useState } from 'react'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
@@ -9,7 +9,7 @@ import MeetupSheet from './components/MeetupSheet'
 import { groups, friends, me, restaurants as initialRestaurants, groupById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
 import { fetchRestaurants } from './lib/api'
-import type { RestaurantRecord } from './lib/api'
+import type { BBox, RestaurantRecord } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -45,27 +45,29 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
   }
 }
 
+function mergeRecords(prev: Restaurant[], records: RestaurantRecord[]): Restaurant[] {
+  const merged = [...prev]
+  for (const record of records) {
+    const existing = merged.find(
+      (r) => r.name === record.name && (r.address === record.roadAddress || r.address === record.address),
+    )
+    if (existing) {
+      existing.closed = record.status === 'CLOSED'
+    } else {
+      merged.push(toRestaurant(record))
+    }
+  }
+  return merged
+}
+
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants)
 
-  useEffect(() => {
-    fetchRestaurants()
-      .then((records) => {
-        setRestaurants((prev) => {
-          const merged = [...prev]
-          for (const record of records) {
-            const existing = merged.find(
-              (r) => r.name === record.name && (r.address === record.roadAddress || r.address === record.address),
-            )
-            if (existing) {
-              existing.closed = record.status === 'CLOSED'
-            } else {
-              merged.push(toRestaurant(record))
-            }
-          }
-          return merged
-        })
-      })
+  // 전체를 한 번에 받는 대신, 지도가 멈출 때마다 보이는 영역만 받아 누적한다.
+  // 한 번 본 영역의 가게는 목록에 남으므로 검색·필터는 본 영역 기준으로 동작한다.
+  const loadViewport = useCallback((bbox: BBox) => {
+    fetchRestaurants(bbox)
+      .then((records) => setRestaurants((prev) => mergeRecords(prev, records)))
       .catch(() => {
         // 백엔드 미기동 시 목데이터만으로 동작
       })
@@ -163,7 +165,13 @@ export default function App() {
       className="app"
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
     >
-      <MapCanvas restaurants={visibleRestaurants} groups={groups} onPick={pickRestaurant} focus={focusTarget ?? undefined} />
+      <MapCanvas
+        restaurants={visibleRestaurants}
+        groups={groups}
+        onPick={pickRestaurant}
+        focus={focusTarget ?? undefined}
+        onViewportChange={loadViewport}
+      />
 
       <div className="app__chrome">
         <Header

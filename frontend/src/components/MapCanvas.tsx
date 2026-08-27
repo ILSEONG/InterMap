@@ -12,6 +12,8 @@ interface MapCanvasProps {
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
   focus?: { id: string }
+  // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역을 알려준다 — 뷰포트 단위 데이터 로딩용.
+  onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => void
 }
 
 const CENTER = { lat: 37.5605, lng: 126.92 }
@@ -77,7 +79,7 @@ function pinListContent(items: Restaurant[], groups: FriendGroup[]): string {
   return `<div class="pin-list"><ul class="pin-list__items">${rows}</ul></div>`
 }
 
-export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCanvasProps) {
+export default function MapCanvas({ restaurants, groups, onPick, focus, onViewportChange }: MapCanvasProps) {
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map())
@@ -87,6 +89,9 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
   const focusedRef = useRef<string | undefined>(undefined)
   const restaurantsRef = useRef(restaurants)
   restaurantsRef.current = restaurants
+  // 지도 초기화 이펙트(의존성 없음)가 항상 최신 콜백을 부르도록 ref로 감싼다.
+  const onViewportChangeRef = useRef(onViewportChange)
+  onViewportChangeRef.current = onViewportChange
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [zoom, setZoom] = useState(DEFAULT_ZOOM)
@@ -145,12 +150,14 @@ export default function MapCanvas({ restaurants, groups, onPick, focus }: MapCan
           const ne = bounds.getNE()
           const latPad = (ne.lat() - sw.lat()) * 0.2
           const lngPad = (ne.lng() - sw.lng()) * 0.2
-          setViewport({
+          const next = {
             minLat: sw.lat() - latPad,
             maxLat: ne.lat() + latPad,
             minLng: sw.lng() - lngPad,
             maxLng: ne.lng() + lngPad,
-          })
+          }
+          setViewport(next)
+          onViewportChangeRef.current?.(next)
         }
         naver.maps.Event.addListener(map, 'idle', updateViewport)
         updateViewport()

@@ -4,10 +4,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 import java.time.Instant;
 
 @Entity
+// 뷰포트(bounding box) 조회용. lat 범위로 좁힌 뒤 lng를 거른다.
+@Table(indexes = @Index(name = "idx_restaurant_lat_lng", columnList = "lat, lng"))
 public class Restaurant {
 
     public enum Status { OPEN, CLOSED }
