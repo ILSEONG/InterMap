@@ -162,14 +162,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .map-pin--focused::after {
-    animation: none;
-    opacity: 0.5;
-    transform: translate(-50%, -50%) scale(0.8);
-  }
-}
-
 /* 겹친 핀을 누르면 핀 위에 뜨는 목록 (InfoWindow 안에 들어간다) */
 .pin-list {
   max-width: 260px;
