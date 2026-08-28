@@ -107,6 +107,8 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
   const [viewport, setViewport] = useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number } | null>(
     null,
   )
+  // 마지막으로 마커에 반영한 뷰포트+줌 (히스테리시스 판단용)
+  const lastViewRef = useRef<{ viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }; zoom: number } | null>(null)
 
   // 화면(여유 포함) 안의 가게만 군집한다. 전체 데이터가 수천 건이라
   // 전역으로 묶으면 이동·줌마다 메인 스레드가 얼어 마커가 깜빡인다.
@@ -169,20 +171,37 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
         // 줌·뷰포트 갱신은 이동이 멈춘 뒤(idle) 한 번만 한다.
         // 애니메이션 도중에 재군집하면 마커가 갈리면서 화면이 움찔거린다.
         const updateViewport = () => {
-          setZoom(map.getZoom())
+          // 모바일 핀치는 소수점 줌으로 멈춘다. 그대로 쓰면 idle마다 군집이
+          // 미세하게 달라져 마커 키가 흔들리므로 정수로 반올림해서 쓴다.
+          const nextZoom = Math.round(map.getZoom())
           const bounds = map.getBounds() as naver.maps.LatLngBounds
           const sw = bounds.getSW()
           const ne = bounds.getNE()
-          const latPad = (ne.lat() - sw.lat()) * 0.2
-          const lngPad = (ne.lng() - sw.lng()) * 0.2
+          const latPad = (ne.lat() - sw.lat()) * 0.35
+          const lngPad = (ne.lng() - sw.lng()) * 0.35
           const next = {
             minLat: sw.lat() - latPad,
             maxLat: ne.lat() + latPad,
             minLng: sw.lng() - lngPad,
             maxLng: ne.lng() + lngPad,
           }
+          // 데이터 로딩(스냅 타일 단위로 중복 제거됨)은 매번 알린다
+          onViewportChangeRef.current?.(next, nextZoom)
+          // 마커용 뷰포트는 히스테리시스: 직전 뷰포트(여유 35%)가 아직 화면을
+          // 다 덮고 줌도 그대로면 갱신하지 않는다. 조금 움직일 때마다 경계 마커를
+          // 지웠다 만들면 모바일 WebView에서 마커 전체가 깜빡인다.
+          const prev = lastViewRef.current
+          const covered =
+            prev &&
+            prev.zoom === nextZoom &&
+            sw.lat() >= prev.viewport.minLat &&
+            ne.lat() <= prev.viewport.maxLat &&
+            sw.lng() >= prev.viewport.minLng &&
+            ne.lng() <= prev.viewport.maxLng
+          if (covered) return
+          lastViewRef.current = { viewport: next, zoom: nextZoom }
+          setZoom(nextZoom)
           setViewport(next)
-          onViewportChangeRef.current?.(next, map.getZoom())
         }
         naver.maps.Event.addListener(map, 'idle', updateViewport)
         updateViewport()
