@@ -1,6 +1,6 @@
 .app-header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -11,6 +11,77 @@
   /* 지도 canvas와 같은 표면에 래스터되면 Android WebView에서 pan마다 같이 깜빡인다.
      자체 GPU 레이어로 분리. (조상 .app__chrome에 주면 fixed 자손 위치가 틀어짐) */
   transform: translateZ(0);
+}
+
+.app-header__account {
+  position: relative;
+}
+
+.app-header__account-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--surface);
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-header__account-toggle:active {
+  background: #fff0e0;
+}
+
+/* 이모지 버튼 바로 아래에 뜨는 로그인/회원가입 메뉴 */
+.app-header__account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: var(--shadow-float);
+  z-index: 20;
+}
+
+.app-header__account-menu button {
+  min-height: 44px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-header__account-menu button:active {
+  background: var(--surface-raised);
+  border-color: var(--ink);
+}
+
+.app-header__account-name {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .app-header__filter {
@@ -67,7 +138,7 @@
 
 .app-header__center {
   position: relative;
-  grid-column: 2;
+  grid-column: 3;
   min-width: 0;
   min-height: 34px;
   display: flex;

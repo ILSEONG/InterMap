@@ -52,6 +52,31 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
   return res.json()
 }
 
+export interface AuthSession {
+  token: string
+  email: string
+  nickname: string
+}
+
+async function postAuth(path: string, body: object): Promise<AuthSession> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message ?? `요청 실패 (${res.status})`)
+  return data
+}
+
+export function signup(email: string, password: string, nickname: string): Promise<AuthSession> {
+  return postAuth('/api/auth/signup', { email, password, nickname })
+}
+
+export function login(email: string, password: string): Promise<AuthSession> {
+  return postAuth('/api/auth/login', { email, password })
+}
+
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom }).map(([k, v]) => [k, String(v)]))
   const res = await fetch(`${API_BASE}/api/restaurants/summary?${params}`)

@@ -22,6 +22,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	// 인허가 TM 좌표(EPSG:5174) -> WGS84 변환
 	implementation 'org.locationtech.proj4j:proj4j:1.3.0'
+	// 비밀번호 BCrypt 해시 (풀 spring-security 아님 — crypto만)
+	implementation 'org.springframework.security:spring-security-crypto'
 	runtimeOnly 'com.h2database:h2'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'

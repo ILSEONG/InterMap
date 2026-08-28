@@ -4,12 +4,14 @@ import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
 import MapCanvas from './components/MapCanvas'
 import GroupFilterSheet from './components/GroupFilterSheet'
+import AuthModal from './components/AuthModal'
+import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
 import { groups, friends, me, restaurants as initialRestaurants, groupById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
 import { fetchRestaurants, fetchRestaurantCells, SUMMARY_MAX_ZOOM } from './lib/api'
-import type { BBox, ClusterCell, RestaurantRecord } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, RestaurantRecord } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -141,6 +143,33 @@ export default function App() {
   const [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null)
   const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
 
+  // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('intermap.session') ?? 'null')
+    } catch {
+      return null
+    }
+  })
+  const handleAuthed = useCallback((next: AuthSession) => {
+    setSession(next)
+    setAuthMode(null)
+    try {
+      localStorage.setItem('intermap.session', JSON.stringify(next))
+    } catch {
+      // 저장 실패해도 이번 실행 동안은 로그인 상태 유지
+    }
+  }, [])
+  const handleLogout = useCallback(() => {
+    setSession(null)
+    try {
+      localStorage.removeItem('intermap.session')
+    } catch {
+      // 무시
+    }
+  }, [])
+
   // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
   const deferredQuery = useDeferredValue(query)
   const selectedRestaurant = useMemo(
@@ -238,6 +267,10 @@ export default function App() {
           activeGroupCount={activeGroupIds.size}
           query={query}
           onQueryChange={setQuery}
+          nickname={session?.nickname ?? null}
+          onLogin={() => setAuthMode('login')}
+          onSignup={() => setAuthMode('signup')}
+          onLogout={handleLogout}
         />
         <div className="review-filter" role="group" aria-label="후기 유무 필터">
           {(
@@ -291,6 +324,8 @@ export default function App() {
       />
 
       <MeetupSheet restaurant={meetupRestaurant} friends={friends} onClose={() => setMeetupRestaurant(null)} />
+
+      <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onSwitch={setAuthMode} onAuthed={handleAuthed} />
     </div>
   )
 }
