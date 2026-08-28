@@ -8,6 +8,9 @@
   border: 3px solid var(--ink);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-float);
+  /* 지도 canvas와 같은 표면에 래스터되면 Android WebView에서 pan마다 같이 깜빡인다.
+     자체 GPU 레이어로 분리. (조상 .app__chrome에 주면 fixed 자손 위치가 틀어짐) */
+  transform: translateZ(0);
 }
 
 .app-header__filter {

@@ -39,6 +39,9 @@
   /* filter: drop-shadow는 마커 수백 개가 지도 이동마다 재래스터라이즈되어 끊긴다.
      그림자는 box-shadow로 dot에만 준다. */
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* 지도 canvas 표면과 래스터를 분리해 pan 중 재페인트로 인한 깜빡임 방지.
+     셀 요약으로 마커 수가 ~100개 이하로 묶여 있어 레이어 수는 감당 범위. */
+  transform: translateZ(0);
 }
 
 /* 터치 여유를 주되 CLUSTER_PIXEL_DISTANCE(26px)보다 크게 잡지 않는다.
@@ -68,7 +71,8 @@
   background: var(--pin-color, var(--accent));
   border: 1.5px solid var(--ink);
   display: block;
-  box-shadow: var(--shadow-pop);
+  /* box-shadow 금지: 마커 수백 개면 pan마다 전체 표면 재래스터 → 모바일 WebView 깜빡임.
+     잉크 외곽선(border)만으로 두들 느낌을 유지한다. */
 }
 
 .map-pin--cluster {
@@ -89,7 +93,6 @@
   font-family: var(--font-display);
   font-size: 12px;
   color: #fff9f2;
-  text-shadow: 0 1px 0 rgba(43, 33, 64, 0.55);
 }
 
 .map-pin:hover,

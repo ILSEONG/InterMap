@@ -16,6 +16,8 @@
   padding: max(env(safe-area-inset-top), 14px) 12px 0;
   max-width: 480px;
   margin: 0 auto;
+  /* 주의: 여기에 transform을 주면 안 된다 — 자손인 .review-filter(fixed)의
+     기준점이 뷰포트에서 이 박스로 바뀌어 위치가 틀어진다. 레이어 분리는 .app-header에. */
 }
 
 

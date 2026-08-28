@@ -25,8 +25,10 @@ export interface ClusterCell {
   count: number
 }
 
-// 이 줌 이하에서는 개별 가게 대신 /summary 셀을 받아 그린다
-export const SUMMARY_MAX_ZOOM = 14
+// 이 줌 이하에서는 개별 가게 대신 /summary 셀을 받아 그린다.
+// 15(기본 줌)까지 셀로 두는 이유: 밀집 지역에서 개별 마커 200개+가 깔리면
+// 모바일 WebView가 pan마다 화면 전체를 다시 그리며 깜빡인다.
+export const SUMMARY_MAX_ZOOM = 15
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 

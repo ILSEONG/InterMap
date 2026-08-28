@@ -83,8 +83,9 @@ const snapBBox = (b: BBox): BBox => ({
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants)
 
-  // 낮은 줌에서 받는 서버 요약 셀. 누적하지 않고 매번 통째로 갈아끼운다.
-  const [cells, setCells] = useState<ClusterCell[]>([])
+  // 낮은 줌에서 받는 서버 요약 셀. 격자 인덱스 키로 누적한다 — 통째로 갈아끼우면
+  // 응답이 올 때까지 마커가 사라져서 이동할 때마다 화면이 깜빡인다.
+  const [cellStore, setCellStore] = useState<{ zoom: number; byKey: Map<string, ClusterCell> } | null>(null)
   // 같은 타일을 연달아 요청하지 않기 위한 마지막 요청 키
   const lastFetchKey = useRef('')
 
@@ -98,8 +99,20 @@ export default function App() {
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
     if (cellMode) {
-      fetchRestaurantCells(snapped, zoom)
-        .then(setCells)
+      // zoom-1로 요청하면 서버 셀 한 변이 2배(52px)가 되어 셀 수가 1/4로 준다 —
+      // 밀집 지역에서 마커 수백 개가 깔리면 모바일 WebView가 깜빡인다
+      fetchRestaurantCells(snapped, zoom - 1)
+        .then((fresh) => {
+          // 서버와 같은 격자 인덱스로 키를 만들어 누적한다. 같은 셀은 최신 응답으로
+          // 덮어써서 bbox 경계에 걸려 잘렸던 건수를 교정한다. 줌이 바뀌면 격자가
+          // 달라지므로 처음부터 다시 쌓는다.
+          const cellDeg = (360 * 26) / (256 * 2 ** (zoom - 1))
+          setCellStore((prev) => {
+            const byKey = prev && prev.zoom === zoom ? new Map(prev.byKey) : new Map<string, ClusterCell>()
+            for (const c of fresh) byKey.set(`${Math.floor(c.lat / cellDeg)}:${Math.floor(c.lng / cellDeg)}`, c)
+            return { zoom, byKey }
+          })
+        })
         .catch(() => {})
     } else {
       fetchRestaurants(snapped)
@@ -109,6 +122,8 @@ export default function App() {
         })
     }
   }, [])
+  // 누적된 셀을 배열로. byKey 자체가 바뀔 때만 다시 만든다.
+  const cellList = useMemo(() => (cellStore ? [...cellStore.byKey.values()] : []), [cellStore])
   const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
   const [filterOpen, setFilterOpen] = useState(false)
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
@@ -209,7 +224,7 @@ export default function App() {
         // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다).
         cells={
           reviewFilter !== 'with' && activeGroupIds.has('none') && deferredQuery.trim().length < MIN_QUERY_LENGTH
-            ? cells
+            ? cellList
             : []
         }
         onPick={pickRestaurant}
