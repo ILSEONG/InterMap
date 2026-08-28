@@ -3,17 +3,21 @@ import type { Restaurant, FriendGroup } from '../data/mock'
 import { loadNaverMaps } from '../lib/loadNaverMaps'
 import { clusterPins, isSeparatedAt } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
+import { SUMMARY_MAX_ZOOM } from '../lib/api'
+import type { ClusterCell } from '../lib/api'
 import './MapCanvas.css'
 
 interface MapCanvasProps {
   restaurants: Restaurant[]
   groups: FriendGroup[]
+  // 낮은 줌에서 개별 가게 대신 그리는 서버 격자 요약 셀
+  cells?: ClusterCell[]
   onPick: (restaurant: Restaurant) => void
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
   focus?: { id: string }
-  // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역을 알려준다 — 뷰포트 단위 데이터 로딩용.
-  onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => void
+  // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역과 줌을 알려준다 — 뷰포트 단위 데이터 로딩용.
+  onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
 }
 
 const CENTER = { lat: 37.5605, lng: 126.92 }
@@ -46,14 +50,17 @@ function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
 }
 
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean) {
-  const cluster = pin.items.length > 1
+  // 요약 셀 핀은 items가 비어 있고 count만 있다 — 항상 군집 모양, 색은 미지정 그룹색
+  const count = pin.count ?? pin.items.length
+  const cluster = count > 1
+  const color = pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
   const classes = ['map-pin', cluster && 'map-pin--cluster', focused && 'map-pin--focused'].filter(Boolean).join(' ')
-  const title = cluster ? `이 자리 ${pin.items.length}곳` : escapeHtml(pin.items[0].name)
+  const title = cluster || pin.items.length === 0 ? `이 자리 ${count}곳` : escapeHtml(pin.items[0].name)
   return {
     content: `
-      <button type="button" class="${classes}" style="--pin-color:${pinColor(pin.items, groups)}" aria-label="${title}">
-        <span class="map-pin__dot">${cluster ? pin.items.length : ''}</span>
-        ${cluster ? '' : `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>`}
+      <button type="button" class="${classes}" style="--pin-color:${color}" aria-label="${title}">
+        <span class="map-pin__dot">${cluster ? count : ''}</span>
+        ${pin.items.length === 1 ? `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>` : ''}
       </button>
     `,
     anchor: new window.naver.maps.Point(cluster ? 13 : 8, cluster ? 26 : 16),
@@ -79,7 +86,7 @@ function pinListContent(items: Restaurant[], groups: FriendGroup[]): string {
   return `<div class="pin-list"><ul class="pin-list__items">${rows}</ul></div>`
 }
 
-export default function MapCanvas({ restaurants, groups, onPick, focus, onViewportChange }: MapCanvasProps) {
+export default function MapCanvas({ restaurants, groups, cells = [], onPick, focus, onViewportChange }: MapCanvasProps) {
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map())
@@ -101,15 +108,33 @@ export default function MapCanvas({ restaurants, groups, onPick, focus, onViewpo
     null,
   )
 
-  // 겹침 판정은 화면 픽셀 기준이라 줌이 바뀔 때만 다시 묶으면 된다.
-  const pins = useMemo(() => clusterPins(restaurants, zoom), [restaurants, zoom])
-
+  // 화면(여유 포함) 안의 가게만 군집한다. 전체 데이터가 수천 건이라
+  // 전역으로 묶으면 이동·줌마다 메인 스레드가 얼어 마커가 깜빡인다.
+  // 낮은 줌(요약 모드)에서는 DB 가게 개별 핀 대신 서버 요약 셀을 그린다.
   const visiblePins = useMemo(() => {
     if (!viewport) return []
-    return pins.filter(
-      (p) => p.lat >= viewport.minLat && p.lat <= viewport.maxLat && p.lng >= viewport.minLng && p.lng <= viewport.maxLng,
+    const cellMode = zoom <= SUMMARY_MAX_ZOOM
+    const inBox = (lat: number, lng: number) =>
+      lat >= viewport.minLat && lat <= viewport.maxLat && lng >= viewport.minLng && lng <= viewport.maxLng
+    const base = cellMode ? restaurants.filter((r) => !r.id.startsWith('db-')) : restaurants
+    const pins = clusterPins(
+      base.filter((r) => inBox(r.lat, r.lng)),
+      zoom,
     )
-  }, [pins, viewport])
+    if (cellMode) {
+      for (const c of cells) {
+        if (!inBox(c.lat, c.lng)) continue
+        pins.push({
+          key: `cell:${c.lat.toFixed(5)},${c.lng.toFixed(5)},${c.count}`,
+          lat: c.lat,
+          lng: c.lng,
+          items: [],
+          count: c.count,
+        })
+      }
+    }
+    return pins
+  }, [restaurants, cells, viewport, zoom])
 
   // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
   const focusRestaurant = useCallback((restaurant: Restaurant) => {
@@ -157,7 +182,7 @@ export default function MapCanvas({ restaurants, groups, onPick, focus, onViewpo
             maxLng: ne.lng() + lngPad,
           }
           setViewport(next)
-          onViewportChangeRef.current?.(next)
+          onViewportChangeRef.current?.(next, map.getZoom())
         }
         naver.maps.Event.addListener(map, 'idle', updateViewport)
         updateViewport()
@@ -243,6 +268,18 @@ export default function MapCanvas({ restaurants, groups, onPick, focus, onViewpo
       naver.maps.Event.addListener(marker, 'click', () => {
         // 다른 핀의 목록이 열려 있었다면 먼저 닫는다.
         infoWindowRef.current?.close()
+        // 서버 요약 셀은 개별 목록이 없다 — 확대해서 풀어주는 것만 한다.
+        if (pin.items.length === 0) {
+          const map = mapRef.current
+          if (map && map.getZoom() < MAX_ZOOM) {
+            map.morph(
+              new naver.maps.LatLng(pin.lat, pin.lng),
+              Math.min(map.getZoom() + CLUSTER_TAP_ZOOM_STEP, MAX_ZOOM),
+              PAN_TRANSITION,
+            )
+          }
+          return
+        }
         // 한 곳뿐이면 목록을 거칠 이유가 없다. 어느 핀을 골랐는지 링으로 남기고
         // 지도는 그 핀을 정가운데로 옮긴다.
         if (pin.items.length === 1) {
@@ -279,12 +316,12 @@ export default function MapCanvas({ restaurants, groups, onPick, focus, onViewpo
     focusedRef.current = focusedId
 
     for (const id of new Set(changed)) {
-      const pin = pins.find((p) => p.items.some((r) => r.id === id))
+      const pin = visiblePins.find((p) => p.items.some((r) => r.id === id))
       const marker = pin && markersRef.current.get(pin.key)
       if (!pin || !marker) continue
       marker.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedId)))
     }
-  }, [focusedId, pins, groups, mapReady])
+  }, [focusedId, visiblePins, groups, mapReady])
 
   // 검색 결과에서 고른 가게가 화면 밖일 수 있어 그 가게로 지도만 옮긴다.
   useEffect(() => {

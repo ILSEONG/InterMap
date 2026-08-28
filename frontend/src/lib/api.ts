@@ -16,8 +16,17 @@ export interface RestaurantRecord {
   lat: number
   lng: number
   status: 'OPEN' | 'CLOSED'
-  statusCheckedAt: string | null
 }
+
+// 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다
+export interface ClusterCell {
+  lat: number
+  lng: number
+  count: number
+}
+
+// 이 줌 이하에서는 개별 가게 대신 /summary 셀을 받아 그린다
+export const SUMMARY_MAX_ZOOM = 14
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
@@ -38,6 +47,13 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
   const params = bbox ? `?${new URLSearchParams(Object.entries(bbox).map(([k, v]) => [k, String(v)]))}` : ''
   const res = await fetch(`${API_BASE}/api/restaurants${params}`)
   if (!res.ok) throw new Error(`음식점 목록 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
+  const params = new URLSearchParams(Object.entries({ ...bbox, zoom }).map(([k, v]) => [k, String(v)]))
+  const res = await fetch(`${API_BASE}/api/restaurants/summary?${params}`)
+  if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
   return res.json()
 }
 

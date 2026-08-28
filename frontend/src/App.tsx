@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
@@ -8,8 +8,8 @@ import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
 import { groups, friends, me, restaurants as initialRestaurants, groupById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
-import { fetchRestaurants } from './lib/api'
-import type { BBox, RestaurantRecord } from './lib/api'
+import { fetchRestaurants, fetchRestaurantCells, SUMMARY_MAX_ZOOM } from './lib/api'
+import type { BBox, ClusterCell, RestaurantRecord } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -46,31 +46,68 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
 }
 
 function mergeRecords(prev: Restaurant[], records: RestaurantRecord[]): Restaurant[] {
+  // 이동(idle)마다 수천 건이 들어오므로 매 건 find로 훑지 않고 이름+주소 인덱스로 찾는다
+  const byKey = new Map<string, Restaurant>()
+  for (const r of prev) byKey.set(`${r.name}|${r.address}`, r)
   const merged = [...prev]
+  let changed = false
   for (const record of records) {
-    const existing = merged.find(
-      (r) => r.name === record.name && (r.address === record.roadAddress || r.address === record.address),
-    )
+    const existing = byKey.get(`${record.name}|${record.roadAddress}`) ?? byKey.get(`${record.name}|${record.address}`)
     if (existing) {
-      existing.closed = record.status === 'CLOSED'
+      const closed = record.status === 'CLOSED'
+      if (existing.closed !== closed) {
+        existing.closed = closed
+        changed = true
+      }
     } else {
-      merged.push(toRestaurant(record))
+      const added = toRestaurant(record)
+      merged.push(added)
+      byKey.set(`${added.name}|${added.address}`, added)
+      changed = true
     }
   }
-  return merged
+  // 달라진 게 없으면 이전 배열을 그대로 돌려줘서 재군집·마커 재생성을 막는다
+  return changed ? merged : prev
 }
+
+// bbox를 고정 격자에 스냅한다. 조금만 움직여도 URL이 통째로 바뀌면
+// 서버의 6시간 HTTP 캐시가 한 번도 안 맞는다 — 같은 타일이면 같은 URL이 되게.
+const SNAP_DEG = 0.02
+const snapBBox = (b: BBox): BBox => ({
+  minLat: Number((Math.floor(b.minLat / SNAP_DEG) * SNAP_DEG).toFixed(5)),
+  maxLat: Number((Math.ceil(b.maxLat / SNAP_DEG) * SNAP_DEG).toFixed(5)),
+  minLng: Number((Math.floor(b.minLng / SNAP_DEG) * SNAP_DEG).toFixed(5)),
+  maxLng: Number((Math.ceil(b.maxLng / SNAP_DEG) * SNAP_DEG).toFixed(5)),
+})
 
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants)
 
+  // 낮은 줌에서 받는 서버 요약 셀. 누적하지 않고 매번 통째로 갈아끼운다.
+  const [cells, setCells] = useState<ClusterCell[]>([])
+  // 같은 타일을 연달아 요청하지 않기 위한 마지막 요청 키
+  const lastFetchKey = useRef('')
+
   // 전체를 한 번에 받는 대신, 지도가 멈출 때마다 보이는 영역만 받아 누적한다.
   // 한 번 본 영역의 가게는 목록에 남으므로 검색·필터는 본 영역 기준으로 동작한다.
-  const loadViewport = useCallback((bbox: BBox) => {
-    fetchRestaurants(bbox)
-      .then((records) => setRestaurants((prev) => mergeRecords(prev, records)))
-      .catch(() => {
-        // 백엔드 미기동 시 목데이터만으로 동작
-      })
+  // 줌이 낮으면(넓은 영역) 개별 가게 대신 서버 격자 요약만 받는다.
+  const loadViewport = useCallback((bbox: BBox, zoom: number) => {
+    const snapped = snapBBox(bbox)
+    const cellMode = zoom <= SUMMARY_MAX_ZOOM
+    const key = `${cellMode ? `s${zoom}` : 'r'}:${snapped.minLat},${snapped.minLng},${snapped.maxLat},${snapped.maxLng}`
+    if (key === lastFetchKey.current) return
+    lastFetchKey.current = key
+    if (cellMode) {
+      fetchRestaurantCells(snapped, zoom)
+        .then(setCells)
+        .catch(() => {})
+    } else {
+      fetchRestaurants(snapped)
+        .then((records) => setRestaurants((prev) => mergeRecords(prev, records)))
+        .catch(() => {
+          // 백엔드 미기동 시 목데이터만으로 동작
+        })
+    }
   }, [])
   const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
   const [filterOpen, setFilterOpen] = useState(false)
@@ -168,6 +205,13 @@ export default function App() {
       <MapCanvas
         restaurants={visibleRestaurants}
         groups={groups}
+        // 요약 셀 = 후기 없는 그룹 미지정 가게 덩어리. 필터·검색으로 그런 가게가
+        // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다).
+        cells={
+          reviewFilter !== 'with' && activeGroupIds.has('none') && deferredQuery.trim().length < MIN_QUERY_LENGTH
+            ? cells
+            : []
+        }
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
         onViewportChange={loadViewport}

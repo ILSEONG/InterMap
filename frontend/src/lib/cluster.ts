@@ -5,6 +5,8 @@ export interface Pin {
   lat: number
   lng: number
   items: Restaurant[]
+  // 서버 요약 셀로 만든 핀: items는 비어 있고 건수만 안다
+  count?: number
 }
 
 // 핀 지름 16px + 터치 여유. 이보다 가까우면 손가락으로 개별 선택이 안 되므로 하나로 묶는다.
@@ -26,10 +28,18 @@ export function latAtWorldY(y: number, zoom: number): number {
   return (Math.atan(Math.sinh(Math.PI * (1 - 2 * t))) * 180) / Math.PI
 }
 
-// ponytail: O(n²) 그리디 군집화. 핀 수백 개까지는 충분하고,
-// 더 늘어나면 격자 버킷으로 나눠 비교 대상을 줄이면 된다.
+// 그리디 군집화. 후보 비교는 격자 버킷(26px 셀)의 3×3 이웃으로 좁혀서
+// 수천 건에서도 이동·줌마다 얼지 않는다. 결과는 전수 비교와 동일하다
+// (거리 ≤ 셀 한 변이면 반드시 이웃 셀 안에 있으므로).
 export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
   const points = restaurants.map((r) => ({ r, ...worldPoint(r.lat, r.lng, zoom) }))
+  const buckets = new Map<string, number[]>()
+  points.forEach((p, i) => {
+    const key = `${Math.floor(p.x / CLUSTER_PIXEL_DISTANCE)}:${Math.floor(p.y / CLUSTER_PIXEL_DISTANCE)}`
+    const list = buckets.get(key)
+    if (list) list.push(i)
+    else buckets.set(key, [i])
+  })
   const taken = new Array<boolean>(points.length).fill(false)
   const pins: Pin[] = []
 
@@ -38,8 +48,19 @@ export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
     taken[i] = true
     const items = [point.r]
 
-    for (let j = i + 1; j < points.length; j += 1) {
-      if (taken[j]) continue
+    const bx = Math.floor(point.x / CLUSTER_PIXEL_DISTANCE)
+    const by = Math.floor(point.y / CLUSTER_PIXEL_DISTANCE)
+    const candidates: number[] = []
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const list = buckets.get(`${bx + dx}:${by + dy}`)
+        if (!list) continue
+        for (const j of list) if (j > i && !taken[j]) candidates.push(j)
+      }
+    }
+    // 흡수 순서가 인덱스 오름차순이어야 기존(전수 비교)과 같은 군집이 나온다
+    candidates.sort((a, b) => a - b)
+    for (const j of candidates) {
       const other = points[j]
       if (Math.hypot(point.x - other.x, point.y - other.y) <= CLUSTER_PIXEL_DISTANCE) {
         taken[j] = true
