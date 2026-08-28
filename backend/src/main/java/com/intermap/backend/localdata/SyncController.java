@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-// https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app"})
+// https://intermap.app:8443 ? 紐⑤컮????Capacitor WebView)??origin
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
 public class SyncController {
 
     private final StatusSyncService syncService;
@@ -20,13 +20,13 @@ public class SyncController {
         this.importService = importService;
     }
 
-    /** 수동 동기화 트리거 (운영/테스트용) */
+    /** ?섎룞 ?숆린???몃━嫄?(?댁쁺/?뚯뒪?몄슜) */
     @PostMapping("/api/admin/sync-status")
     public Map<String, Integer> sync(@RequestParam(defaultValue = "8") int daysBack) {
         return Map.of("updated", syncService.syncOnce(daysBack));
     }
 
-    /** 지자체 영업중 음식점 전량 백필 (예: localCode=3130000 마포구) */
+    /** 吏?먯껜 ?곸뾽以??뚯떇???꾨웾 諛깊븘 (?? localCode=3130000 留덊룷援? */
     @PostMapping("/api/admin/import-restaurants")
     public RestaurantImportService.Result importRestaurants(@RequestParam String localCode) {
         return importService.importOpenRestaurants(localCode);

@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-// https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app"})
+// https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
 public class RestaurantController {
 
     public record RegisterRequest(String name, String category, String roadAddress, String address, double lat, double lng) {
