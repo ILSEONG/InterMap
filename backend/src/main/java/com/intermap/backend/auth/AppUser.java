@@ -19,7 +19,13 @@ public class AppUser {
     private String email;
 
     private String passwordHash;
+
+    @Column(unique = true)
     private String nickname;
+
+    // 숫자만 저장 (01012345678)
+    @Column(unique = true)
+    private String phone;
 
     // 간편 로그인 대비: 'google' | 'naver' | 'kakao', 자체 가입은 null
     private String provider;
@@ -33,16 +39,18 @@ public class AppUser {
     protected AppUser() {
     }
 
-    public AppUser(String email, String passwordHash, String nickname) {
+    public AppUser(String email, String passwordHash, String nickname, String phone) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.nickname = nickname;
+        this.phone = phone;
     }
 
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
     public String getNickname() { return nickname; }
+    public String getPhone() { return phone; }
     public String getProvider() { return provider; }
     public String getToken() { return token; }
     public Instant getCreatedAt() { return createdAt; }

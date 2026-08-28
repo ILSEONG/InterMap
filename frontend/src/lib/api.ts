@@ -58,7 +58,7 @@ export interface AuthSession {
   nickname: string
 }
 
-async function postAuth(path: string, body: object): Promise<AuthSession> {
+async function postJson<T>(path: string, body: object): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -69,12 +69,36 @@ async function postAuth(path: string, body: object): Promise<AuthSession> {
   return data
 }
 
-export function signup(email: string, password: string, nickname: string): Promise<AuthSession> {
-  return postAuth('/api/auth/signup', { email, password, nickname })
+export interface SignupParams {
+  email: string
+  emailCode: string
+  phone: string
+  phoneCode: string
+  password: string
+  nickname: string
+}
+
+export function signup(params: SignupParams): Promise<AuthSession> {
+  return postJson<AuthSession>('/api/auth/signup', params)
 }
 
 export function login(email: string, password: string): Promise<AuthSession> {
-  return postAuth('/api/auth/login', { email, password })
+  return postJson<AuthSession>('/api/auth/login', { email, password })
+}
+
+// 성공 메시지를 반환하고, 중복/형식 오류는 Error로 던진다
+export async function requestEmailCode(email: string): Promise<string> {
+  return (await postJson<{ message: string }>('/api/auth/email-code', { email })).message
+}
+
+export async function requestPhoneCode(phone: string): Promise<string> {
+  return (await postJson<{ message: string }>('/api/auth/phone-code', { phone })).message
+}
+
+export async function checkNickname(nickname: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/api/auth/check-nickname?value=${encodeURIComponent(nickname)}`)
+  if (!res.ok) throw new Error(`닉네임 확인 실패 (${res.status})`)
+  return (await res.json()).available
 }
 
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {

@@ -13,7 +13,8 @@ interface HeaderProps {
   onLogout: () => void
 }
 
-const WORDMARK_COLORS = ['#ff5d73', '#ff7a45', '#2fbfa6', '#8b6bff']
+// 로고 글자색 — AuthModal 등 다른 곳에서 "인터맵"을 로고처럼 칠할 때도 쓴다
+export const WORDMARK_COLORS = ['#ff5d73', '#ff7a45', '#2fbfa6', '#8b6bff']
 
 export default function Header({
   onOpenFilter,

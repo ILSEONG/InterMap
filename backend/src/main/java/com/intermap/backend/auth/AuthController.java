@@ -1,14 +1,22 @@
 package com.intermap.backend.auth;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 @RestController
@@ -16,10 +24,14 @@ import java.util.regex.Pattern;
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app"})
 public class AuthController {
 
-    public record SignupRequest(String email, String password, String nickname) {
+    public record SignupRequest(String email, String emailCode, String phone, String phoneCode,
+                                String password, String nickname) {
     }
 
     public record LoginRequest(String email, String password) {
+    }
+
+    public record CodeRequest(String email, String phone) {
     }
 
     public record AuthResponse(String token, String email, String nickname) {
@@ -28,8 +40,37 @@ public class AuthController {
     public record ErrorResponse(String message) {
     }
 
+    public record AvailableResponse(boolean available) {
+    }
+
+    public record OkResponse(String message) {
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern PHONE = Pattern.compile("^010\\d{7,8}$");
     private static final int MIN_PASSWORD_LENGTH = 8;
+    private static final long CODE_TTL_SECONDS = 300;
+    private static final long RESEND_COOLDOWN_SECONDS = 60;
+    private static final int MAX_VERIFY_ATTEMPTS = 5;
+
+    // 발급된 인증번호. 단일 인스턴스 전제라 메모리로 충분 (재시작하면 재발송하면 됨).
+    private static final class Verification {
+        final String code;
+        final Instant issuedAt = Instant.now();
+        int attempts = 0;
+
+        Verification(String code) {
+            this.code = code;
+        }
+
+        boolean expired() {
+            return issuedAt.plusSeconds(CODE_TTL_SECONDS).isBefore(Instant.now());
+        }
+    }
+
+    private final Map<String, Verification> codes = new ConcurrentHashMap<>();
+    private final SecureRandom random = new SecureRandom();
 
     private final AppUserRepository repository;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
@@ -38,12 +79,84 @@ public class AuthController {
         this.repository = repository;
     }
 
+    private static String normalizePhone(String raw) {
+        return raw == null ? "" : raw.replaceAll("[^0-9]", "");
+    }
+
+    private ResponseEntity<?> issueCode(String key, String target) {
+        Verification existing = codes.get(key);
+        if (existing != null && existing.issuedAt.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new ErrorResponse("잠시 후 다시 요청해주세요."));
+        }
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        codes.put(key, new Verification(code));
+        // TODO: 실제 발송 연결 지점 — 이메일은 SMTP, 문자는 SMS 서비스(NCP SENS 등) 키 등록 후.
+        // 그 전까지는 서버 로그로만 코드를 확인한다.
+        log.info("[인증번호] {} -> {}", target, code);
+        return ResponseEntity.ok(new OkResponse("인증번호를 보냈어요. 5분 안에 입력해주세요."));
+    }
+
+    // null이면 통과, 아니면 그대로 응답할 에러
+    private ErrorResponse verifyCode(String key, String input) {
+        Verification verification = codes.get(key);
+        if (verification == null || verification.expired()) {
+            codes.remove(key);
+            return new ErrorResponse("인증번호를 다시 받아주세요.");
+        }
+        if (verification.attempts >= MAX_VERIFY_ATTEMPTS) {
+            codes.remove(key);
+            return new ErrorResponse("시도 횟수를 넘었어요. 인증번호를 다시 받아주세요.");
+        }
+        verification.attempts += 1;
+        if (input == null || !verification.code.equals(input.trim())) {
+            return new ErrorResponse("인증번호가 맞지 않아요.");
+        }
+        codes.remove(key);
+        return null;
+    }
+
+    @GetMapping("/api/auth/check-nickname")
+    public AvailableResponse checkNickname(@RequestParam String value) {
+        String nickname = value == null ? "" : value.trim();
+        boolean valid = !nickname.isEmpty() && nickname.length() <= 20;
+        return new AvailableResponse(valid && repository.findByNickname(nickname).isEmpty());
+    }
+
+    @PostMapping("/api/auth/email-code")
+    public ResponseEntity<?> sendEmailCode(@RequestBody CodeRequest request) {
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase();
+        if (!EMAIL.matcher(email).matches()) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
+        }
+        if (repository.findByEmail(email).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 이메일이에요."));
+        }
+        return issueCode("email:" + email, email);
+    }
+
+    @PostMapping("/api/auth/phone-code")
+    public ResponseEntity<?> sendPhoneCode(@RequestBody CodeRequest request) {
+        String phone = normalizePhone(request.phone());
+        if (!PHONE.matcher(phone).matches()) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("휴대폰 번호를 확인해주세요."));
+        }
+        if (repository.findByPhone(phone).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 번호예요."));
+        }
+        return issueCode("phone:" + phone, phone);
+    }
+
     @PostMapping("/api/auth/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
         String email = request.email() == null ? "" : request.email().trim().toLowerCase();
         String nickname = request.nickname() == null ? "" : request.nickname().trim();
+        String phone = normalizePhone(request.phone());
         if (!EMAIL.matcher(email).matches()) {
             return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
+        }
+        if (!PHONE.matcher(phone).matches()) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("휴대폰 번호를 확인해주세요."));
         }
         if (request.password() == null || request.password().length() < MIN_PASSWORD_LENGTH) {
             return ResponseEntity.badRequest().body(new ErrorResponse("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 해요."));
@@ -51,10 +164,24 @@ public class AuthController {
         if (nickname.isEmpty() || nickname.length() > 20) {
             return ResponseEntity.badRequest().body(new ErrorResponse("닉네임은 1~20자로 해주세요."));
         }
+        if (repository.findByNickname(nickname).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 사용 중인 닉네임이에요."));
+        }
         if (repository.findByEmail(email).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 이메일이에요."));
         }
-        AppUser user = new AppUser(email, encoder.encode(request.password()), nickname);
+        if (repository.findByPhone(phone).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 번호예요."));
+        }
+        ErrorResponse emailError = verifyCode("email:" + email, request.emailCode());
+        if (emailError != null) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("이메일 " + emailError.message()));
+        }
+        ErrorResponse phoneError = verifyCode("phone:" + phone, request.phoneCode());
+        if (phoneError != null) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("휴대폰 " + phoneError.message()));
+        }
+        AppUser user = new AppUser(email, encoder.encode(request.password()), nickname, phone);
         user.issueToken(UUID.randomUUID().toString());
         repository.save(user);
         return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
