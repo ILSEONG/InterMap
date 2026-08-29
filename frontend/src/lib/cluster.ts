@@ -14,7 +14,7 @@ export interface Pin {
 export const CLUSTER_PIXEL_DISTANCE = 26
 // 최대 줌에서만 최소 반경(26px)을 쓰고, 그 전에는 반경을 키워 마커 수를 줄인다.
 // isSeparatedAt과 clusterPins가 같은 값을 써야 "확대하면 갈라진다" 판단이 어긋나지 않는다.
-const WIDE_CLUSTER_PIXEL_DISTANCE = 36
+const WIDE_CLUSTER_PIXEL_DISTANCE = 50
 const MIN_DISTANCE_ZOOM = 21 // MapCanvas의 MAX_ZOOM과 같은 값
 
 function clusterDistanceAt(zoom: number): number {
@@ -91,11 +91,10 @@ export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
 // 해당 줌에서 이 가게가 다른 핀과 떨어져 보이는지.
 // false면 아무리 확대해도 개별 핀으로 못 고른다는 뜻(같은 건물 등).
 export function isSeparatedAt(restaurants: Restaurant[], target: Restaurant, zoom: number): boolean {
-  const dist = clusterDistanceAt(zoom)
   const point = worldPoint(target.lat, target.lng, zoom)
   return restaurants.every((other) => {
     if (other.id === target.id) return true
     const o = worldPoint(other.lat, other.lng, zoom)
-    return Math.hypot(point.x - o.x, point.y - o.y) > dist
+    return Math.hypot(point.x - o.x, point.y - o.y) > CLUSTER_PIXEL_DISTANCE
   })
 }
