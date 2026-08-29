@@ -12,6 +12,39 @@
   height: 100%;
 }
 
+/* GPS 버튼 — 좌측 하단, 우측 하단 후기 필터(.review-filter)와 같은 높이·정렬 기준 */
+.map-gps {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  left: calc(max(0px, 50vw - 240px) + 12px);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-raised);
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-gps:active {
+  transform: scale(0.94);
+}
+
+.map-gps--locating svg {
+  animation: map-gps-spin 1s linear infinite;
+}
+
+@keyframes map-gps-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .map-canvas__error {
   position: absolute;
   inset: 0;

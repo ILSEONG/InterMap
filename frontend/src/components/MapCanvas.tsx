@@ -138,6 +138,32 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
     return pins
   }, [restaurants, cells, viewport, zoom])
 
+  const [locating, setLocating] = useState(false)
+
+  // GPS 버튼: 현재 위치로 지도 이동. Capacitor WebView가 navigator.geolocation을
+  // 네이티브 권한 요청으로 이어준다 (매니페스트에 위치 권한 선언 필요).
+  const goToMyLocation = useCallback(() => {
+    if (locating || !navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false)
+        const map = mapRef.current
+        if (!map || !window.naver) return
+        map.morph(
+          new window.naver.maps.LatLng(coords.latitude, coords.longitude),
+          Math.max(map.getZoom(), DEFAULT_ZOOM),
+          PAN_TRANSITION,
+        )
+      },
+      () => {
+        setLocating(false)
+        alert('현재 위치를 가져올 수 없어요. 위치 권한을 확인해주세요.')
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }, [locating])
+
   // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
   const focusRestaurant = useCallback((restaurant: Restaurant) => {
     const map = mapRef.current
@@ -352,6 +378,18 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
   return (
     <div className={`map-canvas${zoom < NAME_LABEL_MIN_ZOOM ? ' map-canvas--far' : ''}`}>
       <div ref={mapDivRef} className="map-canvas__surface" />
+      <button
+        type="button"
+        className={`map-gps${locating ? ' map-gps--locating' : ''}`}
+        aria-label="현재 위치로 이동"
+        onClick={goToMyLocation}
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2.2" />
+          <circle cx="12" cy="12" r="2.4" fill="currentColor" />
+          <path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      </button>
       {mapError && (
         <div className="map-canvas__error">
           네이버 지도를 불러오지 못했어요.
