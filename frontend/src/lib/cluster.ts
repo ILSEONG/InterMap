@@ -12,6 +12,14 @@ export interface Pin {
 // 핀 지름 16px + 터치 여유. 이보다 가까우면 손가락으로 개별 선택이 안 되므로 하나로 묶는다.
 // 키우면 더 자주 묶이고, 줄이면 겹친 핀을 눌렀을 때 옆 가게가 잡히는 오탭이 늘어난다.
 export const CLUSTER_PIXEL_DISTANCE = 26
+// 최대 줌에서만 최소 반경(26px)을 쓰고, 그 전에는 반경을 키워 마커 수를 줄인다.
+// isSeparatedAt과 clusterPins가 같은 값을 써야 "확대하면 갈라진다" 판단이 어긋나지 않는다.
+const WIDE_CLUSTER_PIXEL_DISTANCE = 36
+const MIN_DISTANCE_ZOOM = 21 // MapCanvas의 MAX_ZOOM과 같은 값
+
+function clusterDistanceAt(zoom: number): number {
+  return zoom >= MIN_DISTANCE_ZOOM ? CLUSTER_PIXEL_DISTANCE : WIDE_CLUSTER_PIXEL_DISTANCE
+}
 // 줌 레벨에서의 월드 픽셀 좌표 (웹 메르카토르)
 export function worldPoint(lat: number, lng: number, zoom: number) {
   const scale = 256 * 2 ** zoom
@@ -32,10 +40,11 @@ export function latAtWorldY(y: number, zoom: number): number {
 // 수천 건에서도 이동·줌마다 얼지 않는다. 결과는 전수 비교와 동일하다
 // (거리 ≤ 셀 한 변이면 반드시 이웃 셀 안에 있으므로).
 export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
+  const dist = clusterDistanceAt(zoom)
   const points = restaurants.map((r) => ({ r, ...worldPoint(r.lat, r.lng, zoom) }))
   const buckets = new Map<string, number[]>()
   points.forEach((p, i) => {
-    const key = `${Math.floor(p.x / CLUSTER_PIXEL_DISTANCE)}:${Math.floor(p.y / CLUSTER_PIXEL_DISTANCE)}`
+    const key = `${Math.floor(p.x / dist)}:${Math.floor(p.y / dist)}`
     const list = buckets.get(key)
     if (list) list.push(i)
     else buckets.set(key, [i])
@@ -48,8 +57,8 @@ export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
     taken[i] = true
     const items = [point.r]
 
-    const bx = Math.floor(point.x / CLUSTER_PIXEL_DISTANCE)
-    const by = Math.floor(point.y / CLUSTER_PIXEL_DISTANCE)
+    const bx = Math.floor(point.x / dist)
+    const by = Math.floor(point.y / dist)
     const candidates: number[] = []
     for (let dx = -1; dx <= 1; dx += 1) {
       for (let dy = -1; dy <= 1; dy += 1) {
@@ -62,7 +71,7 @@ export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
     candidates.sort((a, b) => a - b)
     for (const j of candidates) {
       const other = points[j]
-      if (Math.hypot(point.x - other.x, point.y - other.y) <= CLUSTER_PIXEL_DISTANCE) {
+      if (Math.hypot(point.x - other.x, point.y - other.y) <= dist) {
         taken[j] = true
         items.push(other.r)
       }
@@ -82,10 +91,11 @@ export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
 // 해당 줌에서 이 가게가 다른 핀과 떨어져 보이는지.
 // false면 아무리 확대해도 개별 핀으로 못 고른다는 뜻(같은 건물 등).
 export function isSeparatedAt(restaurants: Restaurant[], target: Restaurant, zoom: number): boolean {
+  const dist = clusterDistanceAt(zoom)
   const point = worldPoint(target.lat, target.lng, zoom)
   return restaurants.every((other) => {
     if (other.id === target.id) return true
     const o = worldPoint(other.lat, other.lng, zoom)
-    return Math.hypot(point.x - o.x, point.y - o.y) > CLUSTER_PIXEL_DISTANCE
+    return Math.hypot(point.x - o.x, point.y - o.y) > dist
   })
 }
