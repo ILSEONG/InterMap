@@ -164,6 +164,34 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
     )
   }, [locating])
 
+  // 현재 위치 빨간 점 — 지도가 준비되면 실시간 추적을 시작하고, 위치가 올 때마다 점만 옮긴다.
+  useEffect(() => {
+    if (!mapReady || !navigator.geolocation) return
+    let marker: naver.maps.Marker | null = null
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        const pos = new window.naver.maps.LatLng(coords.latitude, coords.longitude)
+        if (marker) {
+          marker.setPosition(pos)
+          return
+        }
+        marker = new window.naver.maps.Marker({
+          position: pos,
+          map: mapRef.current!,
+          icon: { content: '<span class="my-loc"></span>', anchor: new window.naver.maps.Point(8, 8) },
+          zIndex: 10,
+        })
+      },
+      // 권한 거부 등이면 점만 안 그린다. 안내는 GPS 버튼의 alert가 담당.
+      () => {},
+      { enableHighAccuracy: true },
+    )
+    return () => {
+      navigator.geolocation.clearWatch(watchId)
+      marker?.setMap(null)
+    }
+  }, [mapReady])
+
   // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
   const focusRestaurant = useCallback((restaurant: Restaurant) => {
     const map = mapRef.current

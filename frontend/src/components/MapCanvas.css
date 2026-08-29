@@ -45,6 +45,17 @@
   }
 }
 
+/* 실시간 현재 위치 점 — 핀과 헷갈리지 않게 흰 테두리의 빨간 점 하나 */
+.my-loc {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ff3b30;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
 .map-canvas__error {
   position: absolute;
   inset: 0;
