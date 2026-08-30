@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import './Header.css'
 
+export type SearchMode = 'restaurant' | 'person'
+
 interface HeaderProps {
-  onOpenFilter: () => void
-  activeGroupCount: number
   query: string
   onQueryChange: (value: string) => void
+  searchMode: SearchMode
+  onSearchModeChange: (mode: SearchMode) => void
   // 로그인 상태면 닉네임, 아니면 null
   nickname: string | null
   onLogin: () => void
@@ -17,10 +19,10 @@ interface HeaderProps {
 export const WORDMARK_COLORS = ['#ff5d73', '#ff7a45', '#2fbfa6', '#8b6bff']
 
 export default function Header({
-  onOpenFilter,
-  activeGroupCount,
   query,
   onQueryChange,
+  searchMode,
+  onSearchModeChange,
   nickname,
   onLogin,
   onSignup,
@@ -107,14 +109,6 @@ export default function Header({
         )}
       </div>
 
-      <button type="button" className="app-header__filter" onClick={onOpenFilter}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 6H20M7 12H17M10 18H14" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-        </svg>
-        <span className="app-header__filter-label">맵필터</span>
-        {activeGroupCount > 0 && <span className="app-header__badge">{activeGroupCount}</span>}
-      </button>
-
       <div className="app-header__center">
         <h1 className="app-header__wordmark" aria-label="인터맵" aria-hidden={searching}>
           {letters.map((letter, i) => (
@@ -123,17 +117,38 @@ export default function Header({
             </span>
           ))}
         </h1>
-        <input
-          ref={inputRef}
-          type="search"
-          className="app-header__search"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onKeyDown={(e) => e.key === 'Escape' && toggleSearch()}
-          placeholder="가게 이름으로 찾기"
-          aria-label="가게 검색"
-          tabIndex={searching ? 0 : -1}
-        />
+        <div className="app-header__search-row">
+          <div className="app-header__search-mode" role="group" aria-label="검색 대상">
+            {(
+              [
+                ['restaurant', '가게'],
+                ['person', '사람'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`app-header__search-mode-chip${searchMode === value ? ' app-header__search-mode-chip--active' : ''}`}
+                aria-pressed={searchMode === value}
+                tabIndex={searching ? 0 : -1}
+                onClick={() => onSearchModeChange(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <input
+            ref={inputRef}
+            type="search"
+            className="app-header__search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && toggleSearch()}
+            placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '사람 이름으로 찾기'}
+            aria-label="가게 검색"
+            tabIndex={searching ? 0 : -1}
+          />
+        </div>
       </div>
 
       <button

@@ -1,6 +1,6 @@
 .app-header {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -84,61 +84,9 @@
   max-width: 160px;
 }
 
-.app-header__filter {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 2.5px solid var(--ink);
-  border-radius: var(--radius-pill);
-  padding: 8px 14px;
-  font-family: var(--font-display);
-  font-size: 13px;
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease, padding 220ms ease;
-}
-
-.app-header__filter:hover {
-  background: #fff0e0;
-  transform: translateY(-1px);
-}
-
-.app-header__filter-label {
-  max-width: 60px;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: max-width 220ms ease, opacity 160ms ease;
-}
-
-.app-header--searching .app-header__filter {
-  padding: 8px 10px;
-  gap: 0;
-}
-
-.app-header--searching .app-header__filter-label {
-  max-width: 0;
-  opacity: 0;
-}
-
-.app-header__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #fff9f2;
-  font-size: 11px;
-  border: 2px solid var(--ink);
-}
-
 .app-header__center {
   position: relative;
-  grid-column: 3;
+  grid-column: 2;
   min-width: 0;
   min-height: 34px;
   display: flex;
@@ -170,8 +118,55 @@
   pointer-events: none;
 }
 
-.app-header__search {
+.app-header__search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
+  min-width: 0;
+  opacity: 0;
+  transform: scaleX(0.7);
+  transform-origin: right center;
+  pointer-events: none;
+  transition: opacity 180ms ease 60ms, transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1) 60ms;
+}
+
+.app-header--searching .app-header__search-row {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* 검색창 왼쪽에 붙는 가게/사람 검색 대상 토글 */
+.app-header__search-mode {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 2px;
+  background: var(--ground-path);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+}
+
+.app-header__search-mode-chip {
+  border: none;
+  background: none;
+  padding: 5px 9px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.app-header__search-mode-chip--active {
+  background: var(--accent);
+  color: #fff9f2;
+}
+
+.app-header__search {
+  flex: 1;
   min-width: 0;
   box-sizing: border-box;
   padding: 7px 14px;
@@ -181,22 +176,11 @@
   font-family: inherit;
   font-size: 14px;
   color: var(--ink);
-  opacity: 0;
-  transform: scaleX(0.7);
-  transform-origin: right center;
-  pointer-events: none;
-  transition: opacity 180ms ease 60ms, transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1) 60ms;
 }
 
 .app-header__search:focus {
   outline: none;
   background: #fff0e0;
-}
-
-.app-header--searching .app-header__search {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
 }
 
 .app-header__search-toggle {
@@ -221,9 +205,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .app-header__wordmark,
-  .app-header__search,
-  .app-header__filter,
-  .app-header__filter-label {
+  .app-header__search-row {
     transition-duration: 1ms;
   }
 }

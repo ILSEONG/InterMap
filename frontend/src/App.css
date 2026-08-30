@@ -16,7 +16,7 @@
   padding: max(env(safe-area-inset-top), 14px) 12px 0;
   max-width: 480px;
   margin: 0 auto;
-  /* 주의: 여기에 transform을 주면 안 된다 — 자손인 .review-filter(fixed)의
+  /* 주의: 여기에 transform을 주면 안 된다 — 자손인 .bottom-controls(fixed)의
      기준점이 뷰포트에서 이 박스로 바뀌어 위치가 틀어진다. 레이어 분리는 .app-header에. */
 }
 
@@ -25,11 +25,53 @@
   pointer-events: auto;
 }
 
-/* 후기 유무 토글 — 화면 우측 하단에 떠 있는 알약 세그먼트 (앱 컬럼 480px 기준 정렬) */
-.review-filter {
+/* 맵필터 버튼 + 후기 유무 토글 — 화면 우측 하단에 떠 있는 한 줄 (앱 컬럼 480px 기준 정렬) */
+.bottom-controls {
   position: fixed;
   bottom: calc(env(safe-area-inset-bottom) + 16px);
   right: calc(max(0px, 50vw - 240px) + 12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-filter-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-raised);
+  border: 2.5px solid var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 9px 14px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow-float);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.map-filter-btn:hover {
+  background: #fff0e0;
+  transform: translateY(-1px);
+}
+
+.map-filter-btn__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff9f2;
+  font-size: 11px;
+  border: 2px solid var(--ink);
+}
+
+.review-filter {
   width: fit-content;
   display: inline-flex;
   padding: 3px;

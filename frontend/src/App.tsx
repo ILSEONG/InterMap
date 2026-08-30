@@ -8,7 +8,7 @@ import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
-import { groups, friends, me, restaurants as initialRestaurants, groupById } from './data/mock'
+import { groups, friends, me, restaurants as initialRestaurants, groupById, friendById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
 import { fetchRestaurants, fetchRestaurantCells, SUMMARY_MAX_ZOOM } from './lib/api'
 import type { AuthSession, BBox, ClusterCell, RestaurantRecord } from './lib/api'
@@ -137,6 +137,8 @@ export default function App() {
   })
   // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만
   const [reviewFilter, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
+  // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
+  const [searchMode, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
@@ -186,10 +188,12 @@ export default function App() {
           (r.groupIds.length === 0 ? activeGroupIds.has('none') : r.groupIds.some((g) => activeGroupIds.has(g))) &&
           (reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
           (keyword === '' ||
-            `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)),
+            (searchMode === 'restaurant'
+              ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
+              : r.reviews.some((rev) => friendById(rev.friendId)?.name.toLowerCase().includes(keyword)))),
       )
     },
-    [restaurants, activeGroupIds, reviewFilter, deferredQuery],
+    [restaurants, activeGroupIds, reviewFilter, searchMode, deferredQuery],
   )
 
   const todayStories = useMemo(() => {
@@ -263,33 +267,42 @@ export default function App() {
 
       <div className="app__chrome">
         <Header
-          onOpenFilter={() => setFilterOpen(true)}
-          activeGroupCount={activeGroupIds.size}
           query={query}
           onQueryChange={setQuery}
+          searchMode={searchMode}
+          onSearchModeChange={setSearchMode}
           nickname={session?.nickname ?? null}
           onLogin={() => setAuthMode('login')}
           onSignup={() => setAuthMode('signup')}
           onLogout={handleLogout}
         />
-        <div className="review-filter" role="group" aria-label="후기 유무 필터">
-          {(
-            [
-              ['all', '전체'],
-              ['with', '후기 있음'],
-              ['without', '후기 없음'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className={`review-filter__chip${reviewFilter === value ? ' review-filter__chip--active' : ''}`}
-              aria-pressed={reviewFilter === value}
-              onClick={() => setReviewFilter(value)}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="bottom-controls">
+          <button type="button" className="map-filter-btn" onClick={() => setFilterOpen(true)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6H20M7 12H17M10 18H14" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+            </svg>
+            맵필터
+            {activeGroupIds.size > 0 && <span className="map-filter-btn__badge">{activeGroupIds.size}</span>}
+          </button>
+          <div className="review-filter" role="group" aria-label="후기 유무 필터">
+            {(
+              [
+                ['all', '전체'],
+                ['with', '후기 있음'],
+                ['without', '후기 없음'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`review-filter__chip${reviewFilter === value ? ' review-filter__chip--active' : ''}`}
+                aria-pressed={reviewFilter === value}
+                onClick={() => setReviewFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         {query.trim() ? (
           <SearchResults

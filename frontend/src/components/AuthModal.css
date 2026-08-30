@@ -61,13 +61,6 @@
   gap: 4px;
 }
 
-.auth-modal__field > label {
-  font-family: var(--font-display);
-  font-size: 12px;
-  color: var(--ink-soft);
-  margin-left: 4px;
-}
-
 /* 이메일/휴대폰과 그 인증번호를 하나의 판 위에 올린다 */
 .auth-modal__group {
   display: flex;
@@ -118,6 +111,39 @@
   color: var(--ink-soft);
 }
 
+/* 라벨이 입력칸 안에 놓였다가 포커스/입력 시 좌상단으로 떠오르는 플로팅 라벨 */
+.auth-modal__float {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-modal__float label {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink-soft);
+  pointer-events: none;
+  transition: all 150ms ease;
+  background: transparent;
+  padding: 0 4px;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-modal__float input:focus + label,
+.auth-modal__float input:not(:placeholder-shown) + label {
+  top: 0;
+  transform: translateY(-50%) scale(0.82);
+  background: var(--surface-raised);
+  color: var(--accent);
+}
+
 .auth-modal__error {
   margin: 0;
   font-size: 12px;
@@ -146,10 +172,6 @@
   gap: 8px;
 }
 
-.auth-modal__row input {
-  flex: 1;
-  min-width: 0;
-}
 
 .auth-modal__send {
   flex: 0 0 auto;

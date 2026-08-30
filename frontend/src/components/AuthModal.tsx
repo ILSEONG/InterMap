@@ -152,37 +152,41 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
           {shown === 'signup' ? (
             <>
               <div className="auth-modal__field">
-                <label htmlFor="auth-nickname">닉네임</label>
-                <input
-                  id="auth-nickname"
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => {
-                    setNickname(e.target.value)
-                    setNickHint(null)
-                  }}
-                  onBlur={blurNickname}
-                  placeholder="지도에서 보일 이름"
-                  maxLength={20}
-                  required
-                />
+                <div className="auth-modal__float">
+                  <input
+                    id="auth-nickname"
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => {
+                      setNickname(e.target.value)
+                      setNickHint(null)
+                    }}
+                    onBlur={blurNickname}
+                    placeholder=" "
+                    maxLength={20}
+                    required
+                  />
+                  <label htmlFor="auth-nickname">닉네임</label>
+                </div>
                 {hintEl(nickHint)}
               </div>
 
               {/* 이메일과 그 인증번호는 한 덩어리로 묶어 보여준다 */}
               <div className="auth-modal__group">
                 <div className="auth-modal__field">
-                  <label htmlFor="auth-email">이메일</label>
                   <div className="auth-modal__row">
-                    <input
-                      id="auth-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="hello@intermap.app"
-                      autoComplete="email"
-                      required
-                    />
+                    <div className="auth-modal__float">
+                      <input
+                        id="auth-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder=" "
+                        autoComplete="email"
+                        required
+                      />
+                      <label htmlFor="auth-email">이메일</label>
+                    </div>
                     <button type="button" className="auth-modal__send" onClick={sendEmailCode} disabled={!email}>
                       {emailSent ? '재발송' : '인증번호 발송'}
                     </button>
@@ -190,33 +194,38 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
                   {hintEl(emailHint)}
                 </div>
                 {emailSent && (
-                  <input
-                    className="auth-modal__code"
-                    type="text"
-                    inputMode="numeric"
-                    value={emailCode}
-                    onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="인증번호 6자리"
-                    required
-                    aria-label="이메일 인증번호"
-                  />
+                  <div className="auth-modal__float">
+                    <input
+                      id="auth-email-code"
+                      className="auth-modal__code"
+                      type="text"
+                      inputMode="numeric"
+                      value={emailCode}
+                      onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="auth-email-code">인증번호 6자리</label>
+                  </div>
                 )}
               </div>
 
               <div className="auth-modal__group">
                 <div className="auth-modal__field">
-                  <label htmlFor="auth-phone">휴대폰 번호</label>
                   <div className="auth-modal__row">
-                    <input
-                      id="auth-phone"
-                      type="tel"
-                      inputMode="numeric"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                      placeholder="01012345678"
-                      autoComplete="tel"
-                      required
-                    />
+                    <div className="auth-modal__float">
+                      <input
+                        id="auth-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                        placeholder=" "
+                        autoComplete="tel"
+                        required
+                      />
+                      <label htmlFor="auth-phone">휴대폰 번호</label>
+                    </div>
                     <button type="button" className="auth-modal__send" onClick={sendPhoneCode} disabled={!phone}>
                       {phoneSent ? '재발송' : '인증번호 발송'}
                     </button>
@@ -224,58 +233,67 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
                   {hintEl(phoneHint)}
                 </div>
                 {phoneSent && (
-                  <input
-                    className="auth-modal__code"
-                    type="text"
-                    inputMode="numeric"
-                    value={phoneCode}
-                    onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="인증번호 6자리"
-                    required
-                    aria-label="휴대폰 인증번호"
-                  />
+                  <div className="auth-modal__float">
+                    <input
+                      id="auth-phone-code"
+                      className="auth-modal__code"
+                      type="text"
+                      inputMode="numeric"
+                      value={phoneCode}
+                      onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="auth-phone-code">인증번호 6자리</label>
+                  </div>
                 )}
               </div>
 
               <div className="auth-modal__field">
-                <label htmlFor="auth-password">비밀번호</label>
-                <input
-                  id="auth-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="8자 이상"
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
+                <div className="auth-modal__float">
+                  <input
+                    id="auth-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder=" "
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                  <label htmlFor="auth-password">비밀번호 (8자 이상)</label>
+                </div>
               </div>
             </>
           ) : (
             <>
               <div className="auth-modal__field">
-                <label htmlFor="auth-email">이메일</label>
-                <input
-                  id="auth-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="hello@intermap.app"
-                  autoComplete="email"
-                  required
-                />
+                <div className="auth-modal__float">
+                  <input
+                    id="auth-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder=" "
+                    autoComplete="email"
+                    required
+                  />
+                  <label htmlFor="auth-email">이메일</label>
+                </div>
               </div>
               <div className="auth-modal__field">
-                <label htmlFor="auth-password">비밀번호</label>
-                <input
-                  id="auth-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="비밀번호"
-                  autoComplete="current-password"
-                  required
-                />
+                <div className="auth-modal__float">
+                  <input
+                    id="auth-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder=" "
+                    autoComplete="current-password"
+                    required
+                  />
+                  <label htmlFor="auth-password">비밀번호</label>
+                </div>
               </div>
             </>
           )}
