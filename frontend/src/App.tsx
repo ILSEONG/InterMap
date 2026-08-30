@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
@@ -171,6 +171,19 @@ export default function App() {
       // 무시
     }
   }, [])
+
+  // 소셜 로그인 완료 후 백엔드가 ?token=&email=&nickname= (실패 시 ?authError=)를 달고 돌려보낸다
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    const email = params.get('email')
+    const nickname = params.get('nickname')
+    const authError = params.get('authError')
+    if (!token && !authError) return
+    if (token && email && nickname) handleAuthed({ token, email, nickname })
+    if (authError) alert(authError)
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [handleAuthed])
 
   // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
   const deferredQuery = useDeferredValue(query)

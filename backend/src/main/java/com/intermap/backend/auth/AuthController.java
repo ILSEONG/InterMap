@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
 @RestController
@@ -73,17 +74,21 @@ public class AuthController {
     private final SecureRandom random = new SecureRandom();
 
     private final AppUserRepository repository;
+    private final MailService mailService;
+    private final AlimtalkService alimtalkService;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-    public AuthController(AppUserRepository repository) {
+    public AuthController(AppUserRepository repository, MailService mailService, AlimtalkService alimtalkService) {
         this.repository = repository;
+        this.mailService = mailService;
+        this.alimtalkService = alimtalkService;
     }
 
     private static String normalizePhone(String raw) {
         return raw == null ? "" : raw.replaceAll("[^0-9]", "");
     }
 
-    private ResponseEntity<?> issueCode(String key, String target) {
+    private ResponseEntity<?> issueCode(String key, String target, BiConsumer<String, String> deliver) {
         Verification existing = codes.get(key);
         if (existing != null && existing.issuedAt.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now())) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -91,9 +96,7 @@ public class AuthController {
         }
         String code = String.format("%06d", random.nextInt(1_000_000));
         codes.put(key, new Verification(code));
-        // TODO: 실제 발송 연결 지점 — 이메일은 SMTP, 문자는 SMS 서비스(NCP SENS 등) 키 등록 후.
-        // 그 전까지는 서버 로그로만 코드를 확인한다.
-        log.info("[인증번호] {} -> {}", target, code);
+        deliver.accept(target, code);
         return ResponseEntity.ok(new OkResponse("인증번호를 보냈어요. 5분 안에 입력해주세요."));
     }
 
@@ -132,7 +135,7 @@ public class AuthController {
         if (repository.findByEmail(email).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 이메일이에요."));
         }
-        return issueCode("email:" + email, email);
+        return issueCode("email:" + email, email, mailService::sendVerificationCode);
     }
 
     @PostMapping("/api/auth/phone-code")
@@ -144,7 +147,7 @@ public class AuthController {
         if (repository.findByPhone(phone).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 번호예요."));
         }
-        return issueCode("phone:" + phone, phone);
+        return issueCode("phone:" + phone, phone, alimtalkService::sendVerificationCode);
     }
 
     @PostMapping("/api/auth/signup")

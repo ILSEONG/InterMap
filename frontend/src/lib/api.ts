@@ -86,6 +86,14 @@ export function login(email: string, password: string): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/login', { email, password })
 }
 
+export type OAuthProvider = 'google' | 'naver' | 'kakao'
+
+// 전체 페이지 이동으로 provider 로그인 화면을 연다. 완료되면 서버가
+// ?token=&email=&nickname= (또는 실패 시 ?authError=) 를 달고 프론트로 돌려보낸다.
+export function oauthUrl(provider: OAuthProvider): string {
+  return `${API_BASE}/api/auth/oauth/${provider}`
+}
+
 // 성공 메시지를 반환하고, 중복/형식 오류는 Error로 던진다
 export async function requestEmailCode(email: string): Promise<string> {
   return (await postJson<{ message: string }>('/api/auth/email-code', { email })).message

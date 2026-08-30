@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { checkNickname, login, requestEmailCode, requestPhoneCode, signup } from '../lib/api'
+import { checkNickname, login, oauthUrl, requestEmailCode, requestPhoneCode, signup } from '../lib/api'
 import type { AuthSession } from '../lib/api'
 import { WORDMARK_COLORS } from './Header'
 import './AuthModal.css'
 
 export type AuthMode = 'login' | 'signup'
 
-// 간편 로그인은 각 플랫폼 콘솔에 앱을 등록해야 열 수 있다.
-// 등록 후 BE OAuth 연동이 붙으면 authorizeUrl로 이동시키는 구조.
+// 각 provider 콘솔에 앱을 등록하고 CLIENT_ID/SECRET을 넣기 전까지는
+// 서버가 /api/auth/oauth/{provider}에서 "아직 연결 안 됨" 에러로 돌려보낸다.
 const SOCIAL_PROVIDERS = [
   { id: 'google', label: 'Google로 계속하기' },
   { id: 'naver', label: '네이버로 계속하기' },
@@ -314,7 +314,9 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
                   key={provider.id}
                   type="button"
                   className={`auth-modal__social-btn auth-modal__social-btn--${provider.id}`}
-                  onClick={() => setError('간편 로그인은 준비 중이에요. 이메일로 로그인해주세요.')}
+                  onClick={() => {
+                    window.location.href = oauthUrl(provider.id)
+                  }}
                 >
                   {provider.label}
                 </button>

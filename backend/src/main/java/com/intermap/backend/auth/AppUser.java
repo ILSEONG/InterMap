@@ -46,6 +46,13 @@ public class AppUser {
         this.phone = phone;
     }
 
+    // 소셜 로그인 최초 가입 — 비밀번호/휴대폰 없이 provider로 식별
+    public AppUser(String email, String nickname, String provider) {
+        this.email = email;
+        this.nickname = nickname;
+        this.provider = provider;
+    }
+
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
