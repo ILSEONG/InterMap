@@ -479,3 +479,10 @@
 .comment__reply-form {
   margin-top: 8px;
 }
+
+/* 주인장 후기 카드 — 그룹색 대신 로고 주황 계열로 구분 */
+.review-card--owner {
+  --group-color: #ff7a45;
+  border-style: double;
+  border-width: 4px;
+}

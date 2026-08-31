@@ -10,8 +10,19 @@ import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
 import { groups, friends, me, restaurants as initialRestaurants, groupById, friendById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
-import { fetchRestaurants, fetchRestaurantCells, fetchMe, logout, SUMMARY_MAX_ZOOM } from './lib/api'
-import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialLink } from './lib/api'
+import {
+  fetchRestaurants,
+  fetchRestaurantCells,
+  fetchMe,
+  fetchOwnerReviews,
+  postOwnerReview,
+  isAdmin,
+  restaurantKey,
+  logout,
+  SUMMARY_MAX_ZOOM,
+} from './lib/api'
+import { topPicksOf } from './lib/topPicks'
+import type { AuthSession, BBox, ClusterCell, OwnerReview, RestaurantRecord, SocialLink } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -144,6 +155,15 @@ export default function App() {
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
   const [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null)
   const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
+  // 주인장(admin) 후기. 서버에 쌓이고 모두에게 보인다. 양이 적어 시작 시 전부 받는다.
+  const [ownerReviews, setOwnerReviews] = useState<OwnerReview[]>([])
+  useEffect(() => {
+    fetchOwnerReviews()
+      .then(setOwnerReviews)
+      .catch(() => {
+        // 못 받으면 주인장 영역만 비어 보인다
+      })
+  }, [])
 
   // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
   const [authMode, setAuthMode] = useState<AuthMode | null>(null)
@@ -235,6 +255,16 @@ export default function App() {
     [restaurants, activeGroupIds, reviewFilter, searchMode, deferredQuery],
   )
 
+  // 사람 검색이면 이름이 걸린 사람마다 별점 높은 가게 TOP 5를 요약해 보여준다
+  const personPicks = useMemo(() => {
+    const keyword = deferredQuery.trim().toLowerCase()
+    if (searchMode !== 'person' || keyword.length < MIN_QUERY_LENGTH) return []
+    return [me, ...friends]
+      .filter((f) => f.name.toLowerCase().includes(keyword))
+      .map((friend) => ({ friend, picks: topPicksOf(visibleRestaurants, friend.id) }))
+      .filter(({ picks }) => picks.length > 0)
+  }, [searchMode, deferredQuery, visibleRestaurants])
+
   const todayStories = useMemo(() => {
     const activeFriendIds = new Set(
       restaurants.flatMap((r) => r.reviews.filter((rev) => rev.postedHoursAgo <= 24).map((rev) => rev.friendId)),
@@ -262,6 +292,15 @@ export default function App() {
   }
 
   function addReview(restaurantId: string, rating: number, text: string) {
+    // 주인장으로 로그인했으면 이웃 후기가 아니라 서버의 주인장 후기로 쌓인다
+    if (isAdmin(session)) {
+      const target = restaurants.find((r) => r.id === restaurantId)
+      if (!target) return
+      postOwnerReview(restaurantKey(target), rating, text)
+        .then((saved) => setOwnerReviews((prev) => [saved, ...prev]))
+        .catch((e: Error) => alert(e.message))
+      return
+    }
     setRestaurants((prev) =>
       prev.map((r) =>
         r.id === restaurantId
@@ -346,6 +385,7 @@ export default function App() {
         {query.trim() ? (
           <SearchResults
             results={visibleRestaurants}
+            topPicks={personPicks}
             groups={groups}
             tooShort={query.trim().length < MIN_QUERY_LENGTH}
             minLength={MIN_QUERY_LENGTH}
@@ -368,6 +408,10 @@ export default function App() {
 
       <RestaurantSheet
         restaurant={selectedRestaurant}
+        ownerReviews={
+          selectedRestaurant ? ownerReviews.filter((o) => o.restaurantKey === restaurantKey(selectedRestaurant)) : []
+        }
+        asOwner={isAdmin(session)}
         groups={groups}
         onClose={() => setSelectedId(null)}
         onStartMeetup={(restaurant) => setMeetupRestaurant(restaurant)}

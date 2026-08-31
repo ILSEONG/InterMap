@@ -156,6 +156,36 @@ export async function checkNickname(nickname: string): Promise<boolean> {
   return (await res.json()).available
 }
 
+// 관리자(주인장) 계정. 서버 AdminSeeder.ADMIN_EMAIL과 같은 값
+export const ADMIN_EMAIL = 'admin'
+
+export function isAdmin(session: AuthSession | null): boolean {
+  return session?.email === ADMIN_EMAIL
+}
+
+// 주인장 후기가 붙는 가게 키. mock 가게든 DB 가게든 "이름|주소"로 잇는다 (App.mergeRecords와 같은 규칙)
+export function restaurantKey(r: { name: string; address: string }): string {
+  return `${r.name}|${r.address}`
+}
+
+export interface OwnerReview {
+  id: number
+  restaurantKey: string
+  rating: number
+  text: string
+  createdAt: string
+}
+
+export async function fetchOwnerReviews(): Promise<OwnerReview[]> {
+  const res = await fetch(`${API_BASE}/api/owner-reviews`)
+  if (!res.ok) throw new Error(`주인장 후기 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+export function postOwnerReview(key: string, rating: number, text: string): Promise<OwnerReview> {
+  return postJson<OwnerReview>('/api/owner-reviews', { restaurantKey: key, rating, text })
+}
+
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom }).map(([k, v]) => [k, String(v)]))
   const res = await fetch(`${API_BASE}/api/restaurants/summary?${params}`)

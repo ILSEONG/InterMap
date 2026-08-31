@@ -1,10 +1,15 @@
 import { useRef, useState } from 'react'
 import type { Comment, Restaurant, FriendGroup } from '../data/mock'
 import { friendById, groupById } from '../data/mock'
+import type { OwnerReview } from '../lib/api'
 import './RestaurantSheet.css'
 
 interface RestaurantSheetProps {
   restaurant: Restaurant | null
+  // 이 가게에 달린 주인장 후기. 비어 있으면 영역 자체를 숨긴다
+  ownerReviews: OwnerReview[]
+  // 주인장(admin)으로 로그인한 상태 — 후기 폼이 주인장 후기로 저장된다
+  asOwner: boolean
   groups: FriendGroup[]
   onClose: () => void
   onStartMeetup: (restaurant: Restaurant) => void
@@ -31,6 +36,8 @@ const FLICK_VELOCITY = 0.5
 
 export default function RestaurantSheet({
   restaurant,
+  ownerReviews,
+  asOwner,
   groups,
   onClose,
   onStartMeetup,
@@ -138,6 +145,8 @@ export default function RestaurantSheet({
             <SheetBody
               key={shown.id}
               restaurant={shown}
+              ownerReviews={ownerReviews}
+              asOwner={asOwner}
               groups={groups}
               onStartMeetup={onStartMeetup}
               onAddReview={onAddReview}
@@ -152,13 +161,15 @@ export default function RestaurantSheet({
 
 interface SheetBodyProps {
   restaurant: Restaurant
+  ownerReviews: OwnerReview[]
+  asOwner: boolean
   groups: FriendGroup[]
   onStartMeetup: (restaurant: Restaurant) => void
   onAddReview: (restaurantId: string, rating: number, text: string) => void
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
-function SheetBody({ restaurant, groups, onStartMeetup, onAddReview, onAddComment }: SheetBodyProps) {
+function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, onAddReview, onAddComment }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
   const [draftComment, setDraftComment] = useState('')
@@ -259,15 +270,39 @@ function SheetBody({ restaurant, groups, onStartMeetup, onAddReview, onAddCommen
             className="review-form__text"
             value={draftReview}
             onChange={(e) => setDraftReview(e.target.value)}
-            placeholder="이 가게 어땠어요? 이웃들에게 알려주세요"
+            placeholder={asOwner ? '주인장으로 남기는 후기 — 모두에게 보여요' : '이 가게 어땠어요? 이웃들에게 알려주세요'}
             aria-label="후기 입력"
             rows={2}
           />
           <button type="button" className="review-form__submit" onClick={submitReview} disabled={!draftReview.trim()}>
-            후기 등록
+            {asOwner ? '주인장 후기 등록' : '후기 등록'}
           </button>
         </div>
       </section>
+
+      {ownerReviews.length > 0 && (
+        <section className="restaurant-sheet__section">
+          <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
+          <div className="restaurant-sheet__reviews">
+            {ownerReviews.map((review) => (
+              <article key={review.id} className="review-card review-card--owner">
+                <header className="review-card__header">
+                  <span className="review-card__avatar">주</span>
+                  <div>
+                    <p className="review-card__name">주인장</p>
+                    <p className="review-card__time">{new Date(review.createdAt).toLocaleDateString('ko-KR')}</p>
+                  </div>
+                  <span className="review-card__rating">
+                    <Stars value={review.rating} />
+                    <em>{review.rating.toFixed(1)}</em>
+                  </span>
+                </header>
+                <p className="review-card__text">{review.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="restaurant-sheet__section">
         <h3 className="restaurant-sheet__section-title">댓글</h3>

@@ -376,11 +376,13 @@ export default function AuthModal({ mode, link, onClose, onSwitch, onAuthed }: A
                 <div className="auth-modal__float">
                   <input
                     id="auth-email"
-                    type="email"
+                    // 관리자 아이디(admin)는 이메일 형식이 아니라 브라우저 검증을 걸지 않는다
+                    type="text"
+                    inputMode="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder=" "
-                    autoComplete="email"
+                    autoComplete="username"
                     required
                   />
                   <label htmlFor="auth-email">이메일</label>
