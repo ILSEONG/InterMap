@@ -35,5 +35,6 @@ public class MailService {
         message.setSubject("[인터맵] 이메일 인증번호");
         message.setText("인증번호: " + code + "\n5분 안에 입력해주세요.");
         mailSender.send(message);
+        log.info("[이메일 인증번호] {} 발송 완료", email);
     }
 }

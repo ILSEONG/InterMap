@@ -95,8 +95,15 @@ public class AuthController {
                     .body(new ErrorResponse("잠시 후 다시 요청해주세요."));
         }
         String code = String.format("%06d", random.nextInt(1_000_000));
+        // 발송이 실패하면 저장하지 않는다 — 안 그러면 실패한 요청이 쿨다운만 걸어버린다
+        try {
+            deliver.accept(target, code);
+        } catch (RuntimeException e) {
+            log.error("인증번호 발송 실패 {}", key, e);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(new ErrorResponse("인증번호 발송에 실패했어요. 잠시 후 다시 시도해주세요."));
+        }
         codes.put(key, new Verification(code));
-        deliver.accept(target, code);
         return ResponseEntity.ok(new OkResponse("인증번호를 보냈어요. 5분 안에 입력해주세요."));
     }
 

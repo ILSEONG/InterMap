@@ -13,23 +13,16 @@
 
 ---
 
-## 1. 백엔드 배포 (Fly.io)
+## 1. 백엔드 배포 (Render)
 
-필요한 것: Fly.io 계정(무료), `flyctl` CLI 설치 (https://fly.io/docs/flyctl/install/)
+Render 대시보드(https://dashboard.render.com)에서 GitHub 저장소를 Web Service로 연결한다. `backend/Dockerfile`로 빌드된다.
 
-```bash
-cd backend
-fly auth login
-fly launch --no-deploy        # fly.toml 이미 있으므로 기존 설정 사용 선택
-fly volumes create intermap_data --region nrt --size 1
-fly secrets set NAVER_SEARCH_CLIENT_ID=xxx NAVER_SEARCH_CLIENT_SECRET=xxx LOCALDATA_AUTH_KEY=xxx
-fly deploy
-```
-
-- 배포 후 주소: `https://intermap-backend.fly.dev` (앱 이름에 따라 다름)
-- H2 파일 DB는 `/data` 볼륨에 저장되어 재배포해도 유지된다.
-- **인스턴스는 반드시 1대만** 유지할 것 (H2 파일 잠금 충돌). `fly.toml`에 반영돼 있음.
-- 확인: `https://<앱주소>/api/restaurants` 접속 시 JSON 응답.
+- 서비스 이름: `intermap-be` → 주소 `https://intermap-be.onrender.com`
+- DB는 Neon Postgres. Environment 탭에 `JDBC_URL`(Neon 접속 문자열)과
+  `NAVER_SEARCH_CLIENT_ID`, `NAVER_SEARCH_CLIENT_SECRET`, `LOCALDATA_AUTH_KEY`,
+  `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD`(Gmail 앱 비밀번호), OAuth 키를 넣는다.
+- 환경변수 저장 시 자동 재배포된다. 로그는 Logs 탭.
+- 확인: `https://intermap-be.onrender.com/api/restaurants` 접속 시 JSON 응답.
 
 ## 2. 네이버 클라우드 콘솔 등록
 
@@ -46,7 +39,7 @@ NCP 콘솔 > Maps > Application > 서비스 환경 등록(Web 서비스 URL)에 
 
 ```
 VITE_NAVER_MAP_CLIENT_ID=<기존 값>
-VITE_API_BASE_URL=https://intermap-backend.fly.dev
+VITE_API_BASE_URL=https://intermap-be.onrender.com
 ```
 
 빌드:

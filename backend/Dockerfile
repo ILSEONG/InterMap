@@ -9,6 +9,6 @@ RUN sh ./gradlew --no-daemon bootJar
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
-# DB 접속(JDBC_URL)은 fly secret으로 주입된다 (Postgres)
+# DB 접속(JDBC_URL)은 Render 환경변수로 주입된다 (Neon Postgres)
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
