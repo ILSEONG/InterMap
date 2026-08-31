@@ -89,7 +89,19 @@ export function login(email: string, password: string): Promise<AuthSession> {
 export type OAuthProvider = 'google' | 'naver' | 'kakao'
 
 // 전체 페이지 이동으로 provider 로그인 화면을 연다. 완료되면 서버가
-// ?token=&email=&nickname= (또는 실패 시 ?authError=) 를 달고 프론트로 돌려보낸다.
+// 연결된 회원이면 ?token=&email=&nickname=, 아니면 ?linkTicket=&provider=&email= (계정 연결 화면으로),
+// 실패 시 ?authError= 를 달고 프론트로 돌려보낸다.
+export interface SocialLink {
+  ticket: string
+  provider: OAuthProvider
+  email?: string
+}
+
+// 이메일+비밀번호로 계정을 증명하면 그 계정에 소셜 계정이 연결되고 로그인된다
+export function linkSocial(ticket: string, email: string, password: string): Promise<AuthSession> {
+  return postJson<AuthSession>('/api/auth/link-social', { linkTicket: ticket, email, password })
+}
+
 export function oauthUrl(provider: OAuthProvider): string {
   return `${API_BASE}/api/auth/oauth/${provider}`
 }

@@ -16,7 +16,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
@@ -41,20 +40,20 @@ public class OAuthController {
     }
 
     private static final long STATE_TTL_SECONDS = 600;
-    private static final int MAX_NICKNAME_ATTEMPTS = 20;
 
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper mapper = new ObjectMapper();
-    private final SecureRandom random = new SecureRandom();
     private final Map<String, Instant> pendingStates = new ConcurrentHashMap<>();
 
     private final Map<String, ProviderConfig> providers;
     private final AppUserRepository repository;
+    private final PendingSocialLinks pendingLinks;
     private final String backendBaseUrl;
     private final String frontendBaseUrl;
 
     public OAuthController(
         AppUserRepository repository,
+        PendingSocialLinks pendingLinks,
         @Value("${backend.base-url}") String backendBaseUrl,
         @Value("${frontend.base-url}") String frontendBaseUrl,
         @Value("${oauth.google.client-id}") String googleId, @Value("${oauth.google.client-secret}") String googleSecret,
@@ -62,6 +61,7 @@ public class OAuthController {
         @Value("${oauth.kakao.client-id}") String kakaoId, @Value("${oauth.kakao.client-secret}") String kakaoSecret
     ) {
         this.repository = repository;
+        this.pendingLinks = pendingLinks;
         this.backendBaseUrl = backendBaseUrl;
         this.frontendBaseUrl = frontendBaseUrl;
         this.providers = Map.of(
@@ -128,13 +128,21 @@ public class OAuthController {
             if (profile.providerId() == null || profile.providerId().isBlank()) {
                 return redirectWithError("로그인 정보를 가져오지 못했어요.");
             }
-            // 카카오는 이메일 동의항목이 비즈니스 채널 심사 전에는 막혀 있는 경우가 많다.
-            // 이메일을 못 받으면 provider+id로 고유한 가짜 이메일을 발급해 가입을 막지 않는다.
-            String email = (profile.email() == null || profile.email().isBlank())
-                ? provider + "_" + profile.providerId() + "@oauth.intermap.local"
-                : profile.email();
+            String email = profile.email() == null ? "" : profile.email().trim().toLowerCase();
 
-            AppUser user = repository.findByEmail(email).orElseGet(() -> createUser(provider, email, profile));
+            // 이 소셜 계정이 연결된 회원이 있으면 로그인. 없으면 "계정 연결" 화면으로 보내
+            // 이메일+비밀번호로 계정을 증명하게 한다 (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
+            // 계정 자체가 없으면 거기서 회원가입으로 안내한다.
+            AppUser user = repository.findByProviderAndProviderId(provider, profile.providerId()).orElse(null);
+            if (user == null) {
+                String ticket = pendingLinks.put(provider, profile.providerId(), email);
+                URI target = UriComponentsBuilder.fromUriString(frontendBaseUrl)
+                    .queryParam("linkTicket", ticket)
+                    .queryParam("provider", provider)
+                    .queryParamIfPresent("email", email.isBlank() ? Optional.empty() : Optional.of(email))
+                    .encode().build().toUri();
+                return ResponseEntity.status(302).location(target).build();
+            }
             user.issueToken(UUID.randomUUID().toString());
             repository.save(user);
 
@@ -147,17 +155,6 @@ public class OAuthController {
         } catch (Exception e) {
             return redirectWithError("로그인 중 문제가 생겼어요. 다시 시도해주세요.");
         }
-    }
-
-    private AppUser createUser(String provider, String email, Profile profile) {
-        String base = (profile.nickname() == null || profile.nickname().isBlank()) ? "인터맵러" : profile.nickname().trim();
-        String nickname = base.length() > 20 ? base.substring(0, 20) : base;
-        for (int i = 0; i < MAX_NICKNAME_ATTEMPTS && repository.findByNickname(nickname).isPresent(); i++) {
-            String suffix = String.valueOf(1000 + random.nextInt(9000));
-            String trimmedBase = base.length() > 15 ? base.substring(0, 15) : base;
-            nickname = trimmedBase + suffix;
-        }
-        return new AppUser(email, nickname, provider);
     }
 
     private String exchangeToken(String provider, ProviderConfig config, String code, String state) {

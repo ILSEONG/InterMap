@@ -8,4 +8,5 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByEmail(String email);
     Optional<AppUser> findByNickname(String nickname);
     Optional<AppUser> findByPhone(String phone);
+    Optional<AppUser> findByProviderAndProviderId(String provider, String providerId);
 }

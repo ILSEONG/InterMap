@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
@@ -30,6 +33,10 @@ public class AuthController {
     }
 
     public record LoginRequest(String email, String password) {
+    }
+
+    // 소셜 로그인 뒤 우리 계정과 연결할 때. 계정 소유 증명으로 이메일+비밀번호를 한 번 받는다.
+    public record LinkRequest(String linkTicket, String email, String password) {
     }
 
     public record CodeRequest(String email, String phone) {
@@ -55,6 +62,13 @@ public class AuthController {
     private static final long RESEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_VERIFY_ATTEMPTS = 5;
 
+    // 인증번호 발송 일일 상한 (SMS pumping 방어). 뚫려도 하루 손실이 문자 300건 ≈ 5,400원에서 멈춘다.
+    private static final int DAILY_PER_TARGET = 5;      // 같은 이메일/번호
+    private static final int DAILY_PER_IP = 10;         // 같은 IP, 이메일+문자 합산
+    private static final int DAILY_GLOBAL_SMS = 300;
+    private static final int DAILY_GLOBAL_EMAIL = 250;  // Brevo 무료 한도 300 아래
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     // 발급된 인증번호. 단일 인스턴스 전제라 메모리로 충분 (재시작하면 재발송하면 됨).
     private static final class Verification {
         final String code;
@@ -75,24 +89,51 @@ public class AuthController {
     private final Map<String, Verification> codes = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
+    // 일일 발송 카운터. 날짜가 바뀌면 통째로 비운다. 메모리라 재시작 시 초기화 — 인증번호 저장소와 같은 전제.
+    private final Map<String, Integer> dailyCounts = new ConcurrentHashMap<>();
+    private volatile LocalDate countsDay = LocalDate.now(KST);
+
+    private boolean overDailyLimit(String key, int limit) {
+        LocalDate today = LocalDate.now(KST);
+        if (!today.equals(countsDay)) {
+            dailyCounts.clear();
+            countsDay = today;
+        }
+        return dailyCounts.merge(key, 1, Integer::sum) > limit;
+    }
+
+    // Render 프록시 뒤라 실제 클라이언트 IP는 X-Forwarded-For 첫 번째 값
+    private static String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        return forwarded == null || forwarded.isBlank() ? request.getRemoteAddr() : forwarded.split(",")[0].trim();
+    }
+
     private final AppUserRepository repository;
     private final MailService mailService;
     private final SmsService smsService;
+    private final PendingSocialLinks pendingLinks;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-    public AuthController(AppUserRepository repository, MailService mailService, SmsService smsService) {
+    public AuthController(AppUserRepository repository, MailService mailService, SmsService smsService,
+                          PendingSocialLinks pendingLinks) {
         this.repository = repository;
         this.mailService = mailService;
         this.smsService = smsService;
+        this.pendingLinks = pendingLinks;
     }
 
     private static String normalizePhone(String raw) {
         return raw == null ? "" : raw.replaceAll("[^0-9]", "");
     }
 
-    private ResponseEntity<?> issueCode(String key, String target, BiConsumer<String, String> deliver) {
+    private ResponseEntity<?> issueCode(String key, String target, String ip, BiConsumer<String, String> deliver) {
         Verification existing = codes.get(key);
-        if (existing != null && existing.issuedAt.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now())) {
+        boolean sms = key.startsWith("phone:");
+        // 어떤 규칙에 걸렸는지 구분해서 알려주지 않는다 — 규칙을 알면 그만큼 우회하기 쉽다
+        if ((existing != null && existing.issuedAt.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now()))
+                || overDailyLimit("target:" + key, DAILY_PER_TARGET)
+                || overDailyLimit("ip:" + ip, DAILY_PER_IP)
+                || overDailyLimit(sms ? "global:sms" : "global:email", sms ? DAILY_GLOBAL_SMS : DAILY_GLOBAL_EMAIL)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(new ErrorResponse("잠시 후 다시 요청해주세요."));
         }
@@ -157,7 +198,7 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/email-code")
-    public ResponseEntity<?> sendEmailCode(@RequestBody CodeRequest request) {
+    public ResponseEntity<?> sendEmailCode(@RequestBody CodeRequest request, HttpServletRequest http) {
         String email = request.email() == null ? "" : request.email().trim().toLowerCase();
         if (!EMAIL.matcher(email).matches()) {
             return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
@@ -165,11 +206,11 @@ public class AuthController {
         if (repository.findByEmail(email).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 이메일이에요."));
         }
-        return issueCode("email:" + email, email, mailService::sendVerificationCode);
+        return issueCode("email:" + email, email, clientIp(http), mailService::sendVerificationCode);
     }
 
     @PostMapping("/api/auth/phone-code")
-    public ResponseEntity<?> sendPhoneCode(@RequestBody CodeRequest request) {
+    public ResponseEntity<?> sendPhoneCode(@RequestBody CodeRequest request, HttpServletRequest http) {
         String phone = normalizePhone(request.phone());
         if (!PHONE.matcher(phone).matches()) {
             return ResponseEntity.badRequest().body(new ErrorResponse("휴대폰 번호를 확인해주세요."));
@@ -177,7 +218,7 @@ public class AuthController {
         if (repository.findByPhone(phone).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 번호예요."));
         }
-        return issueCode("phone:" + phone, phone, smsService::sendVerificationCode);
+        return issueCode("phone:" + phone, phone, clientIp(http), smsService::sendVerificationCode);
     }
 
     @PostMapping("/api/auth/signup")
@@ -222,13 +263,42 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
     }
 
+    // 이메일+비밀번호가 맞으면 그 계정에 소셜 계정을 연결하고 로그인시킨다
+    @PostMapping("/api/auth/link-social")
+    public ResponseEntity<?> linkSocial(@RequestBody LinkRequest request) {
+        PendingSocialLinks.Pending pending = pendingLinks.get(request.linkTicket());
+        if (pending == null) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("소셜 로그인 정보가 만료됐어요. 다시 시도해주세요."));
+        }
+        AppUser user = authenticate(request.email(), request.password());
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("이메일 또는 비밀번호가 맞지 않아요."));
+        }
+        if (user.getProviderId() != null && !pending.providerId().equals(user.getProviderId())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이 계정에는 이미 다른 SNS 계정이 연결돼 있어요."));
+        }
+        user.linkProvider(pending.provider(), pending.providerId());
+        user.issueToken(UUID.randomUUID().toString());
+        repository.save(user);
+        pendingLinks.remove(request.linkTicket());
+        return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
+    }
+
+    // 이메일 존재 여부를 구분해서 알려주지 않는다 (계정 존재 탐지 방지). 실패하면 null
+    private AppUser authenticate(String rawEmail, String password) {
+        String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
+        AppUser user = repository.findByEmail(email).orElse(null);
+        if (user == null || user.getPasswordHash() == null
+                || password == null || !encoder.matches(password, user.getPasswordHash())) {
+            return null;
+        }
+        return user;
+    }
+
     @PostMapping("/api/auth/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        String email = request.email() == null ? "" : request.email().trim().toLowerCase();
-        AppUser user = repository.findByEmail(email).orElse(null);
-        // 이메일 존재 여부를 구분해서 알려주지 않는다 (계정 존재 탐지 방지)
-        if (user == null || user.getPasswordHash() == null
-                || request.password() == null || !encoder.matches(request.password(), user.getPasswordHash())) {
+        AppUser user = authenticate(request.email(), request.password());
+        if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("이메일 또는 비밀번호가 맞지 않아요."));
         }
         user.issueToken(UUID.randomUUID().toString());

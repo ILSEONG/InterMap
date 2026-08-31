@@ -11,7 +11,7 @@ import MeetupSheet from './components/MeetupSheet'
 import { groups, friends, me, restaurants as initialRestaurants, groupById, friendById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
 import { fetchRestaurants, fetchRestaurantCells, SUMMARY_MAX_ZOOM } from './lib/api'
-import type { AuthSession, BBox, ClusterCell, RestaurantRecord } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialLink } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -154,9 +154,12 @@ export default function App() {
       return null
     }
   })
+  // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
+  const [socialLink, setSocialLink] = useState<SocialLink | null>(null)
   const handleAuthed = useCallback((next: AuthSession) => {
     setSession(next)
     setAuthMode(null)
+    setSocialLink(null)
     try {
       localStorage.setItem('intermap.session', JSON.stringify(next))
     } catch {
@@ -172,15 +175,22 @@ export default function App() {
     }
   }, [])
 
-  // 소셜 로그인 완료 후 백엔드가 ?token=&email=&nickname= (실패 시 ?authError=)를 달고 돌려보낸다
+  // 소셜 로그인 완료 후 백엔드가 연결된 회원이면 ?token=&email=&nickname=, 아니면 ?linkTicket=&provider=&email=,
+  // 실패 시 ?authError= 를 달고 돌려보낸다
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
+    const linkTicket = params.get('linkTicket')
+    const provider = params.get('provider') as SocialLink['provider'] | null
     const email = params.get('email')
     const nickname = params.get('nickname')
     const authError = params.get('authError')
-    if (!token && !authError) return
+    if (!token && !linkTicket && !authError) return
     if (token && email && nickname) handleAuthed({ token, email, nickname })
+    if (linkTicket && provider) {
+      setSocialLink({ ticket: linkTicket, provider, email: email ?? undefined })
+      setAuthMode('link')
+    }
     if (authError) alert(authError)
     window.history.replaceState(null, '', window.location.pathname)
   }, [handleAuthed])
@@ -351,7 +361,19 @@ export default function App() {
 
       <MeetupSheet restaurant={meetupRestaurant} friends={friends} onClose={() => setMeetupRestaurant(null)} />
 
-      <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onSwitch={setAuthMode} onAuthed={handleAuthed} />
+      <AuthModal
+        mode={authMode}
+        link={socialLink}
+        onClose={() => {
+          setAuthMode(null)
+          setSocialLink(null)
+        }}
+        onSwitch={(next) => {
+          setSocialLink(null)
+          setAuthMode(next)
+        }}
+        onAuthed={handleAuthed}
+      />
     </div>
   )
 }

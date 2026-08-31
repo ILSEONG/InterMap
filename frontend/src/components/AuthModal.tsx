@@ -8,19 +8,21 @@ import {
   signup,
   verifyEmailCode,
   verifyPhoneCode,
+  linkSocial,
 } from '../lib/api'
-import type { AuthSession } from '../lib/api'
+import type { AuthSession, SocialLink } from '../lib/api'
 import { WORDMARK_COLORS } from './Header'
 import './AuthModal.css'
 
-export type AuthMode = 'login' | 'signup'
+// link: 소셜 로그인 직후, 아직 연결 안 된 우리 계정을 이메일+비밀번호로 증명해 연결하는 화면
+export type AuthMode = 'login' | 'signup' | 'link'
 
 // 각 provider 콘솔에 앱을 등록하고 CLIENT_ID/SECRET을 넣기 전까지는
 // 서버가 /api/auth/oauth/{provider}에서 "아직 연결 안 됨" 에러로 돌려보낸다.
 const SOCIAL_PROVIDERS = [
-  { id: 'google', label: 'Google로 계속하기' },
-  { id: 'naver', label: '네이버로 계속하기' },
-  { id: 'kakao', label: '카카오로 계속하기' },
+  { id: 'google', name: 'Google', label: 'Google로 계속하기' },
+  { id: 'naver', name: '네이버', label: '네이버로 계속하기' },
+  { id: 'kakao', name: '카카오', label: '카카오로 계속하기' },
 ] as const
 
 interface Hint {
@@ -66,12 +68,14 @@ function makeCodeHandlers(
 
 interface AuthModalProps {
   mode: AuthMode | null
+  // mode가 'link'일 때: 소셜 로그인은 됐지만 아직 연결 안 된 계정의 서버 티켓. 이메일+비밀번호로 계정을 증명하면 연결된다.
+  link?: SocialLink | null
   onClose: () => void
   onSwitch: (mode: AuthMode) => void
   onAuthed: (session: AuthSession) => void
 }
 
-export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthModalProps) {
+export default function AuthModal({ mode, link, onClose, onSwitch, onAuthed }: AuthModalProps) {
   const open = mode !== null
   // 닫히는 애니메이션 동안 내용이 유지되도록 마지막 모드를 기억한다
   const lastModeRef = useRef<AuthMode>('login')
@@ -109,7 +113,9 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
       setNickname('')
       setPhone('')
     }
-  }, [open, shown])
+    // 계정 연결 화면은 provider가 알려준 이메일을 미리 채워준다 (수정 가능)
+    if (open && shown === 'link' && link?.email) setEmail(link.email)
+  }, [open, shown, link])
 
   // 닉네임 칸을 떠날 때 중복 확인
   function blurNickname() {
@@ -152,7 +158,9 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
     const request =
       shown === 'login'
         ? login(email, password)
-        : signup({ email, emailCode, phone, phoneCode, password, nickname })
+        : shown === 'link'
+          ? linkSocial(link?.ticket ?? '', email, password)
+          : signup({ email, emailCode, phone, phoneCode, password, nickname })
     request
       .then(onAuthed)
       .catch((err: Error) => setError(err.message))
@@ -168,11 +176,13 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
         className="auth-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={shown === 'login' ? '로그인' : '회원가입'}
+        aria-label={shown === 'login' ? '로그인' : shown === 'link' ? 'SNS 계정 연결' : '회원가입'}
       >
         <h2 className="auth-modal__title">
           {shown === 'login' ? (
             '다시 만나서 반가워요'
+          ) : shown === 'link' ? (
+            'SNS 계정 연결하기'
           ) : (
             <>
               <span className="auth-modal__brand">
@@ -186,6 +196,12 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
             </>
           )}
         </h2>
+        {shown === 'link' && (
+          <p className="auth-modal__desc">
+            아직 연결되지 않은 {SOCIAL_PROVIDERS.find((p) => p.id === link?.provider)?.name ?? 'SNS'} 계정이에요.
+            가입한 이메일과 비밀번호로 로그인하면 이 계정과 연결되고, 다음부터는 바로 로그인돼요.
+          </p>
+        )}
 
         <form className="auth-modal__form" onSubmit={submit}>
           {shown === 'signup' ? (
@@ -374,7 +390,7 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
             className="auth-modal__submit"
             disabled={busy || (shown === 'signup' && (emailStep !== 'verified' || phoneStep !== 'verified'))}
           >
-            {busy ? '잠시만요…' : shown === 'login' ? '로그인' : '가입하기'}
+            {busy ? '잠시만요…' : shown === 'login' ? '로그인' : shown === 'link' ? '연결하고 로그인' : '가입하기'}
           </button>
         </form>
 
@@ -401,7 +417,7 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
         )}
 
         <p className="auth-modal__switch">
-          {shown === 'login' ? (
+          {shown !== 'signup' ? (
             <>
               아직 계정이 없나요?{' '}
               <button type="button" onClick={() => onSwitch('signup')}>
