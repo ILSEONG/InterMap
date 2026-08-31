@@ -20,7 +20,7 @@ Render 대시보드(https://dashboard.render.com)에서 GitHub 저장소를 Web 
 - 서비스 이름: `intermap-be` → 주소 `https://intermap-be.onrender.com`
 - DB는 Neon Postgres. Environment 탭에 `JDBC_URL`(Neon 접속 문자열)과
   `NAVER_SEARCH_CLIENT_ID`, `NAVER_SEARCH_CLIENT_SECRET`, `LOCALDATA_AUTH_KEY`,
-  `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD`(Gmail 앱 비밀번호), OAuth 키를 넣는다.
+  `BREVO_API_KEY`(이메일 인증번호 발송, Render 무료 티어는 SMTP 차단이라 Brevo API 사용), OAuth 키를 넣는다.
 - 환경변수 저장 시 자동 재배포된다. 로그는 Logs 탭.
 - 확인: `https://intermap-be.onrender.com/api/restaurants` 접속 시 JSON 응답.
 

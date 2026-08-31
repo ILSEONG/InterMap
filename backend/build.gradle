@@ -21,7 +21,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	// 이메일 인증번호 실발송
-	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	// OAuth 프로필 응답(JSON) 파싱
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 	// 인허가 TM 좌표(EPSG:5174) -> WGS84 변환
