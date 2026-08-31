@@ -60,13 +60,15 @@ public class AuthController {
         final String code;
         final Instant issuedAt = Instant.now();
         int attempts = 0;
+        // 확인 버튼으로 이미 맞춘 상태. 가입 폼 마저 채우는 동안 만료되지 않게 TTL을 면제한다.
+        boolean verified = false;
 
         Verification(String code) {
             this.code = code;
         }
 
         boolean expired() {
-            return issuedAt.plusSeconds(CODE_TTL_SECONDS).isBefore(Instant.now());
+            return !verified && issuedAt.plusSeconds(CODE_TTL_SECONDS).isBefore(Instant.now());
         }
     }
 
@@ -107,12 +109,15 @@ public class AuthController {
         return ResponseEntity.ok(new OkResponse("인증번호를 보냈어요. 5분 안에 입력해주세요."));
     }
 
-    // null이면 통과, 아니면 그대로 응답할 에러
+    // null이면 통과, 아니면 그대로 응답할 에러. 통과해도 지우지 않는다 — 가입 완료 시점에 지운다.
     private ErrorResponse verifyCode(String key, String input) {
         Verification verification = codes.get(key);
         if (verification == null || verification.expired()) {
             codes.remove(key);
             return new ErrorResponse("인증번호를 다시 받아주세요.");
+        }
+        if (verification.verified) {
+            return null;
         }
         if (verification.attempts >= MAX_VERIFY_ATTEMPTS) {
             codes.remove(key);
@@ -122,8 +127,26 @@ public class AuthController {
         if (input == null || !verification.code.equals(input.trim())) {
             return new ErrorResponse("인증번호가 맞지 않아요.");
         }
-        codes.remove(key);
+        verification.verified = true;
         return null;
+    }
+
+    private ResponseEntity<?> verifyResponse(String key, String input) {
+        ErrorResponse error = verifyCode(key, input);
+        return error != null
+                ? ResponseEntity.badRequest().body(error)
+                : ResponseEntity.ok(new OkResponse("인증됐어요."));
+    }
+
+    @PostMapping("/api/auth/verify-email-code")
+    public ResponseEntity<?> verifyEmailCode(@RequestBody SignupRequest request) {
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase();
+        return verifyResponse("email:" + email, request.emailCode());
+    }
+
+    @PostMapping("/api/auth/verify-phone-code")
+    public ResponseEntity<?> verifyPhoneCode(@RequestBody SignupRequest request) {
+        return verifyResponse("phone:" + normalizePhone(request.phone()), request.phoneCode());
     }
 
     @GetMapping("/api/auth/check-nickname")
@@ -194,6 +217,8 @@ public class AuthController {
         AppUser user = new AppUser(email, encoder.encode(request.password()), nickname, phone);
         user.issueToken(UUID.randomUUID().toString());
         repository.save(user);
+        codes.remove("email:" + email);
+        codes.remove("phone:" + phone);
         return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
     }
 

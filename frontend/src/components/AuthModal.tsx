@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { checkNickname, login, oauthUrl, requestEmailCode, requestPhoneCode, signup } from '../lib/api'
+import {
+  checkNickname,
+  login,
+  oauthUrl,
+  requestEmailCode,
+  requestPhoneCode,
+  signup,
+  verifyEmailCode,
+  verifyPhoneCode,
+} from '../lib/api'
 import type { AuthSession } from '../lib/api'
 import { WORDMARK_COLORS } from './Header'
 import './AuthModal.css'
@@ -16,7 +25,43 @@ const SOCIAL_PROVIDERS = [
 
 interface Hint {
   text: string
-  tone: 'ok' | 'error'
+  tone: 'ok' | 'error' | 'info'
+}
+
+// 인증번호 진행 단계: 발송 전 → 발송 중 → 발송됨(입력 대기) → 확인됨
+type CodeStep = 'idle' | 'sending' | 'sent' | 'verified'
+
+function makeCodeHandlers(
+  step: CodeStep,
+  setStep: (s: CodeStep) => void,
+  setHint: (h: Hint | null) => void,
+  request: () => Promise<string>,
+  verify: () => Promise<string>,
+) {
+  return {
+    send() {
+      const wasSent = step !== 'idle'
+      setStep('sending')
+      setHint({ text: '인증번호 발송 중...', tone: 'info' })
+      request()
+        .then((message) => {
+          setStep('sent')
+          setHint({ text: message, tone: 'ok' })
+        })
+        .catch((err: Error) => {
+          setStep(wasSent ? 'sent' : 'idle')
+          setHint({ text: err.message, tone: 'error' })
+        })
+    },
+    confirm() {
+      verify()
+        .then((message) => {
+          setStep('verified')
+          setHint({ text: message, tone: 'ok' })
+        })
+        .catch((err: Error) => setHint({ text: err.message, tone: 'error' }))
+    },
+  }
 }
 
 interface AuthModalProps {
@@ -43,8 +88,8 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
   const [nickHint, setNickHint] = useState<Hint | null>(null)
   const [emailHint, setEmailHint] = useState<Hint | null>(null)
   const [phoneHint, setPhoneHint] = useState<Hint | null>(null)
-  const [emailSent, setEmailSent] = useState(false)
-  const [phoneSent, setPhoneSent] = useState(false)
+  const [emailStep, setEmailStep] = useState<CodeStep>('idle')
+  const [phoneStep, setPhoneStep] = useState<CodeStep>('idle')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -57,8 +102,8 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
     setPhoneHint(null)
     setEmailCode('')
     setPhoneCode('')
-    setEmailSent(false)
-    setPhoneSent(false)
+    setEmailStep('idle')
+    setPhoneStep('idle')
     if (!open) {
       setEmail('')
       setNickname('')
@@ -84,26 +129,20 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
       .catch(() => setNickHint(null))
   }
 
-  // 발송 버튼: 서버가 중복이면 에러 메시지로 알려준다
-  function sendEmailCode() {
-    setEmailHint(null)
-    requestEmailCode(email)
-      .then((message) => {
-        setEmailSent(true)
-        setEmailHint({ text: message, tone: 'ok' })
-      })
-      .catch((err: Error) => setEmailHint({ text: err.message, tone: 'error' }))
-  }
-
-  function sendPhoneCode() {
-    setPhoneHint(null)
-    requestPhoneCode(phone)
-      .then((message) => {
-        setPhoneSent(true)
-        setPhoneHint({ text: message, tone: 'ok' })
-      })
-      .catch((err: Error) => setPhoneHint({ text: err.message, tone: 'error' }))
-  }
+  // 발송/확인 버튼: 서버가 중복·불일치면 에러 메시지로 알려준다
+  const emailField = makeCodeHandlers(
+    emailStep, setEmailStep, setEmailHint,
+    () => requestEmailCode(email),
+    () => verifyEmailCode(email, emailCode),
+  )
+  const phoneField = makeCodeHandlers(
+    phoneStep, setPhoneStep, setPhoneHint,
+    () => requestPhoneCode(phone),
+    () => verifyPhoneCode(phone, phoneCode),
+  )
+  const sendLabel = (step: CodeStep) =>
+    step === 'sending' ? '발송 중' : step === 'idle' ? '인증번호 발송' : '재발송'
+  const codeShown = (step: CodeStep) => step === 'sent' || step === 'verified'
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -187,27 +226,43 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
                       />
                       <label htmlFor="auth-email">이메일</label>
                     </div>
-                    <button type="button" className="auth-modal__send" onClick={sendEmailCode} disabled={!email}>
-                      {emailSent ? '재발송' : '인증번호 발송'}
+                    <button
+                      type="button"
+                      className="auth-modal__send"
+                      onClick={emailField.send}
+                      disabled={!email || emailStep === 'sending' || emailStep === 'verified'}
+                    >
+                      {sendLabel(emailStep)}
                     </button>
                   </div>
-                  {hintEl(emailHint)}
                 </div>
-                {emailSent && (
-                  <div className="auth-modal__float">
-                    <input
-                      id="auth-email-code"
-                      className="auth-modal__code"
-                      type="text"
-                      inputMode="numeric"
-                      value={emailCode}
-                      onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder=" "
-                      required
-                    />
-                    <label htmlFor="auth-email-code">인증번호 6자리</label>
+                {codeShown(emailStep) && (
+                  <div className="auth-modal__row">
+                    <div className="auth-modal__float">
+                      <input
+                        id="auth-email-code"
+                        className="auth-modal__code"
+                        type="text"
+                        inputMode="numeric"
+                        value={emailCode}
+                        onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder=" "
+                        disabled={emailStep === 'verified'}
+                        required
+                      />
+                      <label htmlFor="auth-email-code">인증번호 6자리</label>
+                    </div>
+                    <button
+                      type="button"
+                      className="auth-modal__send"
+                      onClick={emailField.confirm}
+                      disabled={emailCode.length !== 6 || emailStep === 'verified'}
+                    >
+                      {emailStep === 'verified' ? '인증됨' : '확인'}
+                    </button>
                   </div>
                 )}
+                {hintEl(emailHint)}
               </div>
 
               <div className="auth-modal__group">
@@ -226,27 +281,43 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
                       />
                       <label htmlFor="auth-phone">휴대폰 번호</label>
                     </div>
-                    <button type="button" className="auth-modal__send" onClick={sendPhoneCode} disabled={!phone}>
-                      {phoneSent ? '재발송' : '인증번호 발송'}
+                    <button
+                      type="button"
+                      className="auth-modal__send"
+                      onClick={phoneField.send}
+                      disabled={!phone || phoneStep === 'sending' || phoneStep === 'verified'}
+                    >
+                      {sendLabel(phoneStep)}
                     </button>
                   </div>
-                  {hintEl(phoneHint)}
                 </div>
-                {phoneSent && (
-                  <div className="auth-modal__float">
-                    <input
-                      id="auth-phone-code"
-                      className="auth-modal__code"
-                      type="text"
-                      inputMode="numeric"
-                      value={phoneCode}
-                      onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder=" "
-                      required
-                    />
-                    <label htmlFor="auth-phone-code">인증번호 6자리</label>
+                {codeShown(phoneStep) && (
+                  <div className="auth-modal__row">
+                    <div className="auth-modal__float">
+                      <input
+                        id="auth-phone-code"
+                        className="auth-modal__code"
+                        type="text"
+                        inputMode="numeric"
+                        value={phoneCode}
+                        onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder=" "
+                        disabled={phoneStep === 'verified'}
+                        required
+                      />
+                      <label htmlFor="auth-phone-code">인증번호 6자리</label>
+                    </div>
+                    <button
+                      type="button"
+                      className="auth-modal__send"
+                      onClick={phoneField.confirm}
+                      disabled={phoneCode.length !== 6 || phoneStep === 'verified'}
+                    >
+                      {phoneStep === 'verified' ? '인증됨' : '확인'}
+                    </button>
                   </div>
                 )}
+                {hintEl(phoneHint)}
               </div>
 
               <div className="auth-modal__field">
@@ -298,7 +369,11 @@ export default function AuthModal({ mode, onClose, onSwitch, onAuthed }: AuthMod
             </>
           )}
           {error && <p className="auth-modal__error">{error}</p>}
-          <button type="submit" className="auth-modal__submit" disabled={busy}>
+          <button
+            type="submit"
+            className="auth-modal__submit"
+            disabled={busy || (shown === 'signup' && (emailStep !== 'verified' || phoneStep !== 'verified'))}
+          >
             {busy ? '잠시만요…' : shown === 'login' ? '로그인' : '가입하기'}
           </button>
         </form>

@@ -167,6 +167,10 @@
   color: #c02c4c;
 }
 
+.auth-modal__hint--info {
+  color: #5f5a55;
+}
+
 .auth-modal__row {
   display: flex;
   gap: 8px;

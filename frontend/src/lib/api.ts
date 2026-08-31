@@ -103,6 +103,15 @@ export async function requestPhoneCode(phone: string): Promise<string> {
   return (await postJson<{ message: string }>('/api/auth/phone-code', { phone })).message
 }
 
+// 인증번호 확인. 맞으면 서버가 기억해두고 가입 시 다시 검사하지 않는다.
+export async function verifyEmailCode(email: string, emailCode: string): Promise<string> {
+  return (await postJson<{ message: string }>('/api/auth/verify-email-code', { email, emailCode })).message
+}
+
+export async function verifyPhoneCode(phone: string, phoneCode: string): Promise<string> {
+  return (await postJson<{ message: string }>('/api/auth/verify-phone-code', { phone, phoneCode })).message
+}
+
 export async function checkNickname(nickname: string): Promise<boolean> {
   const res = await fetch(`${API_BASE}/api/auth/check-nickname?value=${encodeURIComponent(nickname)}`)
   if (!res.ok) throw new Error(`닉네임 확인 실패 (${res.status})`)
