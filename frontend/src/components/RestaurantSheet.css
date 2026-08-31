@@ -486,3 +486,108 @@
   border-style: double;
   border-width: 4px;
 }
+
+/* 후기 사진 — 카드 안 가로 스크롤 썸네일, 탭하면 전체화면 */
+.review-card__photos {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.review-card__photos::-webkit-scrollbar {
+  display: none;
+}
+
+.review-card__photo {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.review-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(43, 33, 64, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.photo-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+/* 후기 작성 폼의 사진 선택 */
+.review-form__photos {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.review-form__thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.review-form__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.review-form__thumb button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 0 0 0 var(--radius-sm);
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-form__add-photo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 56px;
+  height: 56px;
+  border: 2px dashed rgba(43, 33, 64, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+}

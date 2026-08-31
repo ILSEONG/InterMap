@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Restaurant, FriendGroup } from '../data/mock'
+import type { Restaurant, FriendGroup } from '../data/model'
 import { loadNaverMaps } from '../lib/loadNaverMaps'
-import { clusterPins, isSeparatedAt } from '../lib/cluster'
+import { clusterPins } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
 import { SUMMARY_MAX_ZOOM } from '../lib/api'
 import type { ClusterCell } from '../lib/api'
@@ -285,32 +285,25 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
         const restaurant = pin.items.find((r) => r.id === row.getAttribute('data-place-id'))
         if (!restaurant) return
         infoWindow.close()
-        // 최대로 확대해도 이웃과 겹치는 자리(한 건물 등)는 핀으로 고를 수 없으니 바로 상세를 연다.
-        if (!isSeparatedAt(restaurantsRef.current, restaurant, MAX_ZOOM)) {
-          setFocusedId(restaurant.id)
-          // 개별 핀으로는 영영 못 갈라지니, 건물 단위가 보이는 수준까지 확대만 하고
-          // 위치는 가운데 그대로 둔다 (위로 밀어올리지 않는다).
-          const map = mapRef.current
-          if (map) {
-            map.morph(
-              new window.naver.maps.LatLng(restaurant.lat, restaurant.lng),
-              Math.max(map.getZoom(), DETAIL_ZOOM),
-              PAN_TRANSITION,
-            )
-          }
-          onPick(restaurant)
-          return
-        }
-        // 이웃과 갈라져 개별 핀으로 보이는 줌까지 확대하며 그 가게로 이동한다.
         const map = mapRef.current
-        if (map) {
-          let targetZoom = map.getZoom()
-          while (targetZoom < MAX_ZOOM && !isSeparatedAt(restaurantsRef.current, restaurant, targetZoom)) {
+        if (!map) return
+        setFocusedId(restaurant.id)
+        // 이 묶음이 최대 줌에서 몇 덩이로 갈라지는지. 1이면 전부 한 건물이라 확대해도 소용없다.
+        const splitCount = clusterPins(pin.items, MAX_ZOOM).length
+        let targetZoom = map.getZoom()
+        if (splitCount === 1) {
+          // 건물 단위가 보이는 수준까지만 확대
+          targetZoom = Math.max(targetZoom, DETAIL_ZOOM)
+        } else {
+          // 갈라질 수 있는 건 다 갈라지고 진짜 같은 자리인 것만 남는 줌까지 올린다.
+          // 고른 가게 하나만 떨어졌다고 멈추면 나머지가 아직 묶여 있어 "셋이 한 자리"로 오해한다.
+          while (targetZoom < MAX_ZOOM && clusterPins(pin.items, targetZoom).length < splitCount) {
             targetZoom += 1
           }
-          setFocusedId(restaurant.id)
-          map.morph(new window.naver.maps.LatLng(restaurant.lat, restaurant.lng), targetZoom, PAN_TRANSITION)
         }
+        // 목록에서 이미 골랐으니 한 번 더 탭하게 하지 않고 상세를 바로 연다
+        map.morph(new window.naver.maps.LatLng(restaurant.lat, restaurant.lng), targetZoom, PAN_TRANSITION)
+        onPick(restaurant)
       })
     },
     [groups, onPick],

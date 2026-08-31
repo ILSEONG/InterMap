@@ -1,4 +1,4 @@
-import type { Restaurant } from '../data/mock'
+import type { Restaurant } from '../data/model'
 
 export interface Pin {
   key: string
@@ -86,15 +86,4 @@ export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
   })
 
   return pins
-}
-
-// 해당 줌에서 이 가게가 다른 핀과 떨어져 보이는지.
-// false면 아무리 확대해도 개별 핀으로 못 고른다는 뜻(같은 건물 등).
-export function isSeparatedAt(restaurants: Restaurant[], target: Restaurant, zoom: number): boolean {
-  const point = worldPoint(target.lat, target.lng, zoom)
-  return restaurants.every((other) => {
-    if (other.id === target.id) return true
-    const o = worldPoint(other.lat, other.lng, zoom)
-    return Math.hypot(point.x - o.x, point.y - o.y) > CLUSTER_PIXEL_DISTANCE
-  })
 }

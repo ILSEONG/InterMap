@@ -1,4 +1,4 @@
-import type { FriendGroup, GroupId } from '../data/mock'
+import type { FriendGroup, GroupId } from '../data/model'
 import './GroupFilterSheet.css'
 
 interface GroupFilterSheetProps {

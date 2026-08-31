@@ -11,6 +11,8 @@
 }
 
 .story-chip {
+  /* 친구 그룹 색이 없어진 뒤로는 로고 주황 링 하나로 통일 */
+  --ring-color: var(--accent);
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;

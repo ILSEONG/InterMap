@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import type { Restaurant, Friend, FriendGroup } from '../data/mock'
-import { groupById } from '../data/mock'
+import type { Restaurant, Friend, FriendGroup } from '../data/model'
+import { groupById } from '../data/model'
 import './MeetupSheet.css'
 
 interface MeetupSheetProps {

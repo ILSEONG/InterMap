@@ -1,4 +1,4 @@
-import type { Restaurant, FriendGroup } from '../data/mock'
+import type { Restaurant, FriendGroup } from '../data/model'
 import './PlaceRow.css'
 
 interface PlaceRowProps {

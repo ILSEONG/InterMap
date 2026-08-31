@@ -1,34 +1,25 @@
-import { useRef, useState } from 'react'
-import type { Comment, Restaurant, FriendGroup } from '../data/mock'
-import { friendById, groupById } from '../data/mock'
-import type { OwnerReview } from '../lib/api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
+import ReviewCard from './ReviewCard'
+import Stars from './Stars'
 import './RestaurantSheet.css'
 
 interface RestaurantSheetProps {
   restaurant: Restaurant | null
   // 이 가게에 달린 주인장 후기. 비어 있으면 영역 자체를 숨긴다
-  ownerReviews: OwnerReview[]
+  ownerReviews: Review[]
   // 주인장(admin)으로 로그인한 상태 — 후기 폼이 주인장 후기로 저장된다
   asOwner: boolean
   groups: FriendGroup[]
   onClose: () => void
   onStartMeetup: (restaurant: Restaurant) => void
-  onAddReview: (restaurantId: string, rating: number, text: string) => void
+  // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
+  onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
-// 0.1점 단위 별점을 채워진 별 너비로 그린다.
-function Stars({ value }: { value: number }) {
-  return (
-    <span className="stars" aria-hidden="true">
-      <span className="stars__base">★★★★★</span>
-      <span className="stars__fill" style={{ width: `${(value / 5) * 100}%` }}>
-        ★★★★★
-      </span>
-    </span>
-  )
-}
-
+// 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
+const MAX_PHOTOS = 10
 // 손잡이를 이보다 아래로 끌어내리면 시트를 닫는다.
 const MIN_SHEET_HEIGHT = 140
 // 이 속도(px/ms) 이상으로 튕기면 끝까지 펼치거나 닫는다.
@@ -161,11 +152,12 @@ export default function RestaurantSheet({
 
 interface SheetBodyProps {
   restaurant: Restaurant
-  ownerReviews: OwnerReview[]
+  ownerReviews: Review[]
   asOwner: boolean
   groups: FriendGroup[]
   onStartMeetup: (restaurant: Restaurant) => void
-  onAddReview: (restaurantId: string, rating: number, text: string) => void
+  // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
+  onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
@@ -173,15 +165,33 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
   const [draftComment, setDraftComment] = useState('')
+  const [draftPhotos, setDraftPhotos] = useState<File[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  // 선택한 사진 미리보기 URL. 목록이 바뀔 때마다 이전 URL은 해제한다
+  const previews = useMemo(() => draftPhotos.map((f) => URL.createObjectURL(f)), [draftPhotos])
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
 
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
   const rootComments = restaurant.comments.filter((c) => !c.parentId)
 
-  function submitReview() {
-    if (!draftReview.trim()) return
-    onAddReview(restaurant.id, draftRating, draftReview.trim())
-    setDraftReview('')
-    setDraftRating(5)
+  async function submitReview() {
+    if (!draftReview.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      await onAddReview(restaurant.id, draftRating, draftReview.trim(), draftPhotos)
+      setDraftReview('')
+      setDraftRating(5)
+      setDraftPhotos([])
+    } catch {
+      // App이 이미 alert로 알렸다. 입력값은 그대로 둔다
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function addPhotos(list: FileList | null) {
+    if (!list) return
+    setDraftPhotos((prev) => [...prev, ...Array.from(list)].slice(0, MAX_PHOTOS))
   }
 
   function submitComment() {
@@ -227,28 +237,9 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
           <p className="restaurant-sheet__empty">아직 이웃 후기가 없어요. 첫 후기를 남겨보세요!</p>
         )}
         <div className="restaurant-sheet__reviews">
-          {restaurant.reviews.map((review) => {
-            const friend = friendById(review.friendId)
-            const group = friend ? groupById(friend.groupId) : undefined
-            return (
-              <article key={review.id} className="review-card" style={{ ['--group-color' as string]: group?.color ?? '#8B6BFF' }}>
-                <header className="review-card__header">
-                  <span className="review-card__avatar">{friend?.initials.slice(0, 1)}</span>
-                  <div>
-                    <p className="review-card__name">{friend?.name}</p>
-                    <p className="review-card__time">
-                      {review.postedHoursAgo === 0 ? '방금 전' : `${review.postedHoursAgo}시간 전`}
-                    </p>
-                  </div>
-                  <span className="review-card__rating">
-                    <Stars value={review.rating} />
-                    <em>{review.rating.toFixed(1)}</em>
-                  </span>
-                </header>
-                <p className="review-card__text">{review.text}</p>
-              </article>
-            )
-          })}
+          {restaurant.reviews.map((review) => (
+            <ReviewCard key={review.id} review={review} />
+          ))}
         </div>
 
         <div className="review-form">
@@ -274,8 +265,42 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
             aria-label="후기 입력"
             rows={2}
           />
-          <button type="button" className="review-form__submit" onClick={submitReview} disabled={!draftReview.trim()}>
-            {asOwner ? '주인장 후기 등록' : '후기 등록'}
+          <div className="review-form__photos">
+            {previews.map((url, i) => (
+              <span key={url} className="review-form__thumb">
+                <img src={url} alt={`선택한 사진 ${i + 1}`} />
+                <button
+                  type="button"
+                  onClick={() => setDraftPhotos((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label="사진 빼기"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+            {draftPhotos.length < MAX_PHOTOS && (
+              <label className="review-form__add-photo">
+                📷 사진
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => {
+                    addPhotos(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <button
+            type="button"
+            className="review-form__submit"
+            onClick={submitReview}
+            disabled={!draftReview.trim() || submitting}
+          >
+            {submitting ? '등록 중…' : asOwner ? '주인장 후기 등록' : '후기 등록'}
           </button>
         </div>
       </section>
@@ -285,20 +310,7 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
           <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
           <div className="restaurant-sheet__reviews">
             {ownerReviews.map((review) => (
-              <article key={review.id} className="review-card review-card--owner">
-                <header className="review-card__header">
-                  <span className="review-card__avatar">주</span>
-                  <div>
-                    <p className="review-card__name">주인장</p>
-                    <p className="review-card__time">{new Date(review.createdAt).toLocaleDateString('ko-KR')}</p>
-                  </div>
-                  <span className="review-card__rating">
-                    <Stars value={review.rating} />
-                    <em>{review.rating.toFixed(1)}</em>
-                  </span>
-                </header>
-                <p className="review-card__text">{review.text}</p>
-              </article>
+              <ReviewCard key={review.id} review={review} />
             ))}
           </div>
         </section>
@@ -347,7 +359,6 @@ interface CommentItemProps {
 function CommentItem({ comment, replies, onReply }: CommentItemProps) {
   const [replying, setReplying] = useState(false)
   const [draft, setDraft] = useState('')
-  const friend = friendById(comment.friendId)
 
   function submit() {
     if (!draft.trim()) return
@@ -370,7 +381,7 @@ function CommentItem({ comment, replies, onReply }: CommentItemProps) {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
-              placeholder={`${friend?.name ?? ''}님에게 답글`}
+              placeholder={`${comment.authorName}님에게 답글`}
               aria-label="답글 입력"
               autoFocus
             />
@@ -402,16 +413,13 @@ interface CommentRowProps {
 
 // 프로필 사진 왼쪽, 이름 위 / 내용 아래, 답글은 내용 밑에 붙는 인스타그램식 배치
 function CommentRow({ comment, small, children }: CommentRowProps) {
-  const friend = friendById(comment.friendId)
-  const group = friend ? groupById(friend.groupId) : undefined
-
   return (
-    <div className={`comment${small ? ' comment--small' : ''}`} style={{ ['--group-color' as string]: group?.color ?? '#8B6BFF' }}>
+    <div className={`comment${small ? ' comment--small' : ''}`} style={{ ['--group-color' as string]: '#8B6BFF' }}>
       <span className="comment__avatar" aria-hidden="true">
-        {friend?.initials.slice(0, 1)}
+        {comment.authorName.slice(0, 1)}
       </span>
       <div className="comment__body">
-        <p className="comment__author">{friend?.name}</p>
+        <p className="comment__author">{comment.authorName}</p>
         <p className="comment__text">{comment.text}</p>
         {children}
       </div>

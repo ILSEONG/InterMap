@@ -1,4 +1,4 @@
-import type { Restaurant, FriendGroup, Friend } from '../data/mock'
+import type { Restaurant, FriendGroup, ReviewAuthor } from '../data/model'
 import { shortLocation } from '../lib/topPicks'
 import type { TopPick } from '../lib/topPicks'
 import PlaceRow from './PlaceRow'
@@ -7,7 +7,7 @@ import './SearchResults.css'
 interface SearchResultsProps {
   results: Restaurant[]
   // 사람 검색일 때 이름이 걸린 사람별 별점 TOP 5 요약
-  topPicks: { friend: Friend; picks: TopPick[] }[]
+  topPicks: { author: Pick<ReviewAuthor, 'id' | 'name'>; picks: TopPick[] }[]
   groups: FriendGroup[]
   tooShort: boolean
   minLength: number
@@ -25,9 +25,9 @@ export default function SearchResults({ results, topPicks, groups, tooShort, min
 
   return (
     <div className="search-results">
-      {topPicks.map(({ friend, picks }) => (
-        <section key={friend.id} className="top-picks">
-          <h3 className="top-picks__title">{friend.name}의 별점 TOP 5</h3>
+      {topPicks.map(({ author, picks }) => (
+        <section key={author.id} className="top-picks">
+          <h3 className="top-picks__title">{author.name}의 별점 TOP 5</h3>
           <ol className="top-picks__list">
             {picks.map(({ restaurant, rating }, i) => (
               <li key={restaurant.id}>

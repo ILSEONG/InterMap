@@ -1,41 +1,40 @@
 import assert from 'node:assert/strict'
-import { topPicksOf } from './topPicks.ts'
-import type { Restaurant, Review } from '../data/mock'
+import { shortLocation, topPicksOf } from './topPicks.ts'
+import type { Restaurant, Review } from '../data/model'
 
 function shop(id: string, reviews: Review[]): Restaurant {
   return { id, name: id, category: '', address: '', lat: 0, lng: 0, groupIds: [], reviews, comments: [] }
 }
-const rv = (friendId: string, rating: number, postedHoursAgo = 0): Review => ({
-  id: `${friendId}-${rating}-${postedHoursAgo}`,
-  friendId,
+let seq = 0
+const rv = (authorId: number, rating: number, hoursAgo = 0): Review => ({
+  id: ++seq,
+  restaurant: { name: '', category: '', address: '' },
+  author: { id: authorId, name: `u${authorId}`, owner: false },
   rating,
   text: '',
-  postedHoursAgo,
+  createdAt: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
 })
 
 const list = [
-  shop('a', [rv('f1', 3)]),
-  shop('b', [rv('f1', 5, 10), rv('f2', 1)]),
-  shop('c', [rv('f1', 5, 2)]),
-  shop('d', [rv('f2', 4)]),
-  shop('e', [rv('f1', 2), rv('f1', 4)]), // 같은 사람 후기 둘 → 높은 별점 4
-  shop('f', [rv('f1', 1)]),
-  shop('g', [rv('f1', 1)]),
+  shop('a', [rv(1, 3)]),
+  shop('b', [rv(1, 5, 10), rv(2, 1)]),
+  shop('c', [rv(1, 5, 2)]),
+  shop('d', [rv(2, 4)]),
+  shop('e', [rv(1, 2), rv(1, 4)]), // 같은 사람 후기 둘 → 높은 별점 4
+  shop('f', [rv(1, 1)]),
+  shop('g', [rv(1, 1)]),
 ]
 
-const picks = topPicksOf(list, 'f1')
-// 별점 내림차순, 동점(5점)은 최근 것(c) 먼저, 최대 5개 (f1이 남긴 가게는 6곳)
+// 별점 내림차순, 동점(5점)은 최근 것(c) 먼저, 최대 5개 (1번이 남긴 가게는 6곳)
 assert.deepEqual(
-  picks.map((p) => `${p.restaurant.id}:${p.rating}`),
+  topPicksOf(list, 1).map((p) => `${p.restaurant.id}:${p.rating}`),
   ['c:5', 'b:5', 'e:4', 'a:3', 'f:1'],
 )
 // 남의 후기는 섞이지 않는다
-assert.deepEqual(topPicksOf(list, 'f2').map((p) => p.restaurant.id), ['d', 'b'])
-assert.deepEqual(topPicksOf(list, 'nobody'), [])
-
+assert.deepEqual(topPicksOf(list, 2).map((p) => p.restaurant.id), ['d', 'b'])
+assert.deepEqual(topPicksOf(list, 99), [])
 console.log('topPicks ok')
 
-import { shortLocation } from './topPicks.ts'
 assert.equal(shortLocation('서울 마포구 연남동 223-14'), '서울 마포구')
 assert.equal(shortLocation('서울특별시 강남구 테헤란로 152'), '서울 강남구')
 assert.equal(shortLocation('경기도 성남시 분당구 판교역로 235'), '경기 성남시')

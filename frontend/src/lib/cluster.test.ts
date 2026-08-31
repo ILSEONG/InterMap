@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { clusterPins, isSeparatedAt, latAtWorldY, worldPoint } from './cluster.ts'
-import type { Restaurant } from '../data/mock'
+import { clusterPins, latAtWorldY, worldPoint } from './cluster.ts'
+import type { Restaurant } from '../data/model'
 
 function shop(id: string, lat: number, lng: number): Restaurant {
   return { id, name: id, category: '', address: '', lat, lng, groupIds: [], reviews: [], comments: [] }
@@ -37,11 +37,18 @@ for (const zoom of [12, 15, 18]) {
 const base = worldPoint(37.5625, 126.9256, 15)
 assert.ok(latAtWorldY(base.y + 200, 15) < 37.5625)
 
-// 같은 건물 수준으로 붙은 가게는 최대 확대(20)에서도 못 가른다고 나와야 한다
+// 같은 좌표(한 건물)는 최대 줌(21)에서도 한 핀. 8m 떨어진 둘은 21에서 갈라진다
 const sameSpot = { ...a, id: 'same-building', lat: a.lat, lng: a.lng }
-assert.equal(isSeparatedAt([a, sameSpot], a, 20), false)
-assert.equal(isSeparatedAt([a, far], a, 20), true)
-// 8m 거리면 20에서는 갈라진다
-assert.equal(isSeparatedAt([a, b], a, 20), true)
+assert.equal(clusterPins([a, sameSpot], 21).length, 1)
+assert.equal(clusterPins([a, b], 21).length, 2)
+
+// 줌 21 미만은 넓은 반경(50px): 약 30px(7m) 떨어진 둘은 19에서 묶이고 21(26px)에서 갈라진다.
+// MapCanvas가 "목록에서 고르면 다 갈라지는 줌까지 확대"할 때 이 차이를 탄다.
+const near = shop('near', a.lat + 0.000064, a.lng)
+assert.equal(clusterPins([a, near], 19).length, 1)
+assert.equal(clusterPins([a, near], 21).length, 2)
+
+// 셋 중 둘만 한 건물이면 최대 줌에서 2덩이 — 하나가 떨어져도 나머지는 남는다
+assert.equal(clusterPins([a, sameSpot, b], 21).length, 2)
 
 console.log('cluster ok')

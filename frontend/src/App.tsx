@@ -2,27 +2,29 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
+import StoryViewer from './components/StoryViewer'
 import MapCanvas from './components/MapCanvas'
 import GroupFilterSheet from './components/GroupFilterSheet'
 import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
-import { groups, friends, me, restaurants as initialRestaurants, groupById, friendById } from './data/mock'
-import type { GroupId, Restaurant } from './data/mock'
+import { groups } from './data/model'
+import type { GroupId, Restaurant, Review, Story } from './data/model'
 import {
   fetchRestaurants,
   fetchRestaurantCells,
   fetchMe,
-  fetchOwnerReviews,
-  postOwnerReview,
+  fetchReviews,
+  postReview,
   isAdmin,
   restaurantKey,
   logout,
   SUMMARY_MAX_ZOOM,
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
-import type { AuthSession, BBox, ClusterCell, OwnerReview, RestaurantRecord, SocialLink } from './lib/api'
+import { shrinkImage } from './lib/image'
+import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialLink } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -94,7 +96,7 @@ const snapBBox = (b: BBox): BBox => ({
 })
 
 export default function App() {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants)
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 
   // 낮은 줌에서 받는 서버 요약 셀. 격자 인덱스 키로 누적한다 — 통째로 갈아끼우면
   // 응답이 올 때까지 마커가 사라져서 이동할 때마다 화면이 깜빡인다.
@@ -131,7 +133,7 @@ export default function App() {
       fetchRestaurants(snapped)
         .then((records) => setRestaurants((prev) => mergeRecords(prev, records)))
         .catch(() => {
-          // 백엔드 미기동 시 목데이터만으로 동작
+          // 백엔드 미기동 시 빈 지도
         })
     }
   }, [])
@@ -155,15 +157,42 @@ export default function App() {
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
   const [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null)
   const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
-  // 주인장(admin) 후기. 서버에 쌓이고 모두에게 보인다. 양이 적어 시작 시 전부 받는다.
-  const [ownerReviews, setOwnerReviews] = useState<OwnerReview[]>([])
+  // 서버 후기 전체 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
+  const [reviews, setReviews] = useState<Review[]>([])
   useEffect(() => {
-    fetchOwnerReviews()
-      .then(setOwnerReviews)
+    fetchReviews()
+      .then(setReviews)
       .catch(() => {
-        // 못 받으면 주인장 영역만 비어 보인다
+        // 못 받으면 후기 없는 지도로 동작
       })
   }, [])
+  // 이웃 후기를 가게에 붙인다. 주인장 후기는 시트에서 따로 보여주므로 뺀다.
+  // 후기 없는 가게는 객체를 그대로 둬서 마커가 다시 그려지지 않게 한다.
+  const reviewedRestaurants = useMemo(() => {
+    const byKey = new Map<string, Review[]>()
+    for (const rv of reviews) {
+      if (rv.author.owner) continue
+      const key = restaurantKey(rv.restaurant)
+      byKey.set(key, [...(byKey.get(key) ?? []), rv])
+    }
+    return restaurants.map((r) => {
+      const list = byKey.get(restaurantKey(r))
+      return list ? { ...r, reviews: list } : r
+    })
+  }, [restaurants, reviews])
+  // 스토리: 최근 24시간 안에 후기를 남긴 사람마다 하나. reviews가 최신순이라 최근 작성자가 앞에 온다.
+  const stories = useMemo(() => {
+    const since = Date.now() - 24 * 3_600_000
+    const byAuthor = new Map<number, Story>()
+    for (const rv of reviews) {
+      if (Date.parse(rv.createdAt) < since) continue
+      const story = byAuthor.get(rv.author.id) ?? { id: rv.author.id, name: rv.author.name, reviews: [] }
+      story.reviews.push(rv)
+      byAuthor.set(rv.author.id, story)
+    }
+    return [...byAuthor.values()]
+  }, [reviews])
+  const [openStory, setOpenStory] = useState<Story | null>(null)
 
   // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
   const [authMode, setAuthMode] = useState<AuthMode | null>(null)
@@ -234,45 +263,38 @@ export default function App() {
   // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
   const deferredQuery = useDeferredValue(query)
   const selectedRestaurant = useMemo(
-    () => restaurants.find((r) => r.id === selectedId) ?? null,
-    [restaurants, selectedId],
+    () => reviewedRestaurants.find((r) => r.id === selectedId) ?? null,
+    [reviewedRestaurants, selectedId],
   )
 
   const visibleRestaurants = useMemo(
     () => {
       const raw = deferredQuery.trim()
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
-      return restaurants.filter(
+      return reviewedRestaurants.filter(
         (r) =>
           (r.groupIds.length === 0 ? activeGroupIds.has('none') : r.groupIds.some((g) => activeGroupIds.has(g))) &&
           (reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
               ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
-              : r.reviews.some((rev) => friendById(rev.friendId)?.name.toLowerCase().includes(keyword)))),
+              : r.reviews.some((rev) => rev.author.name.toLowerCase().includes(keyword)))),
       )
     },
-    [restaurants, activeGroupIds, reviewFilter, searchMode, deferredQuery],
+    [reviewedRestaurants, activeGroupIds, reviewFilter, searchMode, deferredQuery],
   )
 
   // 사람 검색이면 이름이 걸린 사람마다 별점 높은 가게 TOP 5를 요약해 보여준다
   const personPicks = useMemo(() => {
     const keyword = deferredQuery.trim().toLowerCase()
     if (searchMode !== 'person' || keyword.length < MIN_QUERY_LENGTH) return []
-    return [me, ...friends]
-      .filter((f) => f.name.toLowerCase().includes(keyword))
-      .map((friend) => ({ friend, picks: topPicksOf(visibleRestaurants, friend.id) }))
+    const authors = new Map<number, { id: number; name: string }>()
+    for (const rv of reviews) if (!rv.author.owner) authors.set(rv.author.id, rv.author)
+    return [...authors.values()]
+      .filter((a) => a.name.toLowerCase().includes(keyword))
+      .map((author) => ({ author, picks: topPicksOf(visibleRestaurants, author.id) }))
       .filter(({ picks }) => picks.length > 0)
-  }, [searchMode, deferredQuery, visibleRestaurants])
-
-  const todayStories = useMemo(() => {
-    const activeFriendIds = new Set(
-      restaurants.flatMap((r) => r.reviews.filter((rev) => rev.postedHoursAgo <= 24).map((rev) => rev.friendId)),
-    )
-    return friends
-      .filter((f) => activeFriendIds.has(f.id) && activeGroupIds.has(f.groupId))
-      .map((f) => ({ ...f, group: groupById(f.groupId) }))
-  }, [restaurants, activeGroupIds])
+  }, [searchMode, deferredQuery, reviews, visibleRestaurants])
 
   // 매 렌더마다 새 함수를 넘기면 MapCanvas가 마커를 통째로 다시 그린다.
   const pickRestaurant = useCallback((restaurant: Restaurant) => setSelectedId(restaurant.id), [])
@@ -291,33 +313,35 @@ export default function App() {
     })
   }
 
-  function addReview(restaurantId: string, rating: number, text: string) {
-    // 주인장으로 로그인했으면 이웃 후기가 아니라 서버의 주인장 후기로 쌓인다
-    if (isAdmin(session)) {
-      const target = restaurants.find((r) => r.id === restaurantId)
-      if (!target) return
-      postOwnerReview(restaurantKey(target), rating, text)
-        .then((saved) => setOwnerReviews((prev) => [saved, ...prev]))
-        .catch((e: Error) => alert(e.message))
+  // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
+  async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
+    if (!session) {
+      setAuthMode('login')
       return
     }
-    setRestaurants((prev) =>
-      prev.map((r) =>
-        r.id === restaurantId
-          ? {
-              ...r,
-              reviews: [{ id: `rv-${Date.now()}`, friendId: me.id, rating, text, postedHoursAgo: 0 }, ...r.reviews],
-            }
-          : r,
-      ),
-    )
+    const target = restaurants.find((r) => r.id === restaurantId)
+    if (!target) return
+    try {
+      const shrunk = await Promise.all(photos.map((f) => shrinkImage(f)))
+      const saved = await postReview({ name: target.name, category: target.category, address: target.address }, rating, text, shrunk)
+      setReviews((prev) => [saved, ...prev])
+    } catch (e) {
+      alert((e as Error).message)
+      throw e
+    }
   }
 
+  // 댓글은 아직 클라이언트에만 남는다 (새로고침하면 사라짐)
   function addComment(restaurantId: string, text: string, parentId?: string) {
+    if (!session) {
+      setAuthMode('login')
+      return
+    }
+    const authorName = session.nickname
     setRestaurants((prev) =>
       prev.map((r) =>
         r.id === restaurantId
-          ? { ...r, comments: [...r.comments, { id: `c-${Date.now()}`, friendId: me.id, text, parentId }] }
+          ? { ...r, comments: [...r.comments, { id: `c-${Date.now()}`, authorName, text, parentId }] }
           : r,
       ),
     )
@@ -392,7 +416,7 @@ export default function App() {
             onPick={focusFromSearch}
           />
         ) : (
-          <StoryStrip stories={todayStories} />
+          <StoryStrip stories={stories} onOpen={setOpenStory} />
         )}
       </div>
 
@@ -409,7 +433,9 @@ export default function App() {
       <RestaurantSheet
         restaurant={selectedRestaurant}
         ownerReviews={
-          selectedRestaurant ? ownerReviews.filter((o) => o.restaurantKey === restaurantKey(selectedRestaurant)) : []
+          selectedRestaurant
+            ? reviews.filter((rv) => rv.author.owner && restaurantKey(rv.restaurant) === restaurantKey(selectedRestaurant))
+            : []
         }
         asOwner={isAdmin(session)}
         groups={groups}
@@ -419,7 +445,10 @@ export default function App() {
         onAddComment={addComment}
       />
 
-      <MeetupSheet restaurant={meetupRestaurant} friends={friends} onClose={() => setMeetupRestaurant(null)} />
+      {/* 친구 기능 전이라 초대 목록은 비어 있다 */}
+      <MeetupSheet restaurant={meetupRestaurant} friends={[]} onClose={() => setMeetupRestaurant(null)} />
+
+      <StoryViewer story={openStory} allReviews={reviews} onClose={() => setOpenStory(null)} />
 
       <AuthModal
         mode={authMode}

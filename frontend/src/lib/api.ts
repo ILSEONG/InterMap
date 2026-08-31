@@ -1,3 +1,5 @@
+import type { Review } from '../data/model'
+
 export interface PlaceSearchResult {
   name: string
   category: string
@@ -84,15 +86,15 @@ export async function logout(): Promise<void> {
   })
 }
 
-async function postJson<T>(path: string, body: object): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify(body),
-  })
+async function post<T>(path: string, body: BodyInit, headers: Record<string, string> = {}): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { ...headers, ...authHeaders() }, body })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `요청 실패 (${res.status})`)
   return data
+}
+
+function postJson<T>(path: string, body: object): Promise<T> {
+  return post<T>(path, JSON.stringify(body), { 'Content-Type': 'application/json' })
 }
 
 export interface SignupParams {
@@ -163,27 +165,34 @@ export function isAdmin(session: AuthSession | null): boolean {
   return session?.email === ADMIN_EMAIL
 }
 
-// 주인장 후기가 붙는 가게 키. mock 가게든 DB 가게든 "이름|주소"로 잇는다 (App.mergeRecords와 같은 규칙)
+// 후기와 가게를 잇는 키 "이름|주소" (App.mergeRecords와 같은 규칙)
 export function restaurantKey(r: { name: string; address: string }): string {
   return `${r.name}|${r.address}`
 }
 
-export interface OwnerReview {
-  id: number
-  restaurantKey: string
-  rating: number
-  text: string
-  createdAt: string
-}
-
-export async function fetchOwnerReviews(): Promise<OwnerReview[]> {
-  const res = await fetch(`${API_BASE}/api/owner-reviews`)
-  if (!res.ok) throw new Error(`주인장 후기 조회 실패 (${res.status})`)
+// 후기 전체. 초기 규모라 한 번에 받는다 (서버 ReviewController 참고)
+export async function fetchReviews(): Promise<Review[]> {
+  const res = await fetch(`${API_BASE}/api/reviews`)
+  if (!res.ok) throw new Error(`후기 조회 실패 (${res.status})`)
   return res.json()
 }
 
-export function postOwnerReview(key: string, rating: number, text: string): Promise<OwnerReview> {
-  return postJson<OwnerReview>('/api/owner-reviews', { restaurantKey: key, rating, text })
+// 로그인 필요. 401이면 서버 메시지가 Error로 온다.
+// multipart — "review" JSON 파트 + "photos" 파일 파트들 (서버 ReviewController.create)
+export function postReview(
+  restaurant: Review['restaurant'],
+  rating: number,
+  text: string,
+  photos: Blob[] = [],
+): Promise<Review> {
+  const form = new FormData()
+  form.append('review', new Blob([JSON.stringify({ restaurant, rating, text })], { type: 'application/json' }))
+  photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
+  return post<Review>('/api/reviews', form)
+}
+
+export function photoUrl(id: number): string {
+  return `${API_BASE}/api/photos/${id}`
 }
 
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
