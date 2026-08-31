@@ -96,6 +96,8 @@ export default function AuthModal({ mode, link, onClose, onSwitch, onAuthed }: A
   const [phoneStep, setPhoneStep] = useState<CodeStep>('idle')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // 회원가입 성공 직후. 완료 화면을 덮어 보여주고 "시작하기"에서 onAuthed로 넘긴다.
+  const [done, setDone] = useState<AuthSession | null>(null)
 
   // 모달을 열거나 로그인<->회원가입 전환 시 전부 초기화
   useEffect(() => {
@@ -108,6 +110,7 @@ export default function AuthModal({ mode, link, onClose, onSwitch, onAuthed }: A
     setPhoneCode('')
     setEmailStep('idle')
     setPhoneStep('idle')
+    setDone(null)
     if (!open) {
       setEmail('')
       setNickname('')
@@ -162,7 +165,8 @@ export default function AuthModal({ mode, link, onClose, onSwitch, onAuthed }: A
           ? linkSocial(link?.ticket ?? '', email, password)
           : signup({ email, emailCode, phone, phoneCode, password, nickname })
     request
-      .then(onAuthed)
+      // 회원가입만 완료 화면을 한 번 보여주고, "시작하기"를 눌러야 로그인 상태로 넘어간다
+      .then((session) => (shown === 'signup' ? setDone(session) : onAuthed(session)))
       .catch((err: Error) => setError(err.message))
       .finally(() => setBusy(false))
   }
@@ -173,11 +177,25 @@ export default function AuthModal({ mode, link, onClose, onSwitch, onAuthed }: A
   return (
     <div className={`auth-overlay${open ? ' auth-overlay--open' : ''}`} onClick={onClose}>
       <div
-        className="auth-modal"
+        className={`auth-modal${done ? ' auth-modal--done' : ''}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={shown === 'login' ? '로그인' : shown === 'link' ? 'SNS 계정 연결' : '회원가입'}
       >
+        {done && (
+          <div className="auth-modal__done" role="status">
+            <p className="auth-modal__done-icon" aria-hidden="true">🎉</p>
+            <h2 className="auth-modal__title">회원가입 완료!</h2>
+            <p className="auth-modal__desc">
+              <b>{done.nickname}</b>님, 인터맵에 오신 걸 환영해요.
+              <br />
+              이제 후기를 남기고 친구들의 맛집을 볼 수 있어요.
+            </p>
+            <button type="button" className="auth-modal__submit" onClick={() => onAuthed(done)}>
+              시작하기
+            </button>
+          </div>
+        )}
         <h2 className="auth-modal__title">
           {shown === 'login' ? (
             '다시 만나서 반가워요'

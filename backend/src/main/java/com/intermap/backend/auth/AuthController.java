@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,6 +17,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
@@ -61,6 +63,7 @@ public class AuthController {
     private static final long CODE_TTL_SECONDS = 300;
     private static final long RESEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_VERIFY_ATTEMPTS = 5;
+    private static final long TOKEN_TTL_DAYS = 30;
 
     // 인증번호 발송 일일 상한 (SMS pumping 방어). 뚫려도 하루 손실이 문자 300건 ≈ 5,400원에서 멈춘다.
     private static final int DAILY_PER_TARGET = 5;      // 같은 이메일/번호
@@ -282,6 +285,39 @@ public class AuthController {
         repository.save(user);
         pendingLinks.remove(request.linkTicket());
         return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
+    }
+
+    // "Authorization: Bearer <token>" 헤더로 현재 사용자를 찾는다. 없거나 만료면 null.
+    // 다른 컨트롤러(후기 작성 등)도 이걸로 로그인 사용자를 확인하면 된다.
+    public AppUser currentUser(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) return null;
+        AppUser user = repository.findByToken(authorization.substring(7).trim()).orElse(null);
+        if (user == null || user.getTokenIssuedAt() == null
+                || user.getTokenIssuedAt().plus(TOKEN_TTL_DAYS, ChronoUnit.DAYS).isBefore(Instant.now())) {
+            return null;
+        }
+        return user;
+    }
+
+    // 앱 시작 시 저장된 세션이 아직 유효한지 확인
+    @GetMapping("/api/auth/me")
+    public ResponseEntity<?> me(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        AppUser user = currentUser(authorization);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
+        }
+        return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
+    }
+
+    // 서버 쪽 토큰을 지워 다른 기기에 남은 사본도 무효화한다
+    @PostMapping("/api/auth/logout")
+    public ResponseEntity<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        AppUser user = currentUser(authorization);
+        if (user != null) {
+            user.issueToken(null);
+            repository.save(user);
+        }
+        return ResponseEntity.noContent().build();
     }
 
     // 이메일 존재 여부를 구분해서 알려주지 않는다 (계정 존재 탐지 방지). 실패하면 null

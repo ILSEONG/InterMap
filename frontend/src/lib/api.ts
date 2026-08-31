@@ -58,10 +58,36 @@ export interface AuthSession {
   nickname: string
 }
 
+const SESSION_KEY = 'intermap.session'
+
+// 저장된 세션의 토큰을 Authorization 헤더로. 로그인 안 했으면 빈 객체
+function authHeaders(): Record<string, string> {
+  try {
+    const session = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as AuthSession | null
+    return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
+// 서버가 세션을 인정하는지 확인. 만료·로그아웃이면 401 → null
+export async function fetchMe(): Promise<AuthSession | null> {
+  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() })
+  if (res.status === 401) return null
+  if (!res.ok) throw new Error(`세션 확인 실패 (${res.status})`)
+  return res.json()
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: authHeaders() }).catch(() => {
+    // 서버에 못 닿아도 클라이언트 세션은 지운다
+  })
+}
+
 async function postJson<T>(path: string, body: object): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
   })
   const data = await res.json().catch(() => null)

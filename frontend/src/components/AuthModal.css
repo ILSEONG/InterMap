@@ -293,3 +293,26 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* 회원가입 완료 화면 — 폼 대신 이것만 보여준다 (모달이 스크롤될 수 있어 덮어씌우는 대신 숨긴다) */
+.auth-modal--done > :not(.auth-modal__done) {
+  display: none;
+}
+
+.auth-modal__done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 8px 8px;
+  text-align: center;
+}
+
+.auth-modal__done-icon {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.auth-modal__done .auth-modal__submit {
+  margin-top: 16px;
+}

@@ -39,6 +39,9 @@ public class AppUser {
 
     private Instant createdAt = Instant.now();
 
+    // 토큰 발급 시각. 이 기준으로 만료를 판단한다 (AuthController.TOKEN_TTL_DAYS)
+    private Instant tokenIssuedAt;
+
     protected AppUser() {
     }
 
@@ -65,5 +68,11 @@ public class AppUser {
     public String getToken() { return token; }
     public Instant getCreatedAt() { return createdAt; }
 
-    public void issueToken(String token) { this.token = token; }
+    public Instant getTokenIssuedAt() { return tokenIssuedAt; }
+
+    // null이면 로그아웃 (기존 토큰 무효)
+    public void issueToken(String token) {
+        this.token = token;
+        this.tokenIssuedAt = token == null ? null : Instant.now();
+    }
 }

@@ -10,7 +10,7 @@ import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
 import { groups, friends, me, restaurants as initialRestaurants, groupById, friendById } from './data/mock'
 import type { GroupId, Restaurant } from './data/mock'
-import { fetchRestaurants, fetchRestaurantCells, SUMMARY_MAX_ZOOM } from './lib/api'
+import { fetchRestaurants, fetchRestaurantCells, fetchMe, logout, SUMMARY_MAX_ZOOM } from './lib/api'
 import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialLink } from './lib/api'
 import './App.css'
 
@@ -167,12 +167,28 @@ export default function App() {
     }
   }, [])
   const handleLogout = useCallback(() => {
+    // 서버 토큰부터 지운다 — authHeaders()가 localStorage를 읽으므로 삭제 전에 호출해야 한다
+    void logout()
     setSession(null)
     try {
       localStorage.removeItem('intermap.session')
     } catch {
       // 무시
     }
+  }, [])
+
+  // 앱 시작 시 저장된 세션이 서버에서도 유효한지 확인. 만료·다른 기기 로그아웃이면 조용히 로그아웃 상태로.
+  useEffect(() => {
+    if (!session) return
+    fetchMe()
+      .then((me) => {
+        if (me === null) handleLogout()
+      })
+      .catch(() => {
+        // 네트워크 오류는 세션 유지 — 다음 요청에서 다시 판단
+      })
+    // 최초 1회만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 소셜 로그인 완료 후 백엔드가 연결된 회원이면 ?token=&email=&nickname=, 아니면 ?linkTicket=&provider=&email=,
