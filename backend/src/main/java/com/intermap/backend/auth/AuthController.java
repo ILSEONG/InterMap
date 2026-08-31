@@ -77,13 +77,13 @@ public class AuthController {
 
     private final AppUserRepository repository;
     private final MailService mailService;
-    private final AlimtalkService alimtalkService;
+    private final SmsService smsService;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-    public AuthController(AppUserRepository repository, MailService mailService, AlimtalkService alimtalkService) {
+    public AuthController(AppUserRepository repository, MailService mailService, SmsService smsService) {
         this.repository = repository;
         this.mailService = mailService;
-        this.alimtalkService = alimtalkService;
+        this.smsService = smsService;
     }
 
     private static String normalizePhone(String raw) {
@@ -177,7 +177,7 @@ public class AuthController {
         if (repository.findByPhone(phone).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("이미 가입된 번호예요."));
         }
-        return issueCode("phone:" + phone, phone, alimtalkService::sendVerificationCode);
+        return issueCode("phone:" + phone, phone, smsService::sendVerificationCode);
     }
 
     @PostMapping("/api/auth/signup")
