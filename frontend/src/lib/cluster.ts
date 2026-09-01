@@ -14,10 +14,10 @@ export interface Pin {
 export const CLUSTER_PIXEL_DISTANCE = 26
 // 최대 줌에서만 최소 반경(26px)을 쓰고, 그 전에는 반경을 키워 마커 수를 줄인다.
 // isSeparatedAt과 clusterPins가 같은 값을 써야 "확대하면 갈라진다" 판단이 어긋나지 않는다.
-const WIDE_CLUSTER_PIXEL_DISTANCE = 50
+const WIDE_CLUSTER_PIXEL_DISTANCE = 60
 const MIN_DISTANCE_ZOOM = 21 // MapCanvas의 MAX_ZOOM과 같은 값
 
-function clusterDistanceAt(zoom: number): number {
+export function clusterDistanceAt(zoom: number): number {
   return zoom >= MIN_DISTANCE_ZOOM ? CLUSTER_PIXEL_DISTANCE : WIDE_CLUSTER_PIXEL_DISTANCE
 }
 // 줌 레벨에서의 월드 픽셀 좌표 (웹 메르카토르)
@@ -39,8 +39,9 @@ export function latAtWorldY(y: number, zoom: number): number {
 // 그리디 군집화. 후보 비교는 격자 버킷(26px 셀)의 3×3 이웃으로 좁혀서
 // 수천 건에서도 이동·줌마다 얼지 않는다. 결과는 전수 비교와 동일하다
 // (거리 ≤ 셀 한 변이면 반드시 이웃 셀 안에 있으므로).
-export function clusterPins(restaurants: Restaurant[], zoom: number): Pin[] {
-  const dist = clusterDistanceAt(zoom)
+// distance를 주면 줌 기본 반경 대신 그 값으로 묶는다 (마커 상한을 맞추려 반경을 키울 때).
+export function clusterPins(restaurants: Restaurant[], zoom: number, distance?: number): Pin[] {
+  const dist = distance ?? clusterDistanceAt(zoom)
   const points = restaurants.map((r) => ({ r, ...worldPoint(r.lat, r.lng, zoom) }))
   const buckets = new Map<string, number[]>()
   points.forEach((p, i) => {

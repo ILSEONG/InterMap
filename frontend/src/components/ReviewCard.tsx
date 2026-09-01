@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import { timeAgo } from '../lib/time'
@@ -16,6 +17,9 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
     if (lightbox === null) return
     setShown(lightbox)
     trackRef.current?.children[lightbox]?.scrollIntoView({ inline: 'center', block: 'nearest' })
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setLightbox(null)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
   }, [lightbox])
 
   return (
@@ -49,7 +53,8 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
           ))}
         </div>
       )}
-      {lightbox !== null && (
+      {/* 시트가 transform으로 올라오는 요소라 그 안의 position: fixed는 시트 상자에 갇힌다 — body로 빼서 화면 전체를 덮는다 */}
+      {lightbox !== null && createPortal(
         <div className="photo-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="사진">
           <div
             ref={trackRef}
@@ -70,7 +75,8 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
               {shown + 1} / {review.photoIds.length}
             </p>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </article>
   )

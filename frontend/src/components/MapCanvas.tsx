@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Restaurant, FriendGroup } from '../data/model'
 import { loadNaverMaps } from '../lib/loadNaverMaps'
-import { clusterPins } from '../lib/cluster'
+import { clusterPins, clusterDistanceAt } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
 import { SUMMARY_MAX_ZOOM } from '../lib/api'
 import type { ClusterCell } from '../lib/api'
@@ -37,6 +37,9 @@ const CLUSTER_TAP_ZOOM_STEP = 2
 // 아무리 확대해도 안 갈라지는 가게(같은 건물)를 골랐을 때 최소 이만큼은 확대해서
 // 어느 골목·건물인지 맥락을 보여준다. 18 ≈ 건물 단위가 보이는 수준.
 const DETAIL_ZOOM = 18
+// 화면에 그리는 마커 상한. 넘으면 군집 반경을 키워가며 다시 묶는다 — DOM 마커 수백 개를
+// 줌마다 지웠다 만드는 게 렉의 원인이라 개수 자체를 잡는다.
+const MAX_PINS = 300
 // 이보다 멀리서 보면 핀 이름 라벨을 숨긴다 (빽빽할 때 페인트 비용 절감)
 const NAME_LABEL_MIN_ZOOM = 15
 
@@ -44,8 +47,12 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] ?? ch)
 }
 
+// 후기 있는 가게 핀 색. 그룹색보다 우선 — "이웃이 다녀간 곳"이 지도에서 바로 보이게.
+const REVIEWED_PIN_COLOR = '#4C8DFF'
+
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   if (items.every((r) => r.closed)) return '#9b93ab'
+  if (items.some((r) => !r.closed && r.reviews.length > 0)) return REVIEWED_PIN_COLOR
   // 그룹 미지정 가게는 'none' 유사 그룹으로 취급해 필터·색을 같이 태운다
   const active = groups.filter((g) =>
     items.some((r) => !r.closed && (r.groupIds.length > 0 ? r.groupIds.includes(g.id) : g.id === 'none')),
@@ -134,10 +141,14 @@ export default function MapCanvas({
     // 요약 모드에서는 개별 핀을 그리지 않는다 — 셀 건수에 후기 있는 가게도 이미 들어 있다.
     // 단 후기 있음 필터·검색 중에는 셀이 없으므로 넘겨받은 가게를 줌과 무관하게 개별 핀으로 그린다.
     const base = cellMode && !pinsWhenFar ? [] : restaurants
-    const pins = clusterPins(
-      base.filter((r) => inBox(r.lat, r.lng)),
-      zoom,
-    )
+    const inView = base.filter((r) => inBox(r.lat, r.lng))
+    let dist = clusterDistanceAt(zoom)
+    let pins = clusterPins(inView, zoom, dist)
+    // 상한을 넘으면 반경을 1.5배씩 키워 다시 묶는다 (버킷 군집이라 수천 건도 ms 단위)
+    while (pins.length > MAX_PINS && dist < 400) {
+      dist *= 1.5
+      pins = clusterPins(inView, zoom, dist)
+    }
     if (cellMode) {
       for (const c of cells) {
         if (!inBox(c.lat, c.lng)) continue
@@ -344,12 +355,22 @@ export default function MapCanvas({
     })
 
     visiblePins.forEach((pin) => {
-      if (markers.has(pin.key)) return
+      const existing = markers.get(pin.key)
+      if (existing) {
+        // 같은 묶음이라도 후기가 새로 달리면 색이 바뀐다 — 아이콘만 갈아끼운다
+        const color = pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
+        if (existing.get('pinColor') !== color) {
+          existing.set('pinColor', color)
+          existing.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current)))
+        }
+        return
+      }
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(pin.lat, pin.lng),
         map: mapRef.current!,
         icon: pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current)),
       })
+      marker.set('pinColor', pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)')
       naver.maps.Event.addListener(marker, 'click', () => {
         // 다른 핀의 목록이 열려 있었다면 먼저 닫는다.
         infoWindowRef.current?.close()
