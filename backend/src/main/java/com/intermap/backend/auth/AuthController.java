@@ -8,6 +8,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,6 +46,9 @@ public class AuthController {
 
     // 소셜 최초 인증 뒤 가입. 이메일은 provider가 준 것을 티켓에서 꺼내 쓴다.
     public record SocialSignupRequest(String ticket, String nickname, boolean termsAgreed, boolean marketingAgreed) {
+    }
+
+    public record NicknameRequest(String nickname) {
     }
 
     public record LoginRequest(String email, String password) {
@@ -342,6 +346,24 @@ public class AuthController {
         AppUser user = currentUser(authorization);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
+        }
+        return ResponseEntity.ok(new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname()));
+    }
+
+    // 닉네임 변경. 가입 때와 같은 규칙(1~20자, 중복 불가). 같은 이름이면 그대로 200.
+    @PutMapping("/api/auth/nickname")
+    public ResponseEntity<?> changeNickname(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                            @RequestBody NicknameRequest request) {
+        AppUser user = currentUser(authorization);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
+        }
+        String nickname = request.nickname() == null ? "" : request.nickname().trim();
+        if (!nickname.equals(user.getNickname())) {
+            ErrorResponse error = checkNicknameRule(nickname);
+            if (error != null) return ResponseEntity.badRequest().body(error);
+            user.rename(nickname);
+            repository.save(user);
         }
         return ResponseEntity.ok(new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname()));
     }

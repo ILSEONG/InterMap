@@ -19,6 +19,7 @@ interface RestaurantSheetProps {
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
   onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
+  onDeleteReview: (reviewId: number) => Promise<void>
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
@@ -39,6 +40,7 @@ export default function RestaurantSheet({
   onAddReview,
   myUserId,
   onEditReview,
+  onDeleteReview,
   onAddComment,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
@@ -85,7 +87,8 @@ export default function RestaurantSheet({
 
   function onGrabMove(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
-    if (!drag) return
+    const sheet = sheetRef.current
+    if (!drag || !sheet) return
     const dt = e.timeStamp - drag.lastT
     if (dt > 0) {
       // 위로 움직이면 양수. 최근 움직임 위주로 지수 평활해 놓는 순간의 속도를 얻는다.
@@ -94,7 +97,9 @@ export default function RestaurantSheet({
       drag.lastT = e.timeStamp
     }
     const next = drag.startHeight + (drag.startY - e.clientY)
-    setHeight(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
+    // 손가락을 따라오는 동안은 상태를 안 바꾼다 — 매 프레임 시트 본문(후기 카드·사진 썸네일)이 다시 렌더되면 끊긴다.
+    // 놓을 때 onGrabUp에서 한 번만 상태로 올린다.
+    sheet.style.height = `${Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92)}px`
   }
 
   function onGrabUp(e: React.PointerEvent<HTMLDivElement>) {
@@ -108,9 +113,14 @@ export default function RestaurantSheet({
       return
     }
     // 아래로 튕기거나 최소 높이 아래로 끌어내리면 닫는다.
-    if (drag.velocity < -FLICK_VELOCITY || drag.startHeight + (drag.startY - e.clientY) < MIN_SHEET_HEIGHT) {
+    const next = drag.startHeight + (drag.startY - e.clientY)
+    if (drag.velocity < -FLICK_VELOCITY || next < MIN_SHEET_HEIGHT) {
+      // 드래그로 만진 인라인 높이를 지운다 — 남겨두면 React가 모르는 값이라 다음에 열 때 그 높이로 열린다
+      if (sheetRef.current) sheetRef.current.style.height = ''
       onClose()
+      return
     }
+    setHeight(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
   }
 
   return (
@@ -149,6 +159,7 @@ export default function RestaurantSheet({
               onAddReview={onAddReview}
               myUserId={myUserId}
               onEditReview={onEditReview}
+              onDeleteReview={onDeleteReview}
               onAddComment={onAddComment}
             />
           </>
@@ -169,6 +180,7 @@ interface SheetBodyProps {
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
   onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
+  onDeleteReview: (reviewId: number) => Promise<void>
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
@@ -181,6 +193,7 @@ function SheetBody({
   onAddReview,
   myUserId,
   onEditReview,
+  onDeleteReview,
   onAddComment,
 }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
@@ -232,6 +245,19 @@ function SheetBody({
   // 내 후기면 수정 버튼을 붙인다
   const editHandler = (review: Review) =>
     myUserId !== undefined && review.author.id === myUserId ? () => startEdit(review) : undefined
+
+  async function deleteReview() {
+    if (!editing || submitting || !window.confirm('이 후기를 지울까요? 사진도 같이 지워져요.')) return
+    setSubmitting(true)
+    try {
+      await onDeleteReview(editing.id)
+      resetForm()
+    } catch {
+      // App이 alert로 알렸다
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   async function submitReview() {
     if (!draftReview.trim() || submitting) return
@@ -362,6 +388,11 @@ function SheetBody({
             )}
           </div>
           <div className="review-form__actions">
+            {editing && (
+              <button type="button" className="review-form__cancel review-form__cancel--danger" onClick={deleteReview} disabled={submitting}>
+                삭제
+              </button>
+            )}
             {editing && (
               <button type="button" className="review-form__cancel" onClick={resetForm} disabled={submitting}>
                 되돌리기

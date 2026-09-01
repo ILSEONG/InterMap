@@ -220,6 +220,68 @@ export function updateReview(id: number, rating: number, text: string, keepPhoto
   return post<Review>(`/api/reviews/${id}`, form, {}, 'PUT')
 }
 
+// ---- 마이페이지: 팔로우(단방향)와 나만 보이는 이름 (서버 SocialController) ----
+
+export interface Person {
+  id: number
+  nickname: string
+  // 내가 붙인 이름. 없으면 null
+  alias: string | null
+  // 내가 이 사람을 팔로우 중 / 이 사람이 나를 팔로우 중
+  following: boolean
+  followsMe: boolean
+}
+
+export interface SocialData {
+  following: Person[]
+  followers: Person[]
+}
+
+export interface UserItem {
+  id: number
+  nickname: string
+}
+
+export async function fetchSocial(): Promise<SocialData> {
+  const res = await fetch(`${API_BASE}/api/me/social`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`팔로우 목록 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+export function followUser(userId: number): Promise<SocialData> {
+  return post<SocialData>(`/api/me/follows/${userId}`, '')
+}
+
+export function unfollowUser(userId: number): Promise<SocialData> {
+  return post<SocialData>(`/api/me/follows/${userId}`, '', {}, 'DELETE')
+}
+
+// 빈 문자열이면 별칭 삭제
+export function setAlias(userId: number, alias: string): Promise<SocialData> {
+  return post<SocialData>(`/api/me/aliases/${userId}`, JSON.stringify({ alias }), { 'Content-Type': 'application/json' }, 'PUT')
+}
+
+// 닉네임 부분 일치 상위 20, 본인 제외. 로그인 필요
+export async function searchUsers(q: string): Promise<UserItem[]> {
+  const res = await fetch(`${API_BASE}/api/users?q=${encodeURIComponent(q)}`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`사용자 검색 실패 (${res.status})`)
+  return res.json()
+}
+
+// 바뀐 닉네임이 실린 새 세션을 돌려준다
+export function changeNickname(nickname: string): Promise<AuthSession> {
+  return post<AuthSession>('/api/auth/nickname', JSON.stringify({ nickname }), { 'Content-Type': 'application/json' }, 'PUT')
+}
+
+// 내 후기 삭제 (사진 포함). 서버가 본인 확인.
+export async function deleteReview(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/reviews/${id}`, { method: 'DELETE', headers: authHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.message ?? `후기 삭제 실패 (${res.status})`)
+  }
+}
+
 export function photoUrl(id: number): string {
   return `${API_BASE}/api/photos/${id}`
 }

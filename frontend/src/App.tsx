@@ -9,6 +9,7 @@ import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MeetupSheet from './components/MeetupSheet'
+import MyPage from './components/MyPage'
 import { groups } from './data/model'
 import type { GroupId, Restaurant, Review, Story } from './data/model'
 import {
@@ -17,8 +18,10 @@ import {
   fetchRestaurantCells,
   fetchMe,
   fetchReviews,
+  fetchSocial,
   postReview,
   updateReview,
+  deleteReview,
   isAdmin,
   restaurantKey,
   logout,
@@ -26,7 +29,7 @@ import {
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
 import { shrinkImage } from './lib/image'
-import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialTicket } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialData, SocialTicket } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -199,16 +202,16 @@ export default function App() {
 
   // 서버 후기 전체 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
   // 로그인한 사람에게만 보인다 — 로그아웃하면 마커·스토리도 같이 사라져야 한다.
-  const [reviews, setReviews] = useState<Review[]>([])
+  const [rawReviews, setRawReviews] = useState<Review[]>([])
   useEffect(() => {
     if (!session) {
-      setReviews([])
+      setRawReviews([])
       return
     }
     let cancelled = false
     fetchReviews()
       .then((list) => {
-        if (!cancelled) setReviews(list)
+        if (!cancelled) setRawReviews(list)
       })
       .catch(() => {
         // 못 받으면 후기 없는 지도로 동작
@@ -217,6 +220,37 @@ export default function App() {
       cancelled = true
     }
   }, [session])
+  // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
+  const [social, setSocial] = useState<SocialData | null>(null)
+  const [myPageOpen, setMyPageOpen] = useState(false)
+  useEffect(() => {
+    if (!session) {
+      setSocial(null)
+      setMyPageOpen(false)
+      return
+    }
+    let cancelled = false
+    fetchSocial()
+      .then((data) => {
+        if (!cancelled) setSocial(data)
+      })
+      .catch(() => {
+        // 못 받으면 별칭 없이 동작
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [session])
+  // 내가 붙인 이름을 후기 작성자 이름 자리에 씌운다. 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다.
+  const reviews = useMemo(() => {
+    const alias = new Map<number, string>()
+    for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) if (p.alias) alias.set(p.id, p.alias)
+    if (alias.size === 0) return rawReviews
+    return rawReviews.map((rv) => {
+      const name = alias.get(rv.author.id)
+      return name ? { ...rv, author: { ...rv.author, name } } : rv
+    })
+  }, [rawReviews, social])
   // 이웃 후기를 가게에 붙인다. 주인장 후기는 시트에서 따로 보여주므로 뺀다.
   // 후기 없는 가게는 객체를 그대로 둬서 마커가 다시 그려지지 않게 한다.
   // 후기 있는 가게는 줌·뷰포트와 무관하게 항상 보여야 하므로, 아직 뷰포트로 안 받은 가게는
@@ -402,7 +436,7 @@ export default function App() {
     try {
       const shrunk = await Promise.all(photos.map((f) => shrinkImage(f)))
       const saved = await postReview({ name: target.name, category: target.category, address: target.address }, rating, text, shrunk)
-      setReviews((prev) => [saved, ...prev])
+      setRawReviews((prev) => [saved, ...prev])
     } catch (e) {
       alert((e as Error).message)
       throw e
@@ -414,7 +448,17 @@ export default function App() {
     try {
       const shrunk = await Promise.all(photos.map((f) => shrinkImage(f)))
       const saved = await updateReview(reviewId, rating, text, keepPhotoIds, shrunk)
-      setReviews((prev) => prev.map((r) => (r.id === saved.id ? saved : r)))
+      setRawReviews((prev) => prev.map((r) => (r.id === saved.id ? saved : r)))
+    } catch (e) {
+      alert((e as Error).message)
+      throw e
+    }
+  }
+
+  async function removeReview(reviewId: number) {
+    try {
+      await deleteReview(reviewId)
+      setRawReviews((prev) => prev.filter((r) => r.id !== reviewId))
     } catch (e) {
       alert((e as Error).message)
       throw e
@@ -472,6 +516,7 @@ export default function App() {
           nickname={session?.nickname ?? null}
           onLogin={() => setAuthMode('start')}
           onLogout={handleLogout}
+          onMyPage={() => setMyPageOpen(true)}
         />
         <div className="bottom-controls">
           <button type="button" className="map-filter-btn" onClick={() => setFilterOpen(true)}>
@@ -540,11 +585,23 @@ export default function App() {
         myUserId={session?.id}
         onAddReview={addReview}
         onEditReview={editReview}
+        onDeleteReview={removeReview}
         onAddComment={addComment}
       />
 
       {/* 친구 기능 전이라 초대 목록은 비어 있다 */}
       <MeetupSheet restaurant={meetupRestaurant} friends={[]} onClose={() => setMeetupRestaurant(null)} />
+
+      {session && (
+        <MyPage
+          open={myPageOpen}
+          session={session}
+          social={social}
+          onSocialChange={setSocial}
+          onSessionChange={handleAuthed}
+          onClose={() => setMyPageOpen(false)}
+        />
+      )}
 
       <StoryViewer stories={stories} story={openStory} allReviews={reviews} onClose={() => setOpenStory(null)} />
 

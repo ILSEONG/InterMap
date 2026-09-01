@@ -14,6 +14,7 @@ interface HeaderProps {
   nickname: string | null
   onLogin: () => void
   onLogout: () => void
+  onMyPage: () => void
 }
 
 // 로고 글자색 — AuthModal 등 다른 곳에서 "인터맵"을 로고처럼 칠할 때도 쓴다
@@ -28,6 +29,7 @@ export default function Header({
   nickname,
   onLogin,
   onLogout,
+  onMyPage,
 }: HeaderProps) {
   const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -71,6 +73,16 @@ export default function Header({
             {nickname ? (
               <>
                 <p className="app-header__account-name">{nickname}님</p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setAccountOpen(false)
+                    onMyPage()
+                  }}
+                >
+                  마이페이지
+                </button>
                 <button
                   type="button"
                   role="menuitem"

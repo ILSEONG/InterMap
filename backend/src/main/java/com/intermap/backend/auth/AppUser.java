@@ -83,6 +83,10 @@ public class AppUser {
     public Instant getTermsAgreedAt() { return termsAgreedAt; }
     public Instant getMarketingAgreedAt() { return marketingAgreedAt; }
 
+    public void rename(String nickname) {
+        this.nickname = nickname;
+    }
+
     // null이면 로그아웃 (기존 토큰 무효)
     public void issueToken(String token) {
         this.token = token;

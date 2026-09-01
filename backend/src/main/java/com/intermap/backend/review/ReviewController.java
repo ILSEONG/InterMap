@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -175,6 +176,24 @@ public class ReviewController {
             photoIds.add(photos.save(new ReviewPhoto(review, f.getContentType(), f.getBytes())).getId());
         }
         return ResponseEntity.ok(Item.from(review, photoIds, findPlace(review.getRestaurantName(), review.getRestaurantAddress())));
+    }
+
+    // 본인 후기 삭제. 사진 먼저 지운다 (FK).
+    @DeleteMapping("/api/reviews/{id}")
+    @Transactional
+    public ResponseEntity<?> delete(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                    @PathVariable Long id) {
+        AppUser user = auth.currentUser(authorization);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthController.ErrorResponse("다시 로그인해주세요."));
+        }
+        Review review = repository.findById(id).orElse(null);
+        if (review == null || !review.getAuthor().getId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("내가 쓴 후기만 지울 수 있어요."));
+        }
+        photos.deleteAllByIdInBatch(photos.findRefsByReviewId(id).stream().map(ReviewPhotoRepository.Ref::getId).toList());
+        repository.delete(review);
+        return ResponseEntity.noContent().build();
     }
 
     private static boolean validBody(double rating, String text) {

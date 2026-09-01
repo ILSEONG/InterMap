@@ -366,6 +366,11 @@
   cursor: pointer;
 }
 
+.review-form__cancel--danger {
+  margin-right: auto;
+  color: #d23b4f;
+}
+
 .review-form__editing {
   margin: 0;
   font-size: 12px;
