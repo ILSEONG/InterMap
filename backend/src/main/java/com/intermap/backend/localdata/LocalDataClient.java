@@ -91,8 +91,8 @@ public class LocalDataClient {
 
     /** 지자체 코드 기준 영업중(01) 일반음식점 전량 조회 — 최초 데이터 유입(백필)용 */
     public List<Row> fetchAllOpen(String localCode) {
-        // 마포구 기준 영업중 약 8천 건 = 80페이지. 대형 지자체 여유분 포함 상한 200
-        return fetchPages(200, builder -> builder
+        // 마포구 영업중 약 8천 건 = 80페이지. 강남구는 그 두 배 가까이라 여유 포함 상한 400
+        return fetchPages(400, builder -> builder
             .queryParam("cond%5BOPN_ATMY_GRP_CD%3A%3AEQ%5D", localCode)
             .queryParam("cond%5BSALS_STTS_CD%3A%3AEQ%5D", "01"));
     }

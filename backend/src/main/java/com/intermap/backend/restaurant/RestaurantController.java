@@ -10,9 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
@@ -44,8 +42,8 @@ public class RestaurantController {
         this.repository = repository;
     }
 
-    // q가 오면 이름 검색(상한 50건), bbox 4개가 다 오면 그 영역만, 아니면 전체. 데이터는 주 2회 배치 동기화로만 바뀌므로
-    // 6시간 캐시 — 동기화 후 최대 6시간 안에 전파되면 충분하다.
+    // q가 오면 이름 검색(상한 50건), bbox 4개가 다 오면 그 영역만. 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
+    // 통째로 내려주지 않는다. 데이터는 주간 배치 동기화로만 바뀌므로 6시간 캐시.
     @GetMapping("/api/restaurants")
     public ResponseEntity<List<ListItem>> list(
             @RequestParam(required = false) Double minLat,
@@ -58,7 +56,7 @@ public class RestaurantController {
                 ? repository.findTop50ByNameContainingIgnoreCase(q.trim())
                 : hasBox
                 ? repository.findByLatBetweenAndLngBetween(minLat, maxLat, minLng, maxLng)
-                : repository.findAll();
+                : List.of();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
                 .body(rows.stream().map(ListItem::from).toList());
@@ -75,16 +73,9 @@ public class RestaurantController {
             @RequestParam double maxLng,
             @RequestParam int zoom) {
         double cellDeg = 360.0 * CLUSTER_PIXEL_DISTANCE / (256.0 * Math.pow(2, zoom));
-        Map<String, double[]> cells = new HashMap<>(); // key -> [latSum, lngSum, count]
-        for (Restaurant r : repository.findByLatBetweenAndLngBetween(minLat, maxLat, minLng, maxLng)) {
-            String key = Math.floor(r.getLat() / cellDeg) + ":" + Math.floor(r.getLng() / cellDeg);
-            double[] acc = cells.computeIfAbsent(key, k -> new double[3]);
-            acc[0] += r.getLat();
-            acc[1] += r.getLng();
-            acc[2] += 1;
-        }
-        List<Cell> body = cells.values().stream()
-                .map(a -> new Cell(a[0] / a[2], a[1] / a[2], (int) a[2]))
+        // DB group by — 낮은 줌에서 bbox가 서울 전체를 덮어도 행을 안 올린다
+        List<Cell> body = repository.summarize(minLat, maxLat, minLng, maxLng, cellDeg).stream()
+                .map(a -> new Cell(((Number) a[0]).doubleValue(), ((Number) a[1]).doubleValue(), ((Number) a[2]).intValue()))
                 .toList();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())

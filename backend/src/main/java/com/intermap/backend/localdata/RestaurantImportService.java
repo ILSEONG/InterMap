@@ -43,6 +43,8 @@ public class RestaurantImportService {
     public record Result(int fetched, int created, int matched, int skipped) {
     }
 
+    private static final int BATCH_SIZE = 500;
+
     private final LocalDataClient client;
     private final RestaurantRepository repository;
 
@@ -58,15 +60,20 @@ public class RestaurantImportService {
 
         List<LocalDataClient.Row> rows = client.fetchAllOpen(localCode);
 
-        List<Restaurant> existing = repository.findAll();
+        // 기존 가게는 키(관리번호, 상호|주소 → id)만 올린다. 엔티티 전체는 서울 규모에서 메모리를 넘긴다.
         Set<String> knownMgtNos = new HashSet<>();
-        Map<String, Restaurant> byNameAddr = new HashMap<>();
-        for (Restaurant r : existing) {
-            if (r.getLocalDataMgtNo() != null) knownMgtNos.add(r.getLocalDataMgtNo());
-            byNameAddr.put(key(r.getName(), r.getRoadAddress()), r);
+        Map<String, Long> idByNameAddr = new HashMap<>();
+        Set<Long> withMgtNo = new HashSet<>();
+        for (RestaurantRepository.KeyRef r : repository.findAllKeys()) {
+            if (r.getLocalDataMgtNo() != null) {
+                knownMgtNos.add(r.getLocalDataMgtNo());
+                withMgtNo.add(r.getId());
+            }
+            idByNameAddr.put(key(r.getName(), r.getRoadAddress()), r.getId());
         }
 
-        List<Restaurant> toSave = new ArrayList<>();
+        List<Restaurant> batch = new ArrayList<>();
+        Map<Long, String> backfill = new HashMap<>(); // 기존 가게 id -> 채울 관리번호
         int created = 0, matched = 0, skipped = 0;
 
         for (LocalDataClient.Row row : rows) {
@@ -76,13 +83,16 @@ public class RestaurantImportService {
             }
 
             String roadAddr = blankToNull(row.rdnWhlAddr()) != null ? row.rdnWhlAddr() : row.lotnoAddr();
-            Restaurant found = byNameAddr.get(key(row.bplcNm(), roadAddr));
-            if (found != null) {
+            String k = key(row.bplcNm(), roadAddr);
+            Long foundId = idByNameAddr.get(k);
+            if (foundId != null) {
                 // 기존 가게 — 관리번호 백필 (이후 동기화가 문자열 매칭 없이 정확 매칭됨)
-                if (found.getLocalDataMgtNo() == null) {
-                    found.markStatus(Restaurant.Status.OPEN, row.mgtNo());
-                    toSave.add(found);
-                }
+                if (!withMgtNo.contains(foundId) && row.mgtNo() != null) backfill.put(foundId, row.mgtNo());
+                matched++;
+                continue;
+            }
+            if (idByNameAddr.containsKey(k)) {
+                // 이번 조회 안에서 이미 새로 만든 가게 (같은 상호·주소 중복 행)
                 matched++;
                 continue;
             }
@@ -102,12 +112,23 @@ public class RestaurantImportService {
                 latLng[1]
             );
             restaurant.markStatus(Restaurant.Status.OPEN, row.mgtNo());
-            toSave.add(restaurant);
-            byNameAddr.put(key(row.bplcNm(), roadAddr), restaurant);
+            batch.add(restaurant);
+            idByNameAddr.put(k, null); // 새로 만든 건 id가 아직 없다 — 중복 행만 걸러내면 된다
             created++;
+            // 묶음마다 저장·해제해서 영속성 컨텍스트가 수천 건을 물고 있지 않게
+            if (batch.size() >= BATCH_SIZE) {
+                repository.saveAll(batch);
+                batch.clear();
+            }
         }
+        repository.saveAll(batch);
 
-        repository.saveAll(toSave);
+        List<Long> ids = new ArrayList<>(backfill.keySet());
+        for (int i = 0; i < ids.size(); i += BATCH_SIZE) {
+            List<Restaurant> found = repository.findAllById(ids.subList(i, Math.min(ids.size(), i + BATCH_SIZE)));
+            for (Restaurant r : found) r.markStatus(Restaurant.Status.OPEN, backfill.get(r.getId()));
+            repository.saveAll(found);
+        }
         log.info("LOCALDATA {} 백필: 조회 {}건, 신규 {}건, 기존 {}건, 좌표없음 {}건",
             localCode, rows.size(), created, matched, skipped);
         return new Result(rows.size(), created, matched, skipped);
