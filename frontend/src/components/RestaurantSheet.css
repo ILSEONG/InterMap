@@ -564,11 +564,42 @@
   padding: 16px;
 }
 
+/* 같은 후기의 사진들을 좌우 스냅으로. 끝에서 더 밀어도 바깥(스토리 트랙)으로 스크롤이 번지지 않게 */
+.photo-lightbox__track {
+  display: flex;
+  width: min(100%, 480px);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.photo-lightbox__track::-webkit-scrollbar {
+  display: none;
+}
+
+.photo-lightbox__slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 1280px 원본이 화면을 다 덮지 않게 폭·높이를 제한한다 */
 .photo-lightbox img {
   max-width: 100%;
-  max-height: 100%;
+  max-height: 70vh;
   object-fit: contain;
   border-radius: var(--radius-sm);
+}
+
+.photo-lightbox__count {
+  position: absolute;
+  bottom: max(env(safe-area-inset-bottom), 20px);
+  margin: 0;
+  font-size: 13px;
+  color: #fff9f2;
 }
 
 /* 후기 작성 폼의 사진 선택 */

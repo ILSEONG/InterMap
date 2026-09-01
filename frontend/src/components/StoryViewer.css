@@ -57,6 +57,13 @@
   box-sizing: border-box;
 }
 
+.story-viewer__author {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
 .story-viewer__hint {
   margin: 12px 0 0;
   text-align: center;

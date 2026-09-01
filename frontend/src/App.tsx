@@ -546,7 +546,7 @@ export default function App() {
       {/* 친구 기능 전이라 초대 목록은 비어 있다 */}
       <MeetupSheet restaurant={meetupRestaurant} friends={[]} onClose={() => setMeetupRestaurant(null)} />
 
-      <StoryViewer story={openStory} allReviews={reviews} onClose={() => setOpenStory(null)} />
+      <StoryViewer stories={stories} story={openStory} allReviews={reviews} onClose={() => setOpenStory(null)} />
 
       <AuthModal
         mode={authMode}
