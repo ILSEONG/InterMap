@@ -12,12 +12,16 @@ interface MapCanvasProps {
   groups: FriendGroup[]
   // 낮은 줌에서 개별 가게 대신 그리는 서버 격자 요약 셀
   cells?: ClusterCell[]
+  // 요약 모드에서도 넘겨받은 가게를 개별 핀으로 그릴지 — 후기 있음 필터·검색 중처럼 목록이 이미 작을 때 true
+  pinsWhenFar?: boolean
   onPick: (restaurant: Restaurant) => void
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
   focus?: { id: string }
   // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역과 줌을 알려준다 — 뷰포트 단위 데이터 로딩용.
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
+  // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
+  onMyLocation?: (pos: { lat: number; lng: number }) => void
 }
 
 const CENTER = { lat: 37.5605, lng: 126.92 }
@@ -86,7 +90,16 @@ function pinListContent(items: Restaurant[], groups: FriendGroup[]): string {
   return `<div class="pin-list"><ul class="pin-list__items">${rows}</ul></div>`
 }
 
-export default function MapCanvas({ restaurants, groups, cells = [], onPick, focus, onViewportChange }: MapCanvasProps) {
+export default function MapCanvas({
+  restaurants,
+  groups,
+  cells = [],
+  pinsWhenFar = false,
+  onPick,
+  focus,
+  onViewportChange,
+  onMyLocation,
+}: MapCanvasProps) {
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map())
@@ -118,7 +131,9 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
     const cellMode = zoom <= SUMMARY_MAX_ZOOM
     const inBox = (lat: number, lng: number) =>
       lat >= viewport.minLat && lat <= viewport.maxLat && lng >= viewport.minLng && lng <= viewport.maxLng
-    const base = cellMode ? restaurants.filter((r) => !r.id.startsWith('db-')) : restaurants
+    // 요약 모드에서는 개별 핀을 그리지 않는다 — 셀 건수에 후기 있는 가게도 이미 들어 있다.
+    // 단 후기 있음 필터·검색 중에는 셀이 없으므로 넘겨받은 가게를 줌과 무관하게 개별 핀으로 그린다.
+    const base = cellMode && !pinsWhenFar ? [] : restaurants
     const pins = clusterPins(
       base.filter((r) => inBox(r.lat, r.lng)),
       zoom,
@@ -136,7 +151,7 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
       }
     }
     return pins
-  }, [restaurants, cells, viewport, zoom])
+  }, [restaurants, cells, viewport, zoom, pinsWhenFar])
 
   const [locating, setLocating] = useState(false)
 
@@ -170,6 +185,7 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
     let marker: naver.maps.Marker | null = null
     const watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
+        onMyLocation?.({ lat: coords.latitude, lng: coords.longitude })
         const pos = new window.naver.maps.LatLng(coords.latitude, coords.longitude)
         if (marker) {
           marker.setPosition(pos)
@@ -190,7 +206,7 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
       navigator.geolocation.clearWatch(watchId)
       marker?.setMap(null)
     }
-  }, [mapReady])
+  }, [mapReady, onMyLocation])
 
   // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
   const focusRestaurant = useCallback((restaurant: Restaurant) => {
@@ -198,7 +214,10 @@ export default function MapCanvas({ restaurants, groups, cells = [], onPick, foc
     if (!map || !window.naver) return
 
     setFocusedId(restaurant.id)
-    map.panTo(new window.naver.maps.LatLng(restaurant.lat, restaurant.lng), PAN_TRANSITION)
+    const target = new window.naver.maps.LatLng(restaurant.lat, restaurant.lng)
+    // 요약 모드(줌 ≤15)에서는 개별 핀이 안 그려지므로 핀이 보이는 줌까지 당겨서 간다
+    if (map.getZoom() <= SUMMARY_MAX_ZOOM) map.morph(target, SUMMARY_MAX_ZOOM + 1, PAN_TRANSITION)
+    else map.panTo(target, PAN_TRANSITION)
   }, [])
 
   useEffect(() => {

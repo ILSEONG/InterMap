@@ -5,7 +5,8 @@ import { timeAgo } from '../lib/time'
 import Stars from './Stars'
 
 // 시트·스토리 뷰어가 같은 카드를 쓴다. 스타일은 RestaurantSheet.css(.review-card*)
-export default function ReviewCard({ review }: { review: Review }) {
+// onEdit이 있으면 (내 후기) 수정 버튼이 붙는다
+export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?: () => void }) {
   const [lightbox, setLightbox] = useState<number | null>(null)
 
   return (
@@ -25,6 +26,11 @@ export default function ReviewCard({ review }: { review: Review }) {
         </span>
       </header>
       <p className="review-card__text">{review.text}</p>
+      {onEdit && (
+        <button type="button" className="review-card__edit" onClick={onEdit}>
+          수정
+        </button>
+      )}
       {review.photoIds.length > 0 && (
         <div className="review-card__photos">
           {review.photoIds.map((id) => (

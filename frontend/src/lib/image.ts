@@ -1,7 +1,8 @@
 // 업로드 전에 사진을 긴 변 max px JPEG로 줄인다. 폰 원본(3~8MB)을 그대로 올리지 않기 위해.
 // 브라우저가 EXIF 회전을 적용해 그려주므로 서버에서 회전을 따로 처리하지 않는다.
 export async function shrinkImage(file: Blob, max = 1280, quality = 0.82): Promise<Blob> {
-  const bitmap = await createImageBitmap(file)
+  // 폰 사진의 EXIF 회전을 픽셀에 적용 — 옵션 없으면 일부 브라우저가 누워서 그린다
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bitmap.width * scale)

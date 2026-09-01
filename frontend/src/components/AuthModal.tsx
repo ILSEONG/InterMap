@@ -28,7 +28,7 @@ const SOCIAL_PROVIDERS = [
   { id: 'kakao', name: '카카오', initial: 'K' },
 ] as const
 
-// 이메일 흐름 안의 단계. start → (password | code) → terms → nickname → done
+// 이메일 흐름 안의 단계. start → (password | code) → terms → nickname(+비밀번호) → done
 type Step = 'start' | 'password' | 'code' | 'terms' | 'nickname'
 
 interface Hint {
@@ -110,12 +110,17 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       .catch((err: Error) => setCodeHint({ text: err.message, tone: 'error' }))
   }
 
-  // 이메일 조회: 옛 계정(비밀번호 있음)은 비밀번호로, 그 외 기존 회원과 신규는 인증번호로
+  // 이메일 조회: 기존 회원은 비밀번호로, 신규는 인증번호로. 소셜로만 가입한 계정은 그 버튼으로 안내.
   function continueWithEmail(e: React.FormEvent) {
     e.preventDefault()
-    run(lookupEmail(email), ({ exists, hasPassword }) => {
+    run(lookupEmail(email), ({ exists, hasPassword, provider: p }) => {
       setExisting(exists)
-      if (exists && hasPassword) {
+      if (exists && !hasPassword) {
+        const name = SOCIAL_PROVIDERS.find((s) => s.id === p)?.name ?? 'SNS'
+        setError(`${name}로 가입한 계정이에요. 위의 "${name}로 계속하기"를 눌러주세요.`)
+        return
+      }
+      if (exists) {
         setStep('password')
         return
       }
@@ -148,7 +153,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
     const request =
       shown === 'social'
         ? signupSocial(social?.ticket ?? '', nickname, marketing)
-        : signup({ email, emailCode: code, nickname, termsAgreed: true, marketingAgreed: marketing })
+        : signup({ email, emailCode: code, nickname, password, termsAgreed: true, marketingAgreed: marketing })
     run(request, setDone)
   }
 
@@ -355,7 +360,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
                   sendCode()
                 }}
               >
-                비밀번호 대신 이메일 인증번호로 로그인
+                비밀번호를 잊으셨나요? 인증번호로 로그인
               </button>
             </form>
           </>
@@ -406,12 +411,31 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
         return (
           <>
             {backButton}
-            <h2 className="auth-modal__title">어떻게 불러드릴까요?</h2>
-            <p className="auth-modal__desc">친구들에게 보일 이름이에요.</p>
+            <h2 className="auth-modal__title">마지막이에요!</h2>
+            <p className="auth-modal__desc">친구들에게 보일 이름과 로그인할 때 쓸 비밀번호를 정해주세요.</p>
             <form className="auth-modal__form" onSubmit={submitSignup}>
               {nicknameField}
+              <div className="auth-modal__field">
+                <div className="auth-modal__float">
+                  <input
+                    id="auth-new-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder=" "
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                  <label htmlFor="auth-new-password">비밀번호 (8자 이상)</label>
+                </div>
+              </div>
               {error && <p className="auth-modal__error">{error}</p>}
-              <button type="submit" className="auth-modal__submit" disabled={busy || !nickname.trim()}>
+              <button
+                type="submit"
+                className="auth-modal__submit"
+                disabled={busy || !nickname.trim() || password.length < 8}
+              >
                 {submitLabel('가입 완료')}
               </button>
             </form>

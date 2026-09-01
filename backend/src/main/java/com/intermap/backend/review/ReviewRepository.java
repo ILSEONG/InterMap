@@ -1,5 +1,6 @@
 package com.intermap.backend.review;
 
+import com.intermap.backend.auth.AppUser;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,4 +10,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 작성자를 한 번에 조인해 가져온다 (후기마다 사용자 조회하는 N+1 방지)
     @EntityGraph(attributePaths = "author")
     List<Review> findAllByOrderByCreatedAtDesc();
+
+    // 한 사람은 한 가게에 후기를 하나만 남긴다 (가게 키 = 이름+주소 스냅샷)
+    boolean existsByAuthorAndRestaurantNameAndRestaurantAddress(AppUser author, String restaurantName, String restaurantAddress);
 }

@@ -15,4 +15,7 @@ public interface ReviewPhotoRepository extends JpaRepository<ReviewPhoto, Long> 
     // 목록 응답에는 사진 id만 필요하다 — 바이트는 /api/photos/{id}로 따로 받는다
     @Query("select p.id as id, p.review.id as reviewId from ReviewPhoto p order by p.id")
     List<Ref> findAllRefs();
+
+    @Query("select p.id as id, p.review.id as reviewId from ReviewPhoto p where p.review.id = :reviewId order by p.id")
+    List<Ref> findRefsByReviewId(Long reviewId);
 }

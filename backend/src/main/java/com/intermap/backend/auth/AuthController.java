@@ -24,9 +24,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
-// 가입/로그인 흐름 (비밀번호 없음):
-//   이메일 입력 → lookup → 기존 회원이면 로그인(비밀번호가 있는 옛 계정은 비밀번호, 아니면 이메일 인증번호)
-//                        → 신규면 이메일 인증번호 → 약관 동의 → 닉네임 → 가입
+// 가입/로그인 흐름:
+//   이메일 입력 → lookup → 기존 회원이면 비밀번호 로그인(잊었으면 이메일 인증번호로 로그인)
+//                        → 신규면 이메일 인증번호 → 약관 동의 → 닉네임+비밀번호 → 가입
 //   소셜 로그인 → 연결된 회원이면 로그인 → 같은 이메일 계정이 있으면 인증번호로 연결 → 없으면 닉네임+약관으로 가입
 @RestController
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
@@ -39,7 +39,7 @@ public class AuthController {
     public record CodeRequest(String email, String emailCode) {
     }
 
-    public record SignupRequest(String email, String emailCode, String nickname,
+    public record SignupRequest(String email, String emailCode, String nickname, String password,
                                 boolean termsAgreed, boolean marketingAgreed) {
     }
 
@@ -54,7 +54,7 @@ public class AuthController {
     public record LinkRequest(String linkTicket, String emailCode) {
     }
 
-    public record AuthResponse(String token, String email, String nickname) {
+    public record AuthResponse(Long id, String token, String email, String nickname) {
     }
 
     public record ErrorResponse(String message) {
@@ -63,8 +63,8 @@ public class AuthController {
     public record AvailableResponse(boolean available) {
     }
 
-    // hasPassword: 옛 방식(이메일+비밀번호)으로 가입한 계정. 이 경우만 비밀번호 로그인 화면을 보여준다.
-    public record LookupResponse(boolean exists, boolean hasPassword) {
+    // provider: 소셜로만 가입한 계정(비밀번호 없음)이면 어떤 SNS인지 — 그 버튼으로 로그인하라고 안내한다
+    public record LookupResponse(boolean exists, boolean hasPassword, String provider) {
     }
 
     public record OkResponse(String message) {
@@ -73,6 +73,7 @@ public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final int MAX_NICKNAME_LENGTH = 20;
+    private static final int MIN_PASSWORD_LENGTH = 8;
     private static final long CODE_TTL_SECONDS = 300;
     private static final long RESEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_VERIFY_ATTEMPTS = 5;
@@ -197,7 +198,7 @@ public class AuthController {
     private AuthResponse signIn(AppUser user) {
         user.issueToken(UUID.randomUUID().toString());
         repository.save(user);
-        return new AuthResponse(user.getToken(), user.getEmail(), user.getNickname());
+        return new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname());
     }
 
     // 이메일 하나로 로그인/가입을 가른다. 계정 존재 여부가 드러나지만 요즘 흔한 흐름이라 감수한다.
@@ -208,7 +209,8 @@ public class AuthController {
         if (user == null && !EMAIL.matcher(email).matches()) {
             return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
         }
-        return ResponseEntity.ok(new LookupResponse(user != null, user != null && user.getPasswordHash() != null));
+        return ResponseEntity.ok(new LookupResponse(user != null, user != null && user.getPasswordHash() != null,
+                user == null ? null : user.getProvider()));
     }
 
     // 신규 가입·인증번호 로그인·소셜 계정 연결 모두 이걸로 보낸다
@@ -244,6 +246,9 @@ public class AuthController {
         if (!request.termsAgreed()) {
             return ResponseEntity.badRequest().body(new ErrorResponse("필수 약관에 동의해주세요."));
         }
+        if (request.password() == null || request.password().length() < MIN_PASSWORD_LENGTH) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 해요."));
+        }
         ErrorResponse nicknameError = checkNicknameRule(nickname);
         if (nicknameError != null) {
             return ResponseEntity.badRequest().body(nicknameError);
@@ -255,7 +260,7 @@ public class AuthController {
         if (emailError != null) {
             return ResponseEntity.badRequest().body(emailError);
         }
-        AppUser user = new AppUser(email, null, nickname, null);
+        AppUser user = new AppUser(email, encoder.encode(request.password()), nickname, null);
         user.agree(request.marketingAgreed());
         AuthResponse session = signIn(user);
         codes.remove(email);
@@ -338,7 +343,7 @@ public class AuthController {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
         }
-        return ResponseEntity.ok(new AuthResponse(user.getToken(), user.getEmail(), user.getNickname()));
+        return ResponseEntity.ok(new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname()));
     }
 
     // 서버 쪽 토큰을 지워 다른 기기에 남은 사본도 무효화한다
@@ -352,7 +357,7 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    // 옛 방식으로 가입한 계정(비밀번호 있음)과 관리자(admin)용
+    // 이메일 가입 계정과 관리자(admin). 소셜로만 가입한 계정은 passwordHash가 null이라 여기로 못 들어온다.
     @PostMapping("/api/auth/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         AppUser user = repository.findByEmail(normalizeEmail(request.email())).orElse(null);
@@ -363,7 +368,7 @@ public class AuthController {
         return ResponseEntity.ok(signIn(user));
     }
 
-    // 이메일 인증번호로 로그인. 비밀번호 유무와 상관없이 모든 계정이 쓸 수 있다 (비밀번호 찾기 역할도 겸함).
+    // 비밀번호를 잊었을 때 이메일 인증번호로 로그인 (비밀번호 찾기 대용).
     @PostMapping("/api/auth/login-code")
     public ResponseEntity<?> loginWithCode(@RequestBody CodeRequest request) {
         String email = normalizeEmail(request.email());

@@ -26,7 +26,8 @@ export interface ReviewAuthor {
 export interface Review {
   id: number
   // 가게 스냅샷. name|address 가 가게 키 (api.restaurantKey)
-  restaurant: { name: string; category: string; address: string }
+  // lat/lng는 서버가 가게 행을 찾았을 때만 채워준다 — 뷰포트에 안 실린 가게도 핀으로 찍기 위해
+  restaurant: { name: string; category: string; address: string; lat?: number | null; lng?: number | null }
   author: ReviewAuthor
   rating: number
   text: string

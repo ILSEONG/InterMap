@@ -6,6 +6,8 @@ export type SearchMode = 'restaurant' | 'person'
 interface HeaderProps {
   query: string
   onQueryChange: (value: string) => void
+  // Enter(키보드 검색 버튼): 결과 목록은 닫고 키워드·지도 필터는 그대로 둔다
+  onSubmit: () => void
   searchMode: SearchMode
   onSearchModeChange: (mode: SearchMode) => void
   // 로그인 상태면 닉네임, 아니면 null
@@ -20,6 +22,7 @@ export const WORDMARK_COLORS = ['#ff5d73', '#ff7a45', '#2fbfa6', '#8b6bff']
 export default function Header({
   query,
   onQueryChange,
+  onSubmit,
   searchMode,
   onSearchModeChange,
   nickname,
@@ -89,7 +92,7 @@ export default function Header({
                     onLogin()
                   }}
                 >
-                  로그인 · 회원가입
+                  로그인
                 </button>
               </>
             )}
@@ -131,7 +134,14 @@ export default function Header({
             className="app-header__search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Escape' && toggleSearch()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') toggleSearch()
+              if (e.key === 'Enter') {
+                e.currentTarget.blur()
+                onSubmit()
+              }
+            }}
+            enterKeyHint="search"
             placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '사람 이름으로 찾기'}
             aria-label="가게 검색"
             tabIndex={searching ? 0 : -1}

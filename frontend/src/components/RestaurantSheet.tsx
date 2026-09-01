@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
+import { photoUrl } from '../lib/api'
 import ReviewCard from './ReviewCard'
 import Stars from './Stars'
 import './RestaurantSheet.css'
@@ -15,6 +16,9 @@ interface RestaurantSheetProps {
   onStartMeetup: (restaurant: Restaurant) => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
   onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
+  // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
+  myUserId?: number
+  onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
@@ -33,6 +37,8 @@ export default function RestaurantSheet({
   onClose,
   onStartMeetup,
   onAddReview,
+  myUserId,
+  onEditReview,
   onAddComment,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
@@ -141,6 +147,8 @@ export default function RestaurantSheet({
               groups={groups}
               onStartMeetup={onStartMeetup}
               onAddReview={onAddReview}
+              myUserId={myUserId}
+              onEditReview={onEditReview}
               onAddComment={onAddComment}
             />
           </>
@@ -158,15 +166,32 @@ interface SheetBodyProps {
   onStartMeetup: (restaurant: Restaurant) => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
   onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
+  // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
+  myUserId?: number
+  onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
   onAddComment: (restaurantId: string, text: string, parentId?: string) => void
 }
 
-function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, onAddReview, onAddComment }: SheetBodyProps) {
+function SheetBody({
+  restaurant,
+  ownerReviews,
+  asOwner,
+  groups,
+  onStartMeetup,
+  onAddReview,
+  myUserId,
+  onEditReview,
+  onAddComment,
+}: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
   const [draftComment, setDraftComment] = useState('')
   const [draftPhotos, setDraftPhotos] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
+  // 수정 중인 내 후기. 같은 폼을 재사용 — 기존 사진은 keepPhotoIds로, 새 사진은 draftPhotos로
+  const [editing, setEditing] = useState<Review | null>(null)
+  const [keepPhotoIds, setKeepPhotoIds] = useState<number[]>([])
+  const formRef = useRef<HTMLDivElement>(null)
   // 선택한 사진 미리보기 URL. 목록이 바뀔 때마다 이전 URL은 해제한다
   const previews = useMemo(() => draftPhotos.map((f) => URL.createObjectURL(f)), [draftPhotos])
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
@@ -174,14 +199,47 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
   const rootComments = restaurant.comments.filter((c) => !c.parentId)
 
+  function resetForm() {
+    setDraftReview('')
+    setDraftRating(5)
+    setDraftPhotos([])
+    setEditing(null)
+    setKeepPhotoIds([])
+  }
+
+  function fillFrom(review: Review) {
+    setEditing(review)
+    setDraftRating(review.rating)
+    setDraftReview(review.text)
+    setDraftPhotos([])
+    setKeepPhotoIds(review.photoIds)
+  }
+
+  function startEdit(review: Review) {
+    fillFrom(review)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  // 한 가게에 후기는 하나만 (서버도 409로 막는다). 이미 썼으면 폼에 그 내용을 채워 수정 모드로 연다.
+  const myReview =
+    myUserId === undefined ? undefined : [...restaurant.reviews, ...ownerReviews].find((r) => r.author.id === myUserId)
+  // 후기 목록이 나중에 오거나 방금 등록·수정해서 myReview가 바뀌면 다시 채운다. 편집 중엔 입력을 덮어쓰지 않는다.
+  useEffect(() => {
+    if (myReview && !editing) fillFrom(myReview)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myReview, editing])
+
+  // 내 후기면 수정 버튼을 붙인다
+  const editHandler = (review: Review) =>
+    myUserId !== undefined && review.author.id === myUserId ? () => startEdit(review) : undefined
+
   async function submitReview() {
     if (!draftReview.trim() || submitting) return
     setSubmitting(true)
     try {
-      await onAddReview(restaurant.id, draftRating, draftReview.trim(), draftPhotos)
-      setDraftReview('')
-      setDraftRating(5)
-      setDraftPhotos([])
+      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), keepPhotoIds, draftPhotos)
+      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), draftPhotos)
+      resetForm()
     } catch {
       // App이 이미 alert로 알렸다. 입력값은 그대로 둔다
     } finally {
@@ -191,7 +249,7 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
 
   function addPhotos(list: FileList | null) {
     if (!list) return
-    setDraftPhotos((prev) => [...prev, ...Array.from(list)].slice(0, MAX_PHOTOS))
+    setDraftPhotos((prev) => [...prev, ...Array.from(list)].slice(0, MAX_PHOTOS - keepPhotoIds.length))
   }
 
   function submitComment() {
@@ -238,11 +296,12 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
         )}
         <div className="restaurant-sheet__reviews">
           {restaurant.reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
           ))}
         </div>
 
-        <div className="review-form">
+        <div className="review-form" ref={formRef}>
+          {editing && <p className="review-form__editing">내가 남긴 후기 — 고친 뒤 수정 완료를 눌러주세요</p>}
           <div className="review-form__stars">
             <Stars value={draftRating} />
             <input
@@ -266,6 +325,14 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
             rows={2}
           />
           <div className="review-form__photos">
+            {keepPhotoIds.map((id) => (
+              <span key={id} className="review-form__thumb">
+                <img src={photoUrl(id)} alt="올려둔 사진" />
+                <button type="button" onClick={() => setKeepPhotoIds((prev) => prev.filter((k) => k !== id))} aria-label="사진 빼기">
+                  ✕
+                </button>
+              </span>
+            ))}
             {previews.map((url, i) => (
               <span key={url} className="review-form__thumb">
                 <img src={url} alt={`선택한 사진 ${i + 1}`} />
@@ -278,7 +345,7 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
                 </button>
               </span>
             ))}
-            {draftPhotos.length < MAX_PHOTOS && (
+            {keepPhotoIds.length + draftPhotos.length < MAX_PHOTOS && (
               <label className="review-form__add-photo">
                 📷 사진
                 <input
@@ -294,14 +361,21 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
               </label>
             )}
           </div>
-          <button
-            type="button"
-            className="review-form__submit"
-            onClick={submitReview}
-            disabled={!draftReview.trim() || submitting}
-          >
-            {submitting ? '등록 중…' : asOwner ? '주인장 후기 등록' : '후기 등록'}
-          </button>
+          <div className="review-form__actions">
+            {editing && (
+              <button type="button" className="review-form__cancel" onClick={resetForm} disabled={submitting}>
+                되돌리기
+              </button>
+            )}
+            <button
+              type="button"
+              className="review-form__submit"
+              onClick={submitReview}
+              disabled={!draftReview.trim() || submitting}
+            >
+              {submitting ? '저장 중…' : editing ? '수정 완료' : asOwner ? '주인장 후기 등록' : '후기 등록'}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -310,7 +384,7 @@ function SheetBody({ restaurant, ownerReviews, asOwner, groups, onStartMeetup, o
           <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
           <div className="restaurant-sheet__reviews">
             {ownerReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
             ))}
           </div>
         </section>

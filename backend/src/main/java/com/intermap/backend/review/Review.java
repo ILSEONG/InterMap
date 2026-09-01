@@ -51,6 +51,11 @@ public class Review {
         this.text = text;
     }
 
+    public void edit(double rating, String text) {
+        this.rating = rating;
+        this.text = text;
+    }
+
     public Long getId() { return id; }
     public AppUser getAuthor() { return author; }
     public String getRestaurantName() { return restaurantName; }

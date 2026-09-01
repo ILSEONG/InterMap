@@ -54,7 +54,16 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
   return res.json()
 }
 
+// 이름으로 서버 검색 (상한 50건). 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
+export async function searchRestaurants(q: string): Promise<RestaurantRecord[]> {
+  const res = await fetch(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}`)
+  if (!res.ok) throw new Error(`음식점 검색 실패 (${res.status})`)
+  return res.json()
+}
+
 export interface AuthSession {
+  // 서버 사용자 id. 내가 쓴 후기 판별용 (예전에 저장된 세션엔 없을 수 있다 — /api/auth/me가 채워준다)
+  id?: number
   token: string
   // 카카오 가입은 이메일이 없을 수 있다
   email: string | null
@@ -87,8 +96,8 @@ export async function logout(): Promise<void> {
   })
 }
 
-async function post<T>(path: string, body: BodyInit, headers: Record<string, string> = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { ...headers, ...authHeaders() }, body })
+async function post<T>(path: string, body: BodyInit, headers: Record<string, string> = {}, method = 'POST'): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { method, headers: { ...headers, ...authHeaders() }, body })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `요청 실패 (${res.status})`)
   return data
@@ -102,26 +111,27 @@ export interface SignupParams {
   email: string
   emailCode: string
   nickname: string
+  password: string
   termsAgreed: boolean
   marketingAgreed: boolean
 }
 
-// 이메일 인증번호 → 약관 → 닉네임까지 마친 뒤 호출. 비밀번호는 없다.
+// 이메일 인증번호 → 약관 → 닉네임+비밀번호까지 마친 뒤 호출
 export function signup(params: SignupParams): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/signup', params)
 }
 
-// 이메일로 기존 회원인지, 옛 방식(비밀번호) 계정인지 알아낸다
-export function lookupEmail(email: string): Promise<{ exists: boolean; hasPassword: boolean }> {
+// 이메일로 기존 회원인지, 소셜로만 가입한 계정(provider 있음, 비밀번호 없음)인지 알아낸다
+export function lookupEmail(email: string): Promise<{ exists: boolean; hasPassword: boolean; provider: OAuthProvider | null }> {
   return postJson('/api/auth/lookup', { email })
 }
 
-// 비밀번호가 있는 옛 계정과 관리자(admin)용
+// 이메일 가입 계정과 관리자(admin)
 export function login(email: string, password: string): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/login', { email, password })
 }
 
-// 이메일 인증번호로 로그인. 모든 계정이 쓸 수 있다.
+// 비밀번호를 잊었을 때 이메일 인증번호로 로그인
 export function loginWithCode(email: string, emailCode: string): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/login-code', { email, emailCode })
 }
@@ -200,6 +210,14 @@ export function postReview(
   form.append('review', new Blob([JSON.stringify({ restaurant, rating, text })], { type: 'application/json' }))
   photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
   return post<Review>('/api/reviews', form)
+}
+
+// 내 후기 수정. keepPhotoIds에 없는 기존 사진은 지워지고 photos는 새로 붙는다 (서버 ReviewController.update)
+export function updateReview(id: number, rating: number, text: string, keepPhotoIds: number[], photos: Blob[] = []): Promise<Review> {
+  const form = new FormData()
+  form.append('review', new Blob([JSON.stringify({ rating, text, keepPhotoIds })], { type: 'application/json' }))
+  photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
+  return post<Review>(`/api/reviews/${id}`, form, {}, 'PUT')
 }
 
 export function photoUrl(id: number): string {
