@@ -130,16 +130,19 @@ public class OAuthController {
             }
             String email = profile.email() == null ? "" : profile.email().trim().toLowerCase();
 
-            // 이 소셜 계정이 연결된 회원이 있으면 로그인. 없으면 "계정 연결" 화면으로 보내
-            // 이메일+비밀번호로 계정을 증명하게 한다 (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
-            // 계정 자체가 없으면 거기서 회원가입으로 안내한다.
+            // 이 소셜 계정이 연결된 회원이 있으면 로그인.
+            // 없는데 같은 이메일 계정이 있으면 "계정 연결" 화면(linkTicket) — 인증번호로 이메일 소유를 증명해야 연결된다
+            // (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
+            // 둘 다 없으면 닉네임+약관만 받는 가입 화면(signupTicket)으로 보낸다.
             AppUser user = repository.findByProviderAndProviderId(provider, profile.providerId()).orElse(null);
             if (user == null) {
                 String ticket = pendingLinks.put(provider, profile.providerId(), email);
+                boolean emailTaken = !email.isBlank() && repository.findByEmail(email).isPresent();
                 URI target = UriComponentsBuilder.fromUriString(frontendBaseUrl)
-                    .queryParam("linkTicket", ticket)
+                    .queryParam(emailTaken ? "linkTicket" : "signupTicket", ticket)
                     .queryParam("provider", provider)
                     .queryParamIfPresent("email", email.isBlank() ? Optional.empty() : Optional.of(email))
+                    .queryParamIfPresent("nickname", Optional.ofNullable(profile.nickname()).filter(n -> !n.isBlank()))
                     .encode().build().toUri();
                 return ResponseEntity.status(302).location(target).build();
             }
@@ -148,7 +151,7 @@ public class OAuthController {
 
             URI target = UriComponentsBuilder.fromUriString(frontendBaseUrl)
                 .queryParam("token", user.getToken())
-                .queryParam("email", user.getEmail())
+                .queryParamIfPresent("email", Optional.ofNullable(user.getEmail()))
                 .queryParam("nickname", user.getNickname())
                 .encode().build().toUri();
             return ResponseEntity.status(302).location(target).build();

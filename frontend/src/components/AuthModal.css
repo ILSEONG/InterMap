@@ -18,6 +18,7 @@
 }
 
 .auth-modal {
+  position: relative;
   width: min(100%, 340px);
   max-height: min(86dvh, 660px);
   overflow-y: auto;
@@ -70,15 +71,6 @@
   gap: 4px;
 }
 
-/* 이메일/휴대폰과 그 인증번호를 하나의 판 위에 올린다 */
-.auth-modal__group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  background: var(--ground-path);
-  border-radius: 16px;
-}
 
 /* 인증번호 칸: 숫자 전용 느낌 */
 .auth-modal__code {
@@ -180,34 +172,10 @@
   color: #5f5a55;
 }
 
-.auth-modal__row {
-  display: flex;
-  gap: 8px;
-}
 
 
-.auth-modal__send {
-  flex: 0 0 auto;
-  padding: 0 12px;
-  border-radius: 14px;
-  border: 2.5px solid var(--ink);
-  background: var(--surface-raised);
-  font-family: var(--font-display);
-  font-size: 12px;
-  color: var(--ink);
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
 
-.auth-modal__send:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
 
-.auth-modal__send:active:not(:disabled) {
-  background: #fff0e0;
-}
 
 .auth-modal__submit {
   margin-top: 2px;
@@ -230,10 +198,10 @@
 }
 
 .auth-modal__divider {
+  margin: 14px 0 12px;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 16px 0 12px;
   color: var(--ink-soft);
   font-size: 12px;
 }
@@ -276,23 +244,7 @@
   color: #191919;
 }
 
-.auth-modal__switch {
-  margin: 12px 0 0;
-  text-align: center;
-  font-size: 13px;
-  color: var(--ink-soft);
-}
 
-.auth-modal__switch button {
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-weight: 700;
-  color: var(--accent);
-  cursor: pointer;
-  text-decoration: underline;
-}
 
 /* 회원가입 완료 화면 — 폼 대신 이것만 보여준다 (모달이 스크롤될 수 있어 덮어씌우는 대신 숨긴다) */
 .auth-modal--done > :not(.auth-modal__done) {
@@ -315,4 +267,106 @@
 
 .auth-modal__done .auth-modal__submit {
   margin-top: 16px;
+}
+
+/* 첫 화면 로고 — 헤더 워드마크처럼 크게 */
+.auth-modal__title--brand {
+  font-size: 30px;
+  margin-bottom: 6px;
+}
+
+/* 이메일 단계에서 처음 화면으로 돌아가는 화살표 */
+.auth-modal__back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auth-modal__back:active {
+  background: var(--ground-path);
+}
+
+/* 인증번호 다시 받기·비밀번호 대신 인증번호 같은 보조 동작 */
+.auth-modal__link {
+  align-self: center;
+  margin-top: 2px;
+  padding: 8px 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 약관 동의 묶음 */
+.auth-modal__terms {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--ground-path);
+  border-radius: 16px;
+}
+
+.auth-modal__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auth-modal__check input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.auth-modal__check em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.auth-modal__check--all {
+  font-family: var(--font-display);
+  border-bottom: 2px dashed rgba(43, 33, 64, 0.2);
+  margin-bottom: 2px;
+}
+
+/* 소셜 버튼 앞 이니셜 배지 */
+.auth-modal__social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.auth-modal__social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-size: 12px;
+  font-weight: 700;
 }

@@ -11,7 +11,6 @@ interface HeaderProps {
   // 로그인 상태면 닉네임, 아니면 null
   nickname: string | null
   onLogin: () => void
-  onSignup: () => void
   onLogout: () => void
 }
 
@@ -25,7 +24,6 @@ export default function Header({
   onSearchModeChange,
   nickname,
   onLogin,
-  onSignup,
   onLogout,
 }: HeaderProps) {
   const [searching, setSearching] = useState(false)
@@ -91,17 +89,7 @@ export default function Header({
                     onLogin()
                   }}
                 >
-                  로그인
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setAccountOpen(false)
-                    onSignup()
-                  }}
-                >
-                  회원가입
+                  로그인 · 회원가입
                 </button>
               </>
             )}

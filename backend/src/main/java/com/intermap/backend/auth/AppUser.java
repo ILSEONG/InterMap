@@ -15,7 +15,8 @@ public class AppUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    // 카카오는 이메일 권한 심사 전이라 이메일 없이 가입될 수 있다 (SchemaPatch 참고)
+    @Column(unique = true)
     private String email;
 
     private String passwordHash;
@@ -42,7 +43,17 @@ public class AppUser {
     // 토큰 발급 시각. 이 기준으로 만료를 판단한다 (AuthController.TOKEN_TTL_DAYS)
     private Instant tokenIssuedAt;
 
+    // 약관 동의 시각. 필수 약관은 가입 조건이라 가입자는 항상 있고, 마케팅 수신은 선택이라 null일 수 있다.
+    private Instant termsAgreedAt;
+    private Instant marketingAgreedAt;
+
     protected AppUser() {
+    }
+
+    public void agree(boolean marketing) {
+        Instant now = Instant.now();
+        this.termsAgreedAt = now;
+        this.marketingAgreedAt = marketing ? now : null;
     }
 
     public AppUser(String email, String passwordHash, String nickname, String phone) {
@@ -69,6 +80,8 @@ public class AppUser {
     public Instant getCreatedAt() { return createdAt; }
 
     public Instant getTokenIssuedAt() { return tokenIssuedAt; }
+    public Instant getTermsAgreedAt() { return termsAgreedAt; }
+    public Instant getMarketingAgreedAt() { return marketingAgreedAt; }
 
     // null이면 로그아웃 (기존 토큰 무효)
     public void issueToken(String token) {

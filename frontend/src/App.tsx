@@ -24,7 +24,7 @@ import {
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
 import { shrinkImage } from './lib/image'
-import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialLink } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialTicket } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -204,7 +204,7 @@ export default function App() {
     }
   })
   // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
-  const [socialLink, setSocialLink] = useState<SocialLink | null>(null)
+  const [socialLink, setSocialLink] = useState<SocialTicket | null>(null)
   const handleAuthed = useCallback((next: AuthSession) => {
     setSession(next)
     setAuthMode(null)
@@ -240,21 +240,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 소셜 로그인 완료 후 백엔드가 연결된 회원이면 ?token=&email=&nickname=, 아니면 ?linkTicket=&provider=&email=,
+  // 소셜 로그인 완료 후 백엔드가 연결된 회원이면 ?token=&email=&nickname=,
+  // 같은 이메일 계정이 있으면 ?linkTicket=, 처음이면 ?signupTicket= (둘 다 &provider=&email=&nickname= 동반),
   // 실패 시 ?authError= 를 달고 돌려보낸다
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
     const linkTicket = params.get('linkTicket')
-    const provider = params.get('provider') as SocialLink['provider'] | null
+    const signupTicket = params.get('signupTicket')
+    const provider = params.get('provider') as SocialTicket['provider'] | null
     const email = params.get('email')
     const nickname = params.get('nickname')
     const authError = params.get('authError')
-    if (!token && !linkTicket && !authError) return
-    if (token && email && nickname) handleAuthed({ token, email, nickname })
-    if (linkTicket && provider) {
-      setSocialLink({ ticket: linkTicket, provider, email: email ?? undefined })
-      setAuthMode('link')
+    if (!token && !linkTicket && !signupTicket && !authError) return
+    if (token && nickname) handleAuthed({ token, email, nickname })
+    const ticket = linkTicket ?? signupTicket
+    if (ticket && provider) {
+      setSocialLink({ ticket, provider, email: email ?? undefined, nickname: nickname ?? undefined })
+      setAuthMode(linkTicket ? 'link' : 'social')
     }
     if (authError) alert(authError)
     window.history.replaceState(null, '', window.location.pathname)
@@ -316,7 +319,7 @@ export default function App() {
   // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
   async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
     if (!session) {
-      setAuthMode('login')
+      setAuthMode('start')
       return
     }
     const target = restaurants.find((r) => r.id === restaurantId)
@@ -334,7 +337,7 @@ export default function App() {
   // 댓글은 아직 클라이언트에만 남는다 (새로고침하면 사라짐)
   function addComment(restaurantId: string, text: string, parentId?: string) {
     if (!session) {
-      setAuthMode('login')
+      setAuthMode('start')
       return
     }
     const authorName = session.nickname
@@ -374,8 +377,7 @@ export default function App() {
           searchMode={searchMode}
           onSearchModeChange={setSearchMode}
           nickname={session?.nickname ?? null}
-          onLogin={() => setAuthMode('login')}
-          onSignup={() => setAuthMode('signup')}
+          onLogin={() => setAuthMode('start')}
           onLogout={handleLogout}
         />
         <div className="bottom-controls">
@@ -452,14 +454,10 @@ export default function App() {
 
       <AuthModal
         mode={authMode}
-        link={socialLink}
+        social={socialLink}
         onClose={() => {
           setAuthMode(null)
           setSocialLink(null)
-        }}
-        onSwitch={(next) => {
-          setSocialLink(null)
-          setAuthMode(next)
         }}
         onAuthed={handleAuthed}
       />

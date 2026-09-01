@@ -56,7 +56,8 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
 
 export interface AuthSession {
   token: string
-  email: string
+  // 카카오 가입은 이메일이 없을 수 있다
+  email: string | null
   nickname: string
 }
 
@@ -100,56 +101,66 @@ function postJson<T>(path: string, body: object): Promise<T> {
 export interface SignupParams {
   email: string
   emailCode: string
-  phone: string
-  phoneCode: string
-  password: string
   nickname: string
+  termsAgreed: boolean
+  marketingAgreed: boolean
 }
 
+// 이메일 인증번호 → 약관 → 닉네임까지 마친 뒤 호출. 비밀번호는 없다.
 export function signup(params: SignupParams): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/signup', params)
 }
 
+// 이메일로 기존 회원인지, 옛 방식(비밀번호) 계정인지 알아낸다
+export function lookupEmail(email: string): Promise<{ exists: boolean; hasPassword: boolean }> {
+  return postJson('/api/auth/lookup', { email })
+}
+
+// 비밀번호가 있는 옛 계정과 관리자(admin)용
 export function login(email: string, password: string): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/login', { email, password })
+}
+
+// 이메일 인증번호로 로그인. 모든 계정이 쓸 수 있다.
+export function loginWithCode(email: string, emailCode: string): Promise<AuthSession> {
+  return postJson<AuthSession>('/api/auth/login-code', { email, emailCode })
 }
 
 export type OAuthProvider = 'google' | 'naver' | 'kakao'
 
 // 전체 페이지 이동으로 provider 로그인 화면을 연다. 완료되면 서버가
-// 연결된 회원이면 ?token=&email=&nickname=, 아니면 ?linkTicket=&provider=&email= (계정 연결 화면으로),
+// 연결된 회원이면 ?token=&email=&nickname=,
+// 같은 이메일의 기존 계정이 있으면 ?linkTicket=&provider=&email= (인증번호로 계정 연결),
+// 처음이면 ?signupTicket=&provider=&email=&nickname= (닉네임+약관만 받는 가입),
 // 실패 시 ?authError= 를 달고 프론트로 돌려보낸다.
-export interface SocialLink {
+export interface SocialTicket {
   ticket: string
   provider: OAuthProvider
   email?: string
+  nickname?: string
 }
 
-// 이메일+비밀번호로 계정을 증명하면 그 계정에 소셜 계정이 연결되고 로그인된다
-export function linkSocial(ticket: string, email: string, password: string): Promise<AuthSession> {
-  return postJson<AuthSession>('/api/auth/link-social', { linkTicket: ticket, email, password })
+// 티켓의 이메일로 받은 인증번호가 맞으면 그 계정에 소셜 계정이 연결되고 로그인된다
+export function linkSocial(ticket: string, emailCode: string): Promise<AuthSession> {
+  return postJson<AuthSession>('/api/auth/link-social', { linkTicket: ticket, emailCode })
+}
+
+export function signupSocial(ticket: string, nickname: string, marketingAgreed: boolean): Promise<AuthSession> {
+  return postJson<AuthSession>('/api/auth/signup-social', { ticket, nickname, termsAgreed: true, marketingAgreed })
 }
 
 export function oauthUrl(provider: OAuthProvider): string {
   return `${API_BASE}/api/auth/oauth/${provider}`
 }
 
-// 성공 메시지를 반환하고, 중복/형식 오류는 Error로 던진다
+// 성공 메시지를 반환하고, 형식 오류·발송 제한은 Error로 던진다
 export async function requestEmailCode(email: string): Promise<string> {
   return (await postJson<{ message: string }>('/api/auth/email-code', { email })).message
-}
-
-export async function requestPhoneCode(phone: string): Promise<string> {
-  return (await postJson<{ message: string }>('/api/auth/phone-code', { phone })).message
 }
 
 // 인증번호 확인. 맞으면 서버가 기억해두고 가입 시 다시 검사하지 않는다.
 export async function verifyEmailCode(email: string, emailCode: string): Promise<string> {
   return (await postJson<{ message: string }>('/api/auth/verify-email-code', { email, emailCode })).message
-}
-
-export async function verifyPhoneCode(phone: string, phoneCode: string): Promise<string> {
-  return (await postJson<{ message: string }>('/api/auth/verify-phone-code', { phone, phoneCode })).message
 }
 
 export async function checkNickname(nickname: string): Promise<boolean> {
