@@ -64,12 +64,13 @@ public class RestaurantImportService {
         Set<String> knownMgtNos = new HashSet<>();
         Map<String, Long> idByNameAddr = new HashMap<>();
         Set<Long> withMgtNo = new HashSet<>();
-        for (RestaurantRepository.KeyRef r : repository.findAllKeys()) {
-            if (r.getLocalDataMgtNo() != null) {
-                knownMgtNos.add(r.getLocalDataMgtNo());
-                withMgtNo.add(r.getId());
+        for (Object[] r : repository.findAllKeys()) {
+            Long id = (Long) r[0];
+            if (r[3] != null) {
+                knownMgtNos.add((String) r[3]);
+                withMgtNo.add(id);
             }
-            idByNameAddr.put(key(r.getName(), r.getRoadAddress()), r.getId());
+            idByNameAddr.put(key((String) r[1], (String) r[2]), id);
         }
 
         List<Restaurant> batch = new ArrayList<>();

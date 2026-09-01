@@ -16,16 +16,10 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
     List<Restaurant> findByLatBetweenAndLngBetween(double minLat, double maxLat, double minLng, double maxLng);
 
-    // 백필 중복 판정용 키만 (엔티티 전체를 올리면 서울 10만 행에서 Render 512MB가 터진다)
-    interface KeyRef {
-        Long getId();
-        String getName();
-        String getRoadAddress();
-        String getLocalDataMgtNo();
-    }
-
-    @Query("select r.id as id, r.name as name, r.roadAddress as roadAddress, r.localDataMgtNo as localDataMgtNo from Restaurant r")
-    List<KeyRef> findAllKeys();
+    // 백필 중복 판정용 키만 (엔티티 전체를 올리면 서울 10만 행에서 Render 512MB가 터진다).
+    // 인터페이스 프로젝션은 행마다 프록시를 만들어 무거우니 Object[] — [id, name, roadAddress, localDataMgtNo]
+    @Query("select r.id, r.name, r.roadAddress, r.localDataMgtNo from Restaurant r")
+    List<Object[]> findAllKeys();
 
     // 격자 셀 요약을 DB에서 바로 집계 — 서울 전체(10만+ 행)를 엔티티로 올리지 않기 위해.
     // 행 = [avg(lat), avg(lng), count]. select엔 집계만 둔다 — 바인드 파라미터가 든 group by 식을 select에 또 쓰면
