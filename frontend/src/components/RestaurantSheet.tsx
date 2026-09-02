@@ -275,7 +275,10 @@ function SheetBody({
 
   function addPhotos(list: FileList | null) {
     if (!list) return
-    setDraftPhotos((prev) => [...prev, ...Array.from(list)].slice(0, MAX_PHOTOS - keepPhotoIds.length))
+    // setState updater는 나중에 실행된다 — 그 전에 input.value=''로 FileList가 비는 엔진이 있어
+    // (모바일에서 사진 선택이 조용히 무시됨) 지금 시점에 배열로 복사해 둔다.
+    const files = Array.from(list)
+    setDraftPhotos((prev) => [...prev, ...files].slice(0, MAX_PHOTOS - keepPhotoIds.length))
   }
 
   function submitComment() {

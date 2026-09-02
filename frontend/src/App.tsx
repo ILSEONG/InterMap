@@ -430,10 +430,14 @@ export default function App() {
   async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
     if (!session) {
       setAuthMode('start')
-      return
+      // resolve하면 폼이 성공으로 알고 입력(사진·글)을 지운다 — reject로 입력을 지킨다
+      throw new Error('로그인 후 다시 등록을 눌러주세요.')
     }
     const target = reviewedRestaurants.find((r) => r.id === restaurantId)
-    if (!target) return
+    if (!target) {
+      alert('가게 정보를 찾지 못했어요. 잠시 후 다시 시도해주세요.')
+      throw new Error('가게 정보를 찾지 못했어요.')
+    }
     try {
       const shrunk = await Promise.all(photos.map((f) => shrinkImage(f)))
       const saved = await postReview({ name: target.name, category: target.category, address: target.address }, rating, text, shrunk)
