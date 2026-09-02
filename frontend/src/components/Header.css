@@ -51,8 +51,11 @@
   width: 15px;
 }
 
-.app-header__friends-icon .app-header__person-icon--flipped {
+.app-header__person-icon--flipped {
   transform: scaleX(-1);
+}
+
+.app-header__friends-icon .app-header__person-icon + .app-header__person-icon {
   margin-left: -4px;
 }
 

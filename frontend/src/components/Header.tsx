@@ -251,15 +251,15 @@ export default function Header({
 
 // 내 계정 버튼 아이콘
 function PersonIcon() {
-  return <img className="app-header__person-icon" src={personIcon} alt="" aria-hidden="true" />
+  return <img className="app-header__person-icon app-header__person-icon--flipped" src={personIcon} alt="" aria-hidden="true" />
 }
 
 // 친구 목록 버튼 아이콘 — 같은 사람 아이콘 둘이 마주 보는 모양
 function FriendsIcon() {
   return (
     <span className="app-header__friends-icon" aria-hidden="true">
-      <img className="app-header__person-icon" src={personIcon} alt="" />
       <img className="app-header__person-icon app-header__person-icon--flipped" src={personIcon} alt="" />
+      <img className="app-header__person-icon" src={personIcon} alt="" />
     </span>
   )
 }
