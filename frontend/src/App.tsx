@@ -541,14 +541,6 @@ export default function App() {
           selectedPersonId={selectedPerson?.id ?? null}
           onSelectPerson={setPersonId}
         />
-        {selectedPerson && selectedPersonPicks.length > 0 && (
-          <TopPicksCard
-            className="top-picks--pinned"
-            name={selectedPerson.name}
-            picks={selectedPersonPicks}
-            onPick={focusFromSearch}
-          />
-        )}
         <div className="bottom-controls">
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
             {(
@@ -582,6 +574,14 @@ export default function App() {
           />
         ) : (
           <StoryStrip stories={stories} onOpen={setOpenStory} />
+        )}
+        {selectedPerson && selectedPersonPicks.length > 0 && (
+          <TopPicksCard
+            className="top-picks--pinned"
+            name={selectedPerson.name}
+            picks={selectedPersonPicks}
+            onPick={focusFromSearch}
+          />
         )}
       </div>
 
