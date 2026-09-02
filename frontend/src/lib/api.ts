@@ -206,18 +206,26 @@ export function postReview(
   restaurant: Review['restaurant'],
   rating: number,
   text: string,
+  menu: string,
   photos: Blob[] = [],
 ): Promise<Review> {
   const form = new FormData()
-  form.append('review', new Blob([JSON.stringify({ restaurant, rating, text })], { type: 'application/json' }))
+  form.append('review', new Blob([JSON.stringify({ restaurant, rating, text, menu })], { type: 'application/json' }))
   photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
   return post<Review>('/api/reviews', form)
 }
 
 // 내 후기 수정. keepPhotoIds에 없는 기존 사진은 지워지고 photos는 새로 붙는다 (서버 ReviewController.update)
-export function updateReview(id: number, rating: number, text: string, keepPhotoIds: number[], photos: Blob[] = []): Promise<Review> {
+export function updateReview(
+  id: number,
+  rating: number,
+  text: string,
+  menu: string,
+  keepPhotoIds: number[],
+  photos: Blob[] = [],
+): Promise<Review> {
   const form = new FormData()
-  form.append('review', new Blob([JSON.stringify({ rating, text, keepPhotoIds })], { type: 'application/json' }))
+  form.append('review', new Blob([JSON.stringify({ rating, text, menu, keepPhotoIds })], { type: 'application/json' }))
   photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
   return post<Review>(`/api/reviews/${id}`, form, {}, 'PUT')
 }

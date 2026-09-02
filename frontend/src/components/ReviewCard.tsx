@@ -54,6 +54,12 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
           ))}
         </div>
       )}
+      {review.menu && (
+        <p className="review-card__menu">
+          <span className="review-card__menu-label">추천메뉴</span>
+          {review.menu}
+        </p>
+      )}
       {/* 시트가 transform으로 올라오는 요소라 그 안의 position: fixed는 시트 상자에 갇힌다 — body로 빼서 화면 전체를 덮는다 */}
       {lightbox !== null && createPortal(
         <div className="photo-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="사진">

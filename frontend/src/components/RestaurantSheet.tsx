@@ -15,10 +15,10 @@ interface RestaurantSheetProps {
   groups: FriendGroup[]
   onClose: () => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
-  onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
+  onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[]) => Promise<void>
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
-  onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
+  onEditReview: (reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
@@ -180,10 +180,10 @@ interface SheetBodyProps {
   asOwner: boolean
   groups: FriendGroup[]
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
-  onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
+  onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[]) => Promise<void>
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
-  onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
+  onEditReview: (reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
@@ -206,6 +206,7 @@ function SheetBody({
 }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
+  const [draftMenu, setDraftMenu] = useState('')
   const [draftPhotos, setDraftPhotos] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   // 수정 중인 내 후기. 같은 폼을 재사용 — 기존 사진은 keepPhotoIds로, 새 사진은 draftPhotos로
@@ -221,6 +222,7 @@ function SheetBody({
   function resetForm() {
     setDraftReview('')
     setDraftRating(5)
+    setDraftMenu('')
     setDraftPhotos([])
     setEditing(null)
     setKeepPhotoIds([])
@@ -230,6 +232,7 @@ function SheetBody({
     setEditing(review)
     setDraftRating(review.rating)
     setDraftReview(review.text)
+    setDraftMenu(review.menu ?? '')
     setDraftPhotos([])
     setKeepPhotoIds(review.photoIds)
   }
@@ -270,8 +273,8 @@ function SheetBody({
     if (!draftReview.trim() || submitting) return
     setSubmitting(true)
     try {
-      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), keepPhotoIds, draftPhotos)
-      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), draftPhotos)
+      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), draftMenu.trim(), keepPhotoIds, draftPhotos)
+      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), draftMenu.trim(), draftPhotos)
       resetForm()
     } catch {
       // App이 이미 alert로 알렸다. 입력값은 그대로 둔다
@@ -365,6 +368,15 @@ function SheetBody({
             aria-label="후기 입력"
             rows={2}
           />
+          <input
+            className="review-form__menu"
+            type="text"
+            value={draftMenu}
+            maxLength={100}
+            onChange={(e) => setDraftMenu(e.target.value)}
+            placeholder="추천 메뉴 (선택) — 예: 김치찌개, 제육볶음"
+            aria-label="추천 메뉴"
+          />
           <div className="review-form__photos">
             {keepPhotoIds.map((id) => (
               <span key={id} className="review-form__thumb">
@@ -429,17 +441,10 @@ function SheetBody({
       {ownerReviews.length > 0 && (
         <section className="restaurant-sheet__section">
           <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
+          {/* 주인장 후기엔 댓글을 달지 않는다 */}
           <div className="restaurant-sheet__reviews">
             {ownerReviews.map((review) => (
-              <div key={review.id} className="restaurant-sheet__review-block">
-                <ReviewCard review={review} onEdit={editHandler(review)} />
-                <ReviewComments
-                  comments={comments[review.id] ?? []}
-                  myUserId={myUserId}
-                  onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
-                  onDelete={(commentId) => onDeleteComment(review.id, commentId)}
-                />
-              </div>
+              <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
             ))}
           </div>
         </section>

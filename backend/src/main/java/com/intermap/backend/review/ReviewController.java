@@ -43,22 +43,23 @@ public class ReviewController {
     public record Author(Long id, String name, boolean owner, String avatar) {
     }
 
-    public record CreateRequest(Place restaurant, double rating, String text) {
+    // menu = 추천 메뉴 (선택, 100자)
+    public record CreateRequest(Place restaurant, double rating, String text, String menu) {
     }
 
     // keepPhotoIds에 없는 기존 사진은 지운다. 새 사진은 photos 파트로.
-    public record UpdateRequest(double rating, String text, List<Long> keepPhotoIds) {
+    public record UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds) {
     }
 
-    public record Item(Long id, Place restaurant, Author author, double rating, String text, Instant createdAt,
-                       List<Long> photoIds) {
+    public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
+                       Instant createdAt, List<Long> photoIds) {
         static Item from(Review r, List<Long> photoIds, Restaurant place, String avatar) {
             AppUser a = r.getAuthor();
             return new Item(r.getId(),
                     new Place(r.getRestaurantName(), r.getRestaurantCategory(), r.getRestaurantAddress(),
                             place == null ? null : place.getLat(), place == null ? null : place.getLng()),
                     new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
-                    r.getRating(), r.getText(), r.getCreatedAt(), photoIds);
+                    r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(), photoIds);
         }
     }
 
@@ -124,7 +125,8 @@ public class ReviewController {
         String name = p == null || p.name() == null ? "" : p.name().trim();
         String address = p == null || p.address() == null ? "" : p.address().trim();
         String text = request.text() == null ? "" : request.text().trim();
-        if (name.isEmpty() || address.isEmpty() || !validBody(request.rating(), text)) {
+        String menu = cleanMenu(request.menu());
+        if (name.isEmpty() || address.isEmpty() || !validBody(request.rating(), text) || !validMenu(menu)) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("후기 내용과 별점을 확인해주세요."));
         }
         // ponytail: 앱 레벨 검사. 운영 DB에 중복이 이미 있을 수 있어 unique 제약은 데이터 정리 후 붙일 것
@@ -137,7 +139,7 @@ public class ReviewController {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse(photoError));
         }
         Review saved = repository.save(new Review(user, name, p.category() == null ? "" : p.category().trim(), address,
-                request.rating(), text));
+                request.rating(), text, menu));
         List<Long> photoIds = new ArrayList<>();
         for (MultipartFile f : uploads) {
             photoIds.add(photos.save(new ReviewPhoto(saved, f.getContentType(), f.getBytes())).getId());
@@ -163,7 +165,8 @@ public class ReviewController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("내가 쓴 후기만 고칠 수 있어요."));
         }
         String text = request.text() == null ? "" : request.text().trim();
-        if (!validBody(request.rating(), text)) {
+        String menu = cleanMenu(request.menu());
+        if (!validBody(request.rating(), text) || !validMenu(menu)) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("후기 내용과 별점을 확인해주세요."));
         }
         // 이 후기 사진 중 남길 것만 추린다 — 남의 사진 id를 넣어도 무시된다
@@ -178,7 +181,7 @@ public class ReviewController {
         if (photoError != null) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse(photoError));
         }
-        review.edit(request.rating(), text);
+        review.edit(request.rating(), text, menu);
         photos.deleteAllByIdInBatch(dropped);
         List<Long> photoIds = new ArrayList<>(kept);
         for (MultipartFile f : uploads) {
@@ -209,6 +212,17 @@ public class ReviewController {
 
     private static boolean validBody(double rating, String text) {
         return !text.isEmpty() && text.length() <= 2000 && rating >= 0.1 && rating <= 5;
+    }
+
+    // 추천 메뉴: 공백을 다듬고 비어 있으면 null
+    private static String cleanMenu(String menu) {
+        if (menu == null) return null;
+        String trimmed = menu.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static boolean validMenu(String menu) {
+        return menu == null || menu.length() <= 100;
     }
 
     private static List<MultipartFile> nonEmpty(List<MultipartFile> files) {

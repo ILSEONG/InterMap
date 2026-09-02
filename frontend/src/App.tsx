@@ -490,7 +490,7 @@ export default function App() {
   )
 
   // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
-  async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
+  async function addReview(restaurantId: string, rating: number, text: string, menu: string, photos: File[]) {
     if (!session) {
       setAuthMode('start')
       // resolve하면 폼이 성공으로 알고 입력(사진·글)을 지운다 — reject로 입력을 지킨다
@@ -503,7 +503,7 @@ export default function App() {
     }
     try {
       const shrunk = await Promise.all(photos.map((f) => shrinkImage(f)))
-      const saved = await postReview({ name: target.name, category: target.category, address: target.address }, rating, text, shrunk)
+      const saved = await postReview({ name: target.name, category: target.category, address: target.address }, rating, text, menu, shrunk)
       setRawReviews((prev) => [saved, ...prev])
     } catch (e) {
       alert((e as Error).message)
@@ -512,10 +512,10 @@ export default function App() {
   }
 
   // 내 후기 수정. 서버가 본인 확인을 하고 바뀐 후기를 돌려준다.
-  async function editReview(reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) {
+  async function editReview(reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[]) {
     try {
       const shrunk = await Promise.all(photos.map((f) => shrinkImage(f)))
-      const saved = await updateReview(reviewId, rating, text, keepPhotoIds, shrunk)
+      const saved = await updateReview(reviewId, rating, text, menu, keepPhotoIds, shrunk)
       setRawReviews((prev) => prev.map((r) => (r.id === saved.id ? saved : r)))
     } catch (e) {
       alert((e as Error).message)

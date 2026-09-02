@@ -228,6 +228,26 @@
   white-space: pre-wrap;
 }
 
+/* 카드 맨 밑 추천 메뉴 한 줄 */
+.review-card__menu {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1.5px dashed rgba(43, 33, 64, 0.25);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.review-card__menu-label {
+  margin-right: 6px;
+  padding: 1px 7px;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 11px;
+  background: var(--surface-raised);
+  white-space: nowrap;
+}
+
 .restaurant-sheet__comments {
   list-style: none;
   margin: 0 0 14px;
@@ -357,6 +377,22 @@
   font-size: 13px;
   line-height: 1.5;
   resize: vertical;
+}
+
+/* 추천 메뉴 입력 — 후기 textarea와 같은 결 */
+.review-form__menu {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(43, 33, 64, 0.2);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.review-form__menu:focus {
+  border-color: var(--ink);
+  outline: none;
 }
 
 .review-form__text:focus {

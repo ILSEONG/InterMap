@@ -36,24 +36,30 @@ public class Review {
     @Column(nullable = false, length = 2000)
     private String text;
 
+    // 추천 메뉴 (선택). 비우면 null
+    @Column(length = 100)
+    private String menu;
+
     private Instant createdAt = Instant.now();
 
     protected Review() {
     }
 
     public Review(AppUser author, String restaurantName, String restaurantCategory, String restaurantAddress,
-                  double rating, String text) {
+                  double rating, String text, String menu) {
         this.author = author;
         this.restaurantName = restaurantName;
         this.restaurantCategory = restaurantCategory;
         this.restaurantAddress = restaurantAddress;
         this.rating = rating;
         this.text = text;
+        this.menu = menu;
     }
 
-    public void edit(double rating, String text) {
+    public void edit(double rating, String text, String menu) {
         this.rating = rating;
         this.text = text;
+        this.menu = menu;
     }
 
     public Long getId() { return id; }
@@ -63,5 +69,6 @@ public class Review {
     public String getRestaurantAddress() { return restaurantAddress; }
     public double getRating() { return rating; }
     public String getText() { return text; }
+    public String getMenu() { return menu; }
     public Instant getCreatedAt() { return createdAt; }
 }

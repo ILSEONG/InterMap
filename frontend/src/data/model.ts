@@ -33,6 +33,7 @@ export interface Review {
   author: ReviewAuthor
   rating: number
   text: string
+  menu?: string | null // 추천 메뉴 (선택)
   createdAt: string // ISO
   photoIds: number[] // api.photoUrl(id)로 이미지 URL
 }
