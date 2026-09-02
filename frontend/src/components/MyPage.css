@@ -199,7 +199,7 @@
   }
 }
 
-/* 내 프로필 — 사진 + 바꾸기/지우기 */
+/* 내 프로필 — 사진(누르면 업로드)과 닉네임이 한 줄 */
 .my-page__profile {
   display: flex;
   align-items: center;
@@ -214,10 +214,68 @@
   overflow: hidden;
 }
 
-.my-page__profile-actions {
+.my-page__avatar-button {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease;
+}
+
+.my-page__avatar-button:active {
+  transform: scale(0.94);
+}
+
+.my-page__avatar-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 아바타 우측 하단 편집 배지 — 사진을 누르면 바꿀 수 있다는 힌트 */
+.my-page__avatar-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -1px;
+  width: 26px;
+  height: 26px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  background: var(--surface-raised);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+
+.my-page__avatar-button:active .my-page__avatar-badge {
+  background: #fff0e0;
+}
+
+.my-page__profile-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-page__avatar-remove {
+  margin-top: 6px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.my-page__avatar-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .my-page__person .my-page__avatar {

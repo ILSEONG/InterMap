@@ -153,48 +153,52 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
         {error && <p className="my-page__error">{error}</p>}
 
         <section className="my-page__section">
-          <h3 className="my-page__section-title">프로필 사진</h3>
+          <h3 className="my-page__section-title">프로필</h3>
           <div className="my-page__profile">
-            <Avatar className="my-page__avatar" src={session.avatar} name={session.nickname} />
-            <div className="my-page__profile-actions">
-              <button type="button" className="my-page__action" onClick={() => avatarInputRef.current?.click()} disabled={busy}>
-                {session.avatar ? '사진 바꾸기' : '사진 올리기'}
-              </button>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  void changeAvatar(e.target.files?.[0])
-                  e.target.value = ''
-                }}
-              />
+            <button
+              type="button"
+              className="my-page__avatar-button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={busy}
+              aria-label={session.avatar ? '프로필 사진 바꾸기' : '프로필 사진 올리기'}
+            >
+              <Avatar className="my-page__avatar" src={session.avatar} name={session.nickname} />
+              <span className="my-page__avatar-badge" aria-hidden="true">
+                ✏️
+              </span>
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                void changeAvatar(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            <div className="my-page__profile-main">
+              <div className="my-page__row-input">
+                <input
+                  type="text"
+                  value={nickname}
+                  maxLength={20}
+                  onChange={(e) => setNickname(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveNickname()}
+                  aria-label="닉네임"
+                />
+                <button type="button" onClick={saveNickname} disabled={busy || !nickname.trim() || nickname.trim() === session.nickname}>
+                  저장
+                </button>
+              </div>
+              {nicknameMsg && <p className={`my-page__hint${nicknameMsg.ok ? '' : ' my-page__hint--error'}`}>{nicknameMsg.text}</p>}
               {session.avatar && (
-                <button type="button" className="my-page__action my-page__action--ghost" onClick={removeAvatar} disabled={busy}>
-                  지우기
+                <button type="button" className="my-page__avatar-remove" onClick={removeAvatar} disabled={busy}>
+                  사진 지우기
                 </button>
               )}
             </div>
           </div>
-        </section>
-
-        <section className="my-page__section">
-          <h3 className="my-page__section-title">닉네임</h3>
-          <div className="my-page__row-input">
-            <input
-              type="text"
-              value={nickname}
-              maxLength={20}
-              onChange={(e) => setNickname(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && saveNickname()}
-              aria-label="닉네임"
-            />
-            <button type="button" onClick={saveNickname} disabled={busy || !nickname.trim() || nickname.trim() === session.nickname}>
-              저장
-            </button>
-          </div>
-          {nicknameMsg && <p className={`my-page__hint${nicknameMsg.ok ? '' : ' my-page__hint--error'}`}>{nicknameMsg.text}</p>}
         </section>
 
         <section className="my-page__section">
