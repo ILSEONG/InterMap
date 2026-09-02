@@ -77,7 +77,10 @@ export default function Header({
         <button
           type="button"
           className="app-header__account-toggle"
-          onClick={() => setAccountOpen((prev) => !prev)}
+          onClick={() => {
+            setFriendsOpen(false)
+            setAccountOpen((prev) => !prev)
+          }}
           aria-label="내 계정"
           aria-expanded={accountOpen}
         >
@@ -130,7 +133,10 @@ export default function Header({
             <button
               type="button"
               className={`app-header__account-toggle${selectedPersonId !== null ? ' app-header__account-toggle--active' : ''}`}
-              onClick={() => setFriendsOpen((prev) => !prev)}
+              onClick={() => {
+                setAccountOpen(false)
+                setFriendsOpen((prev) => !prev)
+              }}
               aria-label="친구 목록"
               aria-expanded={friendsOpen}
             >
