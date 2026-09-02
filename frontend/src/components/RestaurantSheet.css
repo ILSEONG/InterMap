@@ -537,6 +537,16 @@
   text-decoration: underline;
 }
 
+/* 답글 달기·삭제가 한 줄에 나란히 */
+.comment__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.comment__reply-toggle--danger {
+  color: #d23b4f;
+}
+
 .comment__replies {
   list-style: none;
   margin: 10px 0 0;

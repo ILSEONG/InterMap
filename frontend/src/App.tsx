@@ -19,6 +19,7 @@ import {
   fetchReviews,
   fetchComments,
   postComment,
+  deleteComment,
   fetchSocial,
   postReview,
   updateReview,
@@ -223,7 +224,7 @@ export default function App() {
         if (cancelled) return
         const grouped: Record<number, Comment[]> = {}
         for (const c of records) {
-          ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorName: c.author.name, text: c.text, parentId: c.parentId })
+          ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, text: c.text, parentId: c.parentId })
         }
         setReviewComments(grouped)
       })
@@ -542,7 +543,23 @@ export default function App() {
       const saved = await postComment(reviewId, text, parentId)
       setReviewComments((prev) => ({
         ...prev,
-        [reviewId]: [...(prev[reviewId] ?? []), { id: saved.id, authorName: saved.author.name, text: saved.text, parentId: saved.parentId }],
+        [reviewId]: [
+          ...(prev[reviewId] ?? []),
+          { id: saved.id, authorId: saved.author.id, authorName: saved.author.name, text: saved.text, parentId: saved.parentId },
+        ],
+      }))
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }
+
+  // 내 댓글 삭제 — 원댓글이면 서버가 답글까지 지우므로 상태에서도 같이 걷어낸다
+  async function removeComment(reviewId: number, commentId: number) {
+    try {
+      await deleteComment(commentId)
+      setReviewComments((prev) => ({
+        ...prev,
+        [reviewId]: (prev[reviewId] ?? []).filter((c) => c.id !== commentId && c.parentId !== commentId),
       }))
     } catch (e) {
       alert((e as Error).message)
@@ -650,6 +667,7 @@ export default function App() {
         onDeleteReview={removeReview}
         comments={reviewComments}
         onAddComment={addComment}
+        onDeleteComment={removeComment}
       />
 
       {session && (
@@ -671,7 +689,9 @@ export default function App() {
         allReviews={reviews}
         onFocusRestaurant={focusFromStory}
         comments={reviewComments}
+        myUserId={session?.id}
         onAddComment={addComment}
+        onDeleteComment={removeComment}
         onClose={() => setOpenStory(null)}
       />
 

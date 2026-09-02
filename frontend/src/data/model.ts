@@ -48,6 +48,7 @@ export interface Story {
 // 후기에 달리는 댓글. 서버 /api/comments에서 온다 (api.ts CommentRecord를 App이 이 모양으로 줄인다)
 export interface Comment {
   id: number
+  authorId: number // 내 댓글 판별용 (삭제 버튼 노출)
   authorName: string
   text: string
   parentId?: number | null // 있으면 해당 댓글의 대댓글

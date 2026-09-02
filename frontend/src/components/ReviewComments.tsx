@@ -3,13 +3,16 @@ import type { Comment } from '../data/model'
 
 interface ReviewCommentsProps {
   comments: Comment[]
+  // 로그인 사용자 id — 내 댓글에만 삭제 버튼이 보인다
+  myUserId?: number
   onAdd: (text: string, parentId?: number) => void
+  onDelete: (commentId: number) => void
 }
 
 // 후기 카드 아래에 붙는 댓글 트레이 — 후기 단위로 접고 편다.
 // 접힌 상태에선 "댓글 N개 보기"(없으면 "댓글 달기")만 보이고, 펴면 목록과 입력이 나온다.
 // 가게 시트와 스토리 뷰어가 같이 쓴다. 스타일은 RestaurantSheet.css에 있다.
-export default function ReviewComments({ comments, onAdd }: ReviewCommentsProps) {
+export default function ReviewComments({ comments, myUserId, onAdd, onDelete }: ReviewCommentsProps) {
   const [open, setOpen] = useState(false)
   const [writing, setWriting] = useState(false)
   const [draft, setDraft] = useState('')
@@ -57,7 +60,9 @@ export default function ReviewComments({ comments, onAdd }: ReviewCommentsProps)
                   key={comment.id}
                   comment={comment}
                   replies={comments.filter((c) => c.parentId === comment.id)}
+                  myUserId={myUserId}
                   onReply={(text) => onAdd(text, comment.id)}
+                  onDelete={onDelete}
                 />
               ))}
             </ul>
@@ -93,10 +98,12 @@ export default function ReviewComments({ comments, onAdd }: ReviewCommentsProps)
 interface CommentItemProps {
   comment: Comment
   replies: Comment[]
+  myUserId?: number
   onReply: (text: string) => void
+  onDelete: (commentId: number) => void
 }
 
-function CommentItem({ comment, replies, onReply }: CommentItemProps) {
+function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentItemProps) {
   const [replying, setReplying] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -111,12 +118,26 @@ function CommentItem({ comment, replies, onReply }: CommentItemProps) {
     close()
   }
 
+  function remove() {
+    const warning = replies.length > 0 ? '이 댓글을 지울까요? 답글도 함께 지워져요.' : '이 댓글을 지울까요?'
+    if (window.confirm(warning)) onDelete(comment.id)
+  }
+
+  const mine = myUserId !== undefined && comment.authorId === myUserId
+
   return (
     <li>
       <CommentRow comment={comment}>
-        <button type="button" className="comment__reply-toggle" onClick={() => (replying ? close() : setReplying(true))}>
-          {replying ? '취소' : '답글 달기'}
-        </button>
+        <div className="comment__actions">
+          <button type="button" className="comment__reply-toggle" onClick={() => (replying ? close() : setReplying(true))}>
+            {replying ? '취소' : '답글 달기'}
+          </button>
+          {mine && (
+            <button type="button" className="comment__reply-toggle comment__reply-toggle--danger" onClick={remove}>
+              삭제
+            </button>
+          )}
+        </div>
 
         {replying && (
           <div className="restaurant-sheet__comment-form comment__reply-form">
@@ -142,7 +163,17 @@ function CommentItem({ comment, replies, onReply }: CommentItemProps) {
           <ul className="comment__replies">
             {replies.map((reply) => (
               <li key={reply.id}>
-                <CommentRow comment={reply} small />
+                <CommentRow comment={reply} small>
+                  {myUserId !== undefined && reply.authorId === myUserId && (
+                    <button
+                      type="button"
+                      className="comment__reply-toggle comment__reply-toggle--danger"
+                      onClick={() => window.confirm('이 답글을 지울까요?') && onDelete(reply.id)}
+                    >
+                      삭제
+                    </button>
+                  )}
+                </CommentRow>
               </li>
             ))}
           </ul>

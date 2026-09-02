@@ -16,14 +16,17 @@ interface StoryViewerProps {
   onFocusRestaurant: (review: Review) => void
   // 후기별 댓글 — 가게 시트와 같은 데이터를 쓴다
   comments: Record<number, Comment[]>
+  // 내 댓글 판별용 로그인 사용자 id
+  myUserId?: number
   onAddComment: (reviewId: number, text: string, parentId?: number) => void
+  onDeleteComment: (reviewId: number, commentId: number) => void
   onClose: () => void
 }
 
 // 스토리를 누르면 그 사람의 24시간 내 후기를 가게 헤더 + 후기 카드 한 장씩, 좌우로 넘겨 본다.
 // 넘기기는 CSS scroll-snap — 터치·휠·키보드 전부 브라우저가 처리한다.
 // 모든 스토리의 후기를 한 트랙에 펼쳐 두고 누른 사람의 첫 후기로 이동한다 — 사람 경계를 넘는 제스처 코드가 필요 없다.
-export default function StoryViewer({ stories, story, allReviews, onFocusRestaurant, comments, onAddComment, onClose }: StoryViewerProps) {
+export default function StoryViewer({ stories, story, allReviews, onFocusRestaurant, comments, myUserId, onAddComment, onDeleteComment, onClose }: StoryViewerProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slides = stories.flatMap((s) => s.reviews.map((review) => ({ story: s, review })))
   const start = story ? slides.findIndex((s) => s.story.id === story.id) : -1
@@ -75,7 +78,9 @@ export default function StoryViewer({ stories, story, allReviews, onFocusRestaur
               <ReviewCard review={review} />
               <ReviewComments
                 comments={comments[review.id] ?? []}
+                myUserId={myUserId}
                 onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                onDelete={(commentId) => onDeleteComment(review.id, commentId)}
               />
             </article>
           )

@@ -23,6 +23,7 @@ interface RestaurantSheetProps {
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
   onAddComment: (reviewId: number, text: string, parentId?: number) => void
+  onDeleteComment: (reviewId: number, commentId: number) => void
 }
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
@@ -44,6 +45,7 @@ export default function RestaurantSheet({
   onDeleteReview,
   comments,
   onAddComment,
+  onDeleteComment,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
   // 닫힐 때 restaurant이 즉시 null이 되는데 패널은 애니메이션으로 내려간다.
@@ -163,6 +165,7 @@ export default function RestaurantSheet({
               onDeleteReview={onDeleteReview}
               comments={comments}
               onAddComment={onAddComment}
+              onDeleteComment={onDeleteComment}
             />
           </>
         )}
@@ -185,6 +188,7 @@ interface SheetBodyProps {
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
   onAddComment: (reviewId: number, text: string, parentId?: number) => void
+  onDeleteComment: (reviewId: number, commentId: number) => void
 }
 
 function SheetBody({
@@ -198,6 +202,7 @@ function SheetBody({
   onDeleteReview,
   comments,
   onAddComment,
+  onDeleteComment,
 }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
@@ -325,7 +330,9 @@ function SheetBody({
               <ReviewCard review={review} onEdit={editHandler(review)} />
               <ReviewComments
                 comments={comments[review.id] ?? []}
+                myUserId={myUserId}
                 onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                onDelete={(commentId) => onDeleteComment(review.id, commentId)}
               />
             </div>
           ))}

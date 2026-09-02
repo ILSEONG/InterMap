@@ -307,6 +307,15 @@ export function postComment(reviewId: number, text: string, parentId?: number): 
   return postJson<CommentRecord>('/api/comments', { reviewId, text, parentId })
 }
 
+// 내 댓글 삭제. 원댓글이면 서버가 답글까지 지운다.
+export async function deleteComment(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/comments/${id}`, { method: 'DELETE', headers: authHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.message ?? `댓글 삭제 실패 (${res.status})`)
+  }
+}
+
 export function photoUrl(id: number): string {
   return `${API_BASE}/api/photos/${id}`
 }
