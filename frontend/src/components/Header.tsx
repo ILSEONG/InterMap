@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import personIcon from '../assets/person-icon.png'
+import StarIcon from './StarIcon'
 import './Header.css'
 
 export type SearchMode = 'restaurant' | 'person'
@@ -258,7 +259,7 @@ export default function Header({
           aria-label={favMode ? '찜한 가게만 보기 끄기' : '찜한 가게만 보기'}
           aria-pressed={favMode}
         >
-          ★
+          <StarIcon filled size={19} />
         </button>
       </div>
     </header>

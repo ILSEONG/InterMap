@@ -4,6 +4,7 @@ import { photoUrl } from '../lib/api'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import Stars from './Stars'
+import StarIcon from './StarIcon'
 import './RestaurantSheet.css'
 
 interface RestaurantSheetProps {
@@ -350,7 +351,7 @@ function SheetBody({
           aria-label={favored ? '찜 해제' : '찜하기'}
           aria-pressed={favored}
         >
-          {favored ? '★' : '☆'}
+          <StarIcon filled={favored} size={22} />
         </button>
       </h2>
       <p className="restaurant-sheet__meta">

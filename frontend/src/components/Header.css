@@ -235,8 +235,6 @@
 }
 
 .app-header__fav-toggle {
-  font-size: 19px;
-  line-height: 1;
   color: var(--ink-soft);
 }
 

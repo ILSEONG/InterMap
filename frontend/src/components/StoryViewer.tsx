@@ -4,6 +4,7 @@ import { restaurantKey } from '../lib/api'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import Stars from './Stars'
+import StarIcon from './StarIcon'
 import './StoryViewer.css'
 
 interface StoryViewerProps {
@@ -77,7 +78,7 @@ export default function StoryViewer({
                   aria-label={favorites.has(key) ? '찜 해제' : '찜하기'}
                   aria-pressed={favorites.has(key)}
                 >
-                  {favorites.has(key) ? '★' : '☆'}
+                  <StarIcon filled={favorites.has(key)} size={22} />
                 </button>
               </h2>
               <p className="restaurant-sheet__meta">
