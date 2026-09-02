@@ -572,14 +572,6 @@ export default function App() {
           uxVariant={uxVariant}
           onUxVariant={changeUxVariant}
         />
-        {uxVariant === 'a' && selectedPerson && (
-          <PersonChip
-            name={selectedPerson.name}
-            picks={selectedPersonAll.slice(0, 5)}
-            onPick={focusFromSearch}
-            onClose={() => setPersonId(null)}
-          />
-        )}
         <div className="bottom-controls" hidden={personPins}>
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
             {(
@@ -613,6 +605,15 @@ export default function App() {
           />
         ) : (
           <StoryStrip stories={stories} onOpen={setOpenStory} />
+        )}
+        {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
+        {uxVariant === 'a' && selectedPerson && (
+          <PersonChip
+            name={selectedPerson.name}
+            picks={selectedPersonAll.slice(0, 5)}
+            onPick={focusFromSearch}
+            onClose={() => setPersonId(null)}
+          />
         )}
       </div>
 
