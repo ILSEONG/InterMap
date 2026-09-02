@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from 'react'
+import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import type { AuthSession, Person, SocialData, UserItem } from '../lib/api'
 import { changeNickname, followUser, unfollowUser, setAlias, searchUsers } from '../lib/api'
 import './MyPage.css'
@@ -24,6 +24,14 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
   const [found, setFound] = useState<UserItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // 화면 가운데 2초 토스트 (언팔로우 확인용)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<number>(undefined)
+  function showToast(text: string) {
+    setToast(text)
+    window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2000)
+  }
 
   // 열릴 때마다 입력값을 현재 세션 기준으로 되돌린다
   useEffect(() => {
@@ -56,13 +64,14 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
 
   const followingIds = new Set((social?.following ?? []).map((p) => p.id))
 
-  // 서버 호출 공통 — 실패 메시지는 화면 위쪽에 보여준다
-  async function run(task: Promise<SocialData>) {
+  // 서버 호출 공통 — 실패 메시지는 화면 위쪽에, 성공 안내(doneMsg)는 가운데 토스트로
+  async function run(task: Promise<SocialData>, doneMsg?: string) {
     if (busy) return
     setBusy(true)
     setError(null)
     try {
       onSocialChange(await task)
+      if (doneMsg) showToast(doneMsg)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -159,7 +168,7 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
           empty="아직 팔로우한 사람이 없어요. 위에서 닉네임으로 찾아보세요."
           busy={busy}
           onRename={rename}
-          onToggleFollow={(p) => run(unfollowUser(p.id))}
+          onToggleFollow={(p) => run(unfollowUser(p.id), `${p.alias ?? p.nickname}님을 언팔로우했어요`)}
           toggleLabel={() => '언팔로우'}
         />
         <PersonList
@@ -168,10 +177,18 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
           empty="아직 나를 팔로우한 사람이 없어요."
           busy={busy}
           onRename={rename}
-          onToggleFollow={(p) => run(p.following ? unfollowUser(p.id) : followUser(p.id))}
+          onToggleFollow={(p) =>
+            run(p.following ? unfollowUser(p.id) : followUser(p.id), p.following ? `${p.alias ?? p.nickname}님을 언팔로우했어요` : undefined)
+          }
           toggleLabel={(p) => (p.following ? '언팔로우' : '맞팔로우')}
         />
       </div>
+
+      {toast && (
+        <p className="my-page__toast" role="status">
+          {toast}
+        </p>
+      )}
     </div>
   )
 }

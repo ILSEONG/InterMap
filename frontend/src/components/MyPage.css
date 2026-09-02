@@ -163,3 +163,29 @@
   font-size: 13px;
   font-weight: 700;
 }
+
+/* 화면 정가운데 2초 토스트 */
+.my-page__toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: 46;
+  margin: 0;
+  padding: 12px 20px;
+  background: var(--ink);
+  color: #fff9f2;
+  font-family: var(--font-display);
+  font-size: 14px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+  animation: my-page-toast-in 160ms ease-out;
+}
+
+@keyframes my-page-toast-in {
+  from {
+    opacity: 0;
+    translate: -50% -40%;
+  }
+}
