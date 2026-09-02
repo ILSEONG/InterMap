@@ -48,7 +48,7 @@
 }
 
 .person-chip__card {
-  width: min(190px, 100%);
+  width: min(150px, 100%);
   margin: 0;
   padding: 6px 8px 4px;
   box-shadow: var(--shadow-float);
