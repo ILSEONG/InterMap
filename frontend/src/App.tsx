@@ -644,7 +644,15 @@ export default function App() {
         />
       )}
 
-      <StoryViewer stories={stories} story={openStory} allReviews={reviews} onFocusRestaurant={focusFromStory} onClose={() => setOpenStory(null)} />
+      <StoryViewer
+        stories={stories}
+        story={openStory}
+        allReviews={reviews}
+        onFocusRestaurant={focusFromStory}
+        comments={reviewComments}
+        onAddComment={addComment}
+        onClose={() => setOpenStory(null)}
+      />
 
       <AuthModal
         mode={authMode}

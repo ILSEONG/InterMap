@@ -283,12 +283,26 @@
   width: auto;
 }
 
+/* 댓글 트레이 — 카드 밑단에 끼워진 서랍처럼 카드와 한 덩어리로 보이게.
+   카드가 z-index 1로 위에 얹히고 트레이 윗부분이 카드 뒤로 들어간다 */
+.review-card {
+  position: relative;
+  z-index: 1;
+}
+
 .review-comments {
-  margin-top: 8px;
+  position: relative;
+  z-index: 0;
+  margin: -10px 8px 0;
+  padding: 18px 10px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
+  background: var(--surface-raised);
+  border: 2px solid var(--ink);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .review-comments .restaurant-sheet__comments {
@@ -297,8 +311,13 @@
   gap: 10px;
 }
 
+.review-comments .comment__reply-toggle {
+  margin-top: 0;
+}
+
 .review-comments .restaurant-sheet__comment-form {
   width: 100%;
+  box-sizing: border-box;
 }
 
 .review-comments .restaurant-sheet__comment-form input {

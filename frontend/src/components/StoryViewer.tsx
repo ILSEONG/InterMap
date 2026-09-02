@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import type { Review, Story } from '../data/model'
+import type { Comment, Review, Story } from '../data/model'
 import { restaurantKey } from '../lib/api'
 import ReviewCard from './ReviewCard'
+import ReviewComments from './ReviewComments'
 import Stars from './Stars'
 import './StoryViewer.css'
 
@@ -13,13 +14,16 @@ interface StoryViewerProps {
   allReviews: Review[]
   // "지도에서 보기" — 스토리를 닫고 그 후기의 가게로 지도를 옮긴다
   onFocusRestaurant: (review: Review) => void
+  // 후기별 댓글 — 가게 시트와 같은 데이터를 쓴다
+  comments: Record<number, Comment[]>
+  onAddComment: (reviewId: number, text: string, parentId?: string) => void
   onClose: () => void
 }
 
 // 스토리를 누르면 그 사람의 24시간 내 후기를 가게 헤더 + 후기 카드 한 장씩, 좌우로 넘겨 본다.
 // 넘기기는 CSS scroll-snap — 터치·휠·키보드 전부 브라우저가 처리한다.
 // 모든 스토리의 후기를 한 트랙에 펼쳐 두고 누른 사람의 첫 후기로 이동한다 — 사람 경계를 넘는 제스처 코드가 필요 없다.
-export default function StoryViewer({ stories, story, allReviews, onFocusRestaurant, onClose }: StoryViewerProps) {
+export default function StoryViewer({ stories, story, allReviews, onFocusRestaurant, comments, onAddComment, onClose }: StoryViewerProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slides = stories.flatMap((s) => s.reviews.map((review) => ({ story: s, review })))
   const start = story ? slides.findIndex((s) => s.story.id === story.id) : -1
@@ -69,6 +73,10 @@ export default function StoryViewer({ stories, story, allReviews, onFocusRestaur
               </button>
               <h3 className="restaurant-sheet__section-title">{review.author.owner ? '주인장의 후기' : '이웃들의 후기'}</h3>
               <ReviewCard review={review} />
+              <ReviewComments
+                comments={comments[review.id] ?? []}
+                onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+              />
             </article>
           )
         })}
