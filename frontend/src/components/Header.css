@@ -46,15 +46,21 @@
 
 .app-header__friends-icon {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
+  /* 잘린 단면을 닫는 선은 개별 이미지 대신 여기 한 줄로 — 기울여도 바닥선은 수평 유지 */
+  border-bottom: 2.5px solid var(--ink);
 }
 
 .app-header__friends-icon .app-header__person-icon {
   width: 15px;
+  border-bottom: none;
+  /* 서로 마주보도록 안쪽으로 기울인다 */
+  transform: rotate(10deg);
+  transform-origin: bottom center;
 }
 
 .app-header__friends-icon .app-header__person-icon--flipped {
-  transform: scaleX(-1);
+  transform: scaleX(-1) rotate(10deg);
   margin-left: -4px;
 }
 
