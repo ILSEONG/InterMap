@@ -230,17 +230,18 @@ function SheetBody({
 
   function startEdit(review: Review) {
     fillFrom(review)
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    // 폼이 myReview 유무에 따라 새로 마운트되므로 렌더 뒤로 미룬다
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0)
   }
 
-  // 한 가게에 후기는 하나만 (서버도 409로 막는다). 이미 썼으면 폼에 그 내용을 채워 수정 모드로 연다.
+  // 한 가게에 후기는 하나만 (서버도 409로 막는다). 이미 썼으면 카드의 수정 버튼을 눌러야 폼이 열린다.
   const myReview =
     myUserId === undefined ? undefined : [...restaurant.reviews, ...ownerReviews].find((r) => r.author.id === myUserId)
-  // 후기 목록이 나중에 오거나 방금 등록·수정해서 myReview가 바뀌면 다시 채운다. 편집 중엔 입력을 덮어쓰지 않는다.
+  // 방금 등록·수정해서 myReview가 새로 생기거나 바뀌면, 열려 있던 폼(같은 후기 수정 중)의 내용을 새 값으로 맞춘다.
   useEffect(() => {
-    if (myReview && !editing) fillFrom(myReview)
+    if (myReview && editing && editing.id === myReview.id) fillFrom(myReview)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myReview, editing])
+  }, [myReview])
 
   // 내 후기면 수정 버튼을 붙인다
   const editHandler = (review: Review) =>
@@ -329,6 +330,9 @@ function SheetBody({
           ))}
         </div>
 
+        {myReview && !editing ? (
+          <p className="review-form__editing">이미 이 가게에 후기를 남겼어요 — 위 내 후기의 수정 버튼으로 고칠 수 있어요</p>
+        ) : (
         <div className="review-form" ref={formRef}>
           {editing && <p className="review-form__editing">내가 남긴 후기 — 고친 뒤 수정 완료를 눌러주세요</p>}
           <div className="review-form__stars">
@@ -411,6 +415,7 @@ function SheetBody({
             </button>
           </div>
         </div>
+        )}
       </section>
 
       {ownerReviews.length > 0 && (
