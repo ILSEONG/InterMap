@@ -3,7 +3,7 @@ import { clusterPins, latAtWorldY, worldPoint } from './cluster.ts'
 import type { Restaurant } from '../data/model'
 
 function shop(id: string, lat: number, lng: number): Restaurant {
-  return { id, name: id, category: '', address: '', lat, lng, groupIds: [], reviews: [], comments: [] }
+  return { id, name: id, category: '', address: '', lat, lng, groupIds: [], reviews: [] }
 }
 
 // 같은 건물 수준(약 8m)으로 붙은 두 가게

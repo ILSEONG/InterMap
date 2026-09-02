@@ -45,7 +45,7 @@ export interface Story {
   reviews: Review[]
 }
 
-// 댓글은 아직 서버에 저장하지 않는다 — 새로고침하면 사라진다
+// 후기에 달리는 댓글. 아직 서버에 저장하지 않는다 — 새로고침하면 사라진다
 export interface Comment {
   id: string
   authorName: string
@@ -62,7 +62,6 @@ export interface Restaurant {
   lng: number
   groupIds: GroupId[]
   reviews: Review[] // 이웃 후기만 (주인장 후기 제외)
-  comments: Comment[]
   closed?: boolean
 }
 

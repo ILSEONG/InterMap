@@ -13,14 +13,15 @@ interface RestaurantSheetProps {
   asOwner: boolean
   groups: FriendGroup[]
   onClose: () => void
-  onStartMeetup: (restaurant: Restaurant) => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
   onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
   onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
   onDeleteReview: (reviewId: number) => Promise<void>
-  onAddComment: (restaurantId: string, text: string, parentId?: string) => void
+  // 후기별 댓글 — 후기 id로 찾는다
+  comments: Record<number, Comment[]>
+  onAddComment: (reviewId: number, text: string, parentId?: string) => void
 }
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
@@ -36,11 +37,11 @@ export default function RestaurantSheet({
   asOwner,
   groups,
   onClose,
-  onStartMeetup,
   onAddReview,
   myUserId,
   onEditReview,
   onDeleteReview,
+  comments,
   onAddComment,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
@@ -155,11 +156,11 @@ export default function RestaurantSheet({
               ownerReviews={ownerReviews}
               asOwner={asOwner}
               groups={groups}
-              onStartMeetup={onStartMeetup}
               onAddReview={onAddReview}
               myUserId={myUserId}
               onEditReview={onEditReview}
               onDeleteReview={onDeleteReview}
+              comments={comments}
               onAddComment={onAddComment}
             />
           </>
@@ -174,14 +175,15 @@ interface SheetBodyProps {
   ownerReviews: Review[]
   asOwner: boolean
   groups: FriendGroup[]
-  onStartMeetup: (restaurant: Restaurant) => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
   onAddReview: (restaurantId: string, rating: number, text: string, photos: File[]) => Promise<void>
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
   onEditReview: (reviewId: number, rating: number, text: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
   onDeleteReview: (reviewId: number) => Promise<void>
-  onAddComment: (restaurantId: string, text: string, parentId?: string) => void
+  // 후기별 댓글 — 후기 id로 찾는다
+  comments: Record<number, Comment[]>
+  onAddComment: (reviewId: number, text: string, parentId?: string) => void
 }
 
 function SheetBody({
@@ -189,16 +191,15 @@ function SheetBody({
   ownerReviews,
   asOwner,
   groups,
-  onStartMeetup,
   onAddReview,
   myUserId,
   onEditReview,
   onDeleteReview,
+  comments,
   onAddComment,
 }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
-  const [draftComment, setDraftComment] = useState('')
   const [draftPhotos, setDraftPhotos] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   // 수정 중인 내 후기. 같은 폼을 재사용 — 기존 사진은 keepPhotoIds로, 새 사진은 draftPhotos로
@@ -210,7 +211,6 @@ function SheetBody({
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
 
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
-  const rootComments = restaurant.comments.filter((c) => !c.parentId)
 
   function resetForm() {
     setDraftReview('')
@@ -282,12 +282,6 @@ function SheetBody({
     setDraftPhotos((prev) => [...prev, ...files].slice(0, MAX_PHOTOS - keepPhotoIds.length))
   }
 
-  function submitComment() {
-    if (!draftComment.trim()) return
-    onAddComment(restaurant.id, draftComment.trim())
-    setDraftComment('')
-  }
-
   return (
     <div className="restaurant-sheet__scroll">
       <div className="restaurant-sheet__groups">
@@ -326,7 +320,13 @@ function SheetBody({
         )}
         <div className="restaurant-sheet__reviews">
           {restaurant.reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
+            <div key={review.id} className="restaurant-sheet__review-block">
+              <ReviewCard review={review} onEdit={editHandler(review)} />
+              <ReviewComments
+                comments={comments[review.id] ?? []}
+                onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+              />
+            </div>
           ))}
         </div>
 
@@ -423,42 +423,74 @@ function SheetBody({
           <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
           <div className="restaurant-sheet__reviews">
             {ownerReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
+              <div key={review.id} className="restaurant-sheet__review-block">
+                <ReviewCard review={review} onEdit={editHandler(review)} />
+                <ReviewComments
+                  comments={comments[review.id] ?? []}
+                  onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                />
+              </div>
             ))}
           </div>
         </section>
       )}
 
-      <section className="restaurant-sheet__section">
-        <h3 className="restaurant-sheet__section-title">댓글</h3>
+    </div>
+  )
+}
+
+interface ReviewCommentsProps {
+  comments: Comment[]
+  onAdd: (text: string, parentId?: string) => void
+}
+
+// 후기 카드 아래 그 후기에 달린 댓글 목록 + "댓글 달기" 토글 입력
+function ReviewComments({ comments, onAdd }: ReviewCommentsProps) {
+  const [writing, setWriting] = useState(false)
+  const [draft, setDraft] = useState('')
+  const roots = comments.filter((c) => !c.parentId)
+
+  function submit() {
+    if (!draft.trim()) return
+    onAdd(draft.trim())
+    setDraft('')
+    setWriting(false)
+  }
+
+  return (
+    <div className="review-comments">
+      {roots.length > 0 && (
         <ul className="restaurant-sheet__comments">
-          {rootComments.map((comment) => (
+          {roots.map((comment) => (
             <CommentItem
               key={comment.id}
               comment={comment}
-              replies={restaurant.comments.filter((c) => c.parentId === comment.id)}
-              onReply={(text) => onAddComment(restaurant.id, text, comment.id)}
+              replies={comments.filter((c) => c.parentId === comment.id)}
+              onReply={(text) => onAdd(text, comment.id)}
             />
           ))}
         </ul>
+      )}
+      {writing ? (
         <div className="restaurant-sheet__comment-form">
           <input
             type="text"
-            value={draftComment}
-            onChange={(e) => setDraftComment(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submitComment()}
-            placeholder="댓글을 남겨보세요"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            placeholder="이 후기에 댓글 남기기"
             aria-label="댓글 입력"
+            autoFocus
           />
-          <button type="button" onClick={submitComment} disabled={!draftComment.trim()}>
+          <button type="button" onClick={submit} disabled={!draft.trim()}>
             등록
           </button>
         </div>
-      </section>
-
-      <button type="button" className="restaurant-sheet__meetup-cta" onClick={() => onStartMeetup(restaurant)}>
-        🎉 여기서 약속잡기
-      </button>
+      ) : (
+        <button type="button" className="comment__reply-toggle" onClick={() => setWriting(true)}>
+          댓글 달기
+        </button>
+      )}
     </div>
   )
 }

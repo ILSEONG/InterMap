@@ -154,25 +154,6 @@
   font-style: italic;
 }
 
-.restaurant-sheet__meetup-cta {
-  width: 100%;
-  padding: 14px;
-  margin-bottom: 22px;
-  border-radius: var(--radius-pill);
-  border: 3px solid var(--ink);
-  background: var(--accent);
-  color: #fff9f2;
-  font-family: var(--font-display);
-  font-size: 16px;
-  cursor: pointer;
-  box-shadow: var(--shadow-pop);
-  transition: transform 140ms ease;
-}
-
-.restaurant-sheet__meetup-cta:hover {
-  transform: translateY(-2px);
-}
-
 .restaurant-sheet__section {
   margin-bottom: 22px;
 }
@@ -290,8 +271,38 @@
   cursor: not-allowed;
 }
 
-.restaurant-sheet__meetup-cta {
-  margin-bottom: 0;
+/* 후기 카드 + 그 밑의 댓글이 슬라이더 한 칸을 이룬다 */
+.restaurant-sheet__review-block {
+  flex: 0 0 auto;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+}
+
+.restaurant-sheet__review-block .review-card {
+  width: auto;
+}
+
+.review-comments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.review-comments .restaurant-sheet__comments {
+  margin: 0;
+  width: 100%;
+  gap: 10px;
+}
+
+.review-comments .restaurant-sheet__comment-form {
+  width: 100%;
+}
+
+.review-comments .restaurant-sheet__comment-form input {
+  min-width: 0;
 }
 
 .review-form {

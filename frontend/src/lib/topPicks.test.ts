@@ -3,7 +3,7 @@ import { shortLocation, topPicksOf } from './topPicks.ts'
 import type { Restaurant, Review } from '../data/model'
 
 function shop(id: string, reviews: Review[]): Restaurant {
-  return { id, name: id, category: '', address: '', lat: 0, lng: 0, groupIds: [], reviews, comments: [] }
+  return { id, name: id, category: '', address: '', lat: 0, lng: 0, groupIds: [], reviews }
 }
 let seq = 0
 const rv = (authorId: number, rating: number, hoursAgo = 0): Review => ({

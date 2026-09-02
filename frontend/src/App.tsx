@@ -8,10 +8,9 @@ import MapCanvas from './components/MapCanvas'
 import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
-import MeetupSheet from './components/MeetupSheet'
 import MyPage from './components/MyPage'
 import { groups } from './data/model'
-import type { GroupId, Restaurant, Review, Story } from './data/model'
+import type { Comment, GroupId, Restaurant, Review, Story } from './data/model'
 import {
   fetchRestaurants,
   searchRestaurants,
@@ -41,7 +40,7 @@ const MIN_QUERY_LENGTH = 2
   OWN-WORLD: chunky ink-outlined shapes, candy-bright per-group color, soft
   floating shadows, Jua display type over Pretendard body text.
   STORY: open app -> see illustrated map with friends' story chips and
-  colored pins -> tap a pin -> read neighbor reviews/menu -> start a meetup.
+  colored pins -> tap a pin -> read neighbor reviews and their comments.
   FIRST VIEWPORT: full-bleed illustrated map, floating pill header (필터 +
   multicolor 인터맵 wordmark), story strip riding just below it.
   FORM: Google Doodle interactive-scene, user-pinned via reference URL.
@@ -60,7 +59,6 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
     lng: record.lng,
     groupIds: [],
     reviews: [],
-    comments: [],
     closed: record.status === 'CLOSED',
   }
 }
@@ -166,7 +164,6 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
   const [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null)
-  const [meetupRestaurant, setMeetupRestaurant] = useState<Restaurant | null>(null)
   // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
   const [authMode, setAuthMode] = useState<AuthMode | null>(null)
   const [session, setSession] = useState<AuthSession | null>(() => {
@@ -296,7 +293,6 @@ export default function App() {
         lng: place.lng,
         groupIds: [],
         reviews: list,
-        comments: [],
       })
     }
     return merged
@@ -312,8 +308,12 @@ export default function App() {
       story.reviews.push(rv)
       byAuthor.set(rv.author.id, story)
     }
-    return [...byAuthor.values()]
-  }, [reviews])
+    const list = [...byAuthor.values()]
+    // 내 스토리가 있으면 맨 앞으로
+    const myIndex = session?.id != null ? list.findIndex((s) => s.id === session.id) : -1
+    if (myIndex > 0) list.unshift(...list.splice(myIndex, 1))
+    return list
+  }, [reviews, session?.id])
   const [openStory, setOpenStory] = useState<Story | null>(null)
 
 
@@ -514,20 +514,18 @@ export default function App() {
     }
   }
 
-  // 댓글은 아직 클라이언트에만 남는다 (새로고침하면 사라짐)
-  function addComment(restaurantId: string, text: string, parentId?: string) {
+  // 후기별 댓글 — 아직 클라이언트에만 남는다 (새로고침하면 사라짐)
+  const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>({})
+  function addComment(reviewId: number, text: string, parentId?: string) {
     if (!session) {
       setAuthMode('start')
       return
     }
     const authorName = session.nickname
-    setRestaurants((prev) =>
-      prev.map((r) =>
-        r.id === restaurantId
-          ? { ...r, comments: [...r.comments, { id: `c-${Date.now()}`, authorName, text, parentId }] }
-          : r,
-      ),
-    )
+    setReviewComments((prev) => ({
+      ...prev,
+      [reviewId]: [...(prev[reviewId] ?? []), { id: `c-${Date.now()}`, authorName, text, parentId }],
+    }))
   }
 
   return (
@@ -625,16 +623,13 @@ export default function App() {
         asOwner={isAdmin(session)}
         groups={groups}
         onClose={() => setSelectedId(null)}
-        onStartMeetup={(restaurant) => setMeetupRestaurant(restaurant)}
         myUserId={session?.id}
         onAddReview={addReview}
         onEditReview={editReview}
         onDeleteReview={removeReview}
+        comments={reviewComments}
         onAddComment={addComment}
       />
-
-      {/* 친구 기능 전이라 초대 목록은 비어 있다 */}
-      <MeetupSheet restaurant={meetupRestaurant} friends={[]} onClose={() => setMeetupRestaurant(null)} />
 
       {session && (
         <MyPage
