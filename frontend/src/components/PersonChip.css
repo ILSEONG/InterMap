@@ -48,7 +48,44 @@
 }
 
 .person-chip__card {
-  width: min(240px, 100%);
+  width: min(190px, 100%);
   margin: 0;
+  padding: 6px 8px 4px;
   box-shadow: var(--shadow-float);
+}
+
+.person-chip__card .top-picks__title {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.person-chip__card .top-picks__row {
+  min-height: 30px;
+  padding: 2px 0;
+  gap: 6px;
+}
+
+.person-chip__card .top-picks__rank {
+  flex-basis: 18px;
+  height: 18px;
+  font-size: 10px;
+  line-height: 14px;
+  border-width: 1.5px;
+}
+
+.person-chip__card .top-picks__name {
+  font-size: 12px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-chip__card .top-picks__meta {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.person-chip__card .top-picks__rating {
+  font-size: 11px;
 }
