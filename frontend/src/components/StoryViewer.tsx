@@ -11,13 +11,15 @@ interface StoryViewerProps {
   story: Story | null
   // 가게 평균 별점·평가 수를 내기 위한 전체 후기
   allReviews: Review[]
+  // "지도에서 보기" — 스토리를 닫고 그 후기의 가게로 지도를 옮긴다
+  onFocusRestaurant: (review: Review) => void
   onClose: () => void
 }
 
 // 스토리를 누르면 그 사람의 24시간 내 후기를 가게 헤더 + 후기 카드 한 장씩, 좌우로 넘겨 본다.
 // 넘기기는 CSS scroll-snap — 터치·휠·키보드 전부 브라우저가 처리한다.
 // 모든 스토리의 후기를 한 트랙에 펼쳐 두고 누른 사람의 첫 후기로 이동한다 — 사람 경계를 넘는 제스처 코드가 필요 없다.
-export default function StoryViewer({ stories, story, allReviews, onClose }: StoryViewerProps) {
+export default function StoryViewer({ stories, story, allReviews, onFocusRestaurant, onClose }: StoryViewerProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slides = stories.flatMap((s) => s.reviews.map((review) => ({ story: s, review })))
   const start = story ? slides.findIndex((s) => s.story.id === story.id) : -1
@@ -55,6 +57,16 @@ export default function StoryViewer({ stories, story, allReviews, onClose }: Sto
               ) : (
                 <p className="restaurant-sheet__rating-value restaurant-sheet__rating-value--empty">아직 평가한 이웃이 없어요</p>
               )}
+              <button
+                type="button"
+                className="story-viewer__map-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onFocusRestaurant(review)
+                }}
+              >
+                지도에서 보기
+              </button>
               <h3 className="restaurant-sheet__section-title">{review.author.owner ? '주인장의 후기' : '이웃들의 후기'}</h3>
               <ReviewCard review={review} />
             </article>

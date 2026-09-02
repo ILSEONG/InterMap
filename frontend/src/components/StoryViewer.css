@@ -64,6 +64,18 @@
   color: var(--ink-soft);
 }
 
+.story-viewer__map-btn {
+  margin: 6px 0 14px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  border: 2.5px solid var(--ink);
+  background: var(--surface-raised);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .story-viewer__hint {
   margin: 12px 0 0;
   text-align: center;

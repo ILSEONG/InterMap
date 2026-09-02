@@ -445,6 +445,18 @@ export default function App() {
     setResultsOpen(false)
   }, [])
 
+  // 스토리의 "지도에서 보기" — 후기가 가리키는 가게를 찾아 스토리를 닫고 지도를 옮긴다
+  const focusFromStory = useCallback(
+    (review: Review) => {
+      const key = restaurantKey(review.restaurant)
+      const target = reviewedRestaurants.find((r) => restaurantKey(r) === key)
+      if (!target) return
+      setOpenStory(null)
+      focusFromSearch(target)
+    },
+    [reviewedRestaurants, focusFromSearch],
+  )
+
   // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
   async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
     if (!session) {
@@ -622,7 +634,7 @@ export default function App() {
         />
       )}
 
-      <StoryViewer stories={stories} story={openStory} allReviews={reviews} onClose={() => setOpenStory(null)} />
+      <StoryViewer stories={stories} story={openStory} allReviews={reviews} onFocusRestaurant={focusFromStory} onClose={() => setOpenStory(null)} />
 
       <AuthModal
         mode={authMode}
