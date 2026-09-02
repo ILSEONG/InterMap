@@ -40,8 +40,6 @@
   width: 20px;
   height: auto;
   display: block;
-  /* 원본 png가 몸통 중간에서 잘려 있어 아래 경계가 비어 보인다 — 검정 선으로 닫는다 */
-  border-bottom: 2.5px solid var(--ink);
 }
 
 .app-header__friends-icon {
