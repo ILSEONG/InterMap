@@ -64,15 +64,18 @@
 
 /* 친구 목록에서 고른 사람의 TOP 5 — 스토리 아래 왼쪽 모서리에 붙은 작은 개요 카드 */
 .top-picks--pinned {
-  width: 168px;
+  width: 128px;
   margin: 6px 0 0 -6px;
-  padding: 6px 8px 4px;
+  padding: 5px 6px 3px;
   box-shadow: var(--shadow-float);
 }
 
 .top-picks--pinned .top-picks__title {
-  font-size: 12px;
+  font-size: 11px;
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-picks--pinned .top-picks__row {
@@ -90,7 +93,7 @@
 }
 
 .top-picks--pinned .top-picks__name {
-  font-size: 12px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
