@@ -29,6 +29,7 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
   // 화면 가운데 2초 토스트 (언팔로우 확인용)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number>(undefined)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   function showToast(text: string) {
     setToast(text)
     window.clearTimeout(toastTimer.current)
@@ -150,19 +151,19 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
           <div className="my-page__profile">
             <Avatar className="my-page__avatar" src={session.avatar} name={session.nickname} />
             <div className="my-page__profile-actions">
-              <label className="my-page__action">
+              <button type="button" className="my-page__action" onClick={() => avatarInputRef.current?.click()} disabled={busy}>
                 {session.avatar ? '사진 바꾸기' : '사진 올리기'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  disabled={busy}
-                  onChange={(e) => {
-                    void changeAvatar(e.target.files?.[0])
-                    e.target.value = ''
-                  }}
-                />
-              </label>
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  void changeAvatar(e.target.files?.[0])
+                  e.target.value = ''
+                }}
+              />
               {session.avatar && (
                 <button type="button" className="my-page__action my-page__action--ghost" onClick={removeAvatar} disabled={busy}>
                   지우기
