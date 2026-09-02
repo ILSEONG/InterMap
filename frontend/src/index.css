@@ -55,6 +55,8 @@ body {
   background: var(--sky-top);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  /* 페이지 핀치줌·더블탭줌 차단 (viewport meta 무시하는 브라우저 보강). 스크롤 팬은 허용 */
+  touch-action: pan-x pan-y;
 }
 
 button {
