@@ -14,6 +14,8 @@ interface MapCanvasProps {
   cells?: ClusterCell[]
   // 요약 모드에서도 넘겨받은 가게를 개별 핀으로 그릴지 — 후기 있음 필터·검색 중처럼 목록이 이미 작을 때 true
   pinsWhenFar?: boolean
+  // 찜 모드: 모든 핀을 초록 별 모양으로 그린다
+  starPins?: boolean
   onPick: (restaurant: Restaurant) => void
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
@@ -60,21 +62,26 @@ function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? 'var(--gc-none)'
 }
 
-function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean) {
+// 찜 모드 핀 색 — 워드마크의 초록
+const FAVORITE_PIN_COLOR = '#2FBFA6'
+
+function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
   // 요약 셀 핀은 items가 비어 있고 count만 있다 — 항상 군집 모양, 색은 미지정 그룹색
   const count = pin.count ?? pin.items.length
   const cluster = count > 1
-  const color = pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
-  const classes = ['map-pin', cluster && 'map-pin--cluster', focused && 'map-pin--focused'].filter(Boolean).join(' ')
+  const color = star ? FAVORITE_PIN_COLOR : pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
+  const classes = ['map-pin', cluster && 'map-pin--cluster', !cluster && star && 'map-pin--star', focused && 'map-pin--focused']
+    .filter(Boolean)
+    .join(' ')
   const title = cluster || pin.items.length === 0 ? `이 자리 ${count}곳` : escapeHtml(pin.items[0].name)
   return {
     content: `
       <button type="button" class="${classes}" style="--pin-color:${color}" aria-label="${title}">
-        <span class="map-pin__dot">${cluster ? count : ''}</span>
+        <span class="map-pin__dot">${cluster ? count : star ? '★' : ''}</span>
         ${pin.items.length === 1 ? `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>` : ''}
       </button>
     `,
-    anchor: new window.naver.maps.Point(cluster ? 11 : 8, cluster ? 22 : 16),
+    anchor: new window.naver.maps.Point(cluster ? 11 : star ? 10 : 8, cluster ? 22 : star ? 18 : 16),
   }
 }
 
@@ -102,6 +109,7 @@ export default function MapCanvas({
   groups,
   cells = [],
   pinsWhenFar = false,
+  starPins = false,
   onPick,
   focus,
   onViewportChange,
@@ -356,21 +364,22 @@ export default function MapCanvas({
 
     visiblePins.forEach((pin) => {
       const existing = markers.get(pin.key)
+      // 색과 함께 찜 모드 여부도 키에 담는다 — 모드 토글 시 같은 자리 핀도 아이콘이 갈린다
+      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}${starPins ? '|star' : ''}`
       if (existing) {
         // 같은 묶음이라도 후기가 새로 달리면 색이 바뀐다 — 아이콘만 갈아끼운다
-        const color = pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
-        if (existing.get('pinColor') !== color) {
-          existing.set('pinColor', color)
-          existing.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current)))
+        if (existing.get('pinColor') !== iconKey) {
+          existing.set('pinColor', iconKey)
+          existing.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current), starPins))
         }
         return
       }
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(pin.lat, pin.lng),
         map: mapRef.current!,
-        icon: pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current)),
+        icon: pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current), starPins),
       })
-      marker.set('pinColor', pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)')
+      marker.set('pinColor', iconKey)
       naver.maps.Event.addListener(marker, 'click', () => {
         // 다른 핀의 목록이 열려 있었다면 먼저 닫는다.
         infoWindowRef.current?.close()
@@ -412,7 +421,7 @@ export default function MapCanvas({
       })
       markers.set(pin.key, marker)
     })
-  }, [visiblePins, groups, mapReady, onPick, openPinList])
+  }, [visiblePins, groups, mapReady, onPick, openPinList, starPins])
 
   // 강조 표시는 바뀐 핀만 다시 그린다 (전체 재생성 방지).
   useEffect(() => {
@@ -425,9 +434,9 @@ export default function MapCanvas({
       const pin = visiblePins.find((p) => p.items.some((r) => r.id === id))
       const marker = pin && markersRef.current.get(pin.key)
       if (!pin || !marker) continue
-      marker.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedId)))
+      marker.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedId), starPins))
     }
-  }, [focusedId, visiblePins, groups, mapReady])
+  }, [focusedId, visiblePins, groups, mapReady, starPins])
 
   // 검색 결과에서 고른 가게가 화면 밖일 수 있어 그 가게로 지도만 옮긴다.
   useEffect(() => {

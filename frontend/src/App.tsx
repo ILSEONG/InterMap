@@ -208,11 +208,14 @@ export default function App() {
   const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>({})
   // 내가 찜한 가게 키("이름|주소") 모음
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  // 헤더 별 버튼: 켜면 지도에 찜한 가게만 (후기 필터 무시, 초록 별 마커)
+  const [favMode, setFavMode] = useState(false)
   useEffect(() => {
     if (!session) {
       setRawReviews([])
       setReviewComments({})
       setFavorites(new Set())
+      setFavMode(false)
       return
     }
     let cancelled = false
@@ -436,6 +439,12 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
+  // 찜 모드: 후기·검색 필터와 무관하게 찜한 가게 전부
+  const favRestaurants = useMemo(
+    () => reviewedRestaurants.filter((r) => favorites.has(restaurantKey(r))),
+    [reviewedRestaurants, favorites],
+  )
+
   // 고른 친구의 별점 TOP 5 (칩 아래 카드). 핀 필터와 무관하게 전체 목록에서 뽑는다.
   const selectedPersonPicks = useMemo(
     () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id) : []),
@@ -605,12 +614,13 @@ export default function App() {
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
     >
       <MapCanvas
-        restaurants={visibleRestaurants}
+        restaurants={favMode ? favRestaurants : visibleRestaurants}
         groups={groups}
         // 요약 셀 = 후기 없는 가게 덩어리. 필터·검색으로 그런 가게가
-        // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다).
-        cells={reviewFilter !== 'with' && !personPins && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
-        pinsWhenFar={reviewFilter === 'with' || searchActive || personPins}
+        // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다). 찜 모드에선 항상 숨김.
+        cells={!favMode && reviewFilter !== 'with' && !personPins && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
+        pinsWhenFar={favMode || reviewFilter === 'with' || searchActive || personPins}
+        starPins={favMode}
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
         onViewportChange={loadViewport}
@@ -637,6 +647,14 @@ export default function App() {
           following={followingPeople}
           selectedPersonId={selectedPerson?.id ?? null}
           onSelectPerson={setPersonId}
+          favMode={favMode}
+          onToggleFavMode={() => {
+            if (!session) {
+              setAuthMode('start')
+              return
+            }
+            setFavMode((prev) => !prev)
+          }}
         />
         <div className="bottom-controls" hidden={personPins}>
           <div className="review-filter" role="group" aria-label="후기 유무 필터">

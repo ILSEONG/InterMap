@@ -162,7 +162,7 @@
   background: none;
   font-size: 24px;
   line-height: 1;
-  vertical-align: -2px;
+  vertical-align: middle;
   color: var(--ink-soft);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

@@ -22,6 +22,9 @@ interface HeaderProps {
   following: FollowingPerson[] | null
   selectedPersonId: number | null
   onSelectPerson: (id: number | null) => void
+  // 찜 모드 — 켜면 지도에 내가 찜한 가게만 초록 별로 나온다
+  favMode: boolean
+  onToggleFavMode: () => void
 }
 
 export interface FollowingPerson {
@@ -46,6 +49,8 @@ export default function Header({
   following,
   selectedPersonId,
   onSelectPerson,
+  favMode,
+  onToggleFavMode,
 }: HeaderProps) {
   const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -227,24 +232,35 @@ export default function Header({
         </div>
       </div>
 
-      <button
-        type="button"
-        className="app-header__search-toggle"
-        onClick={toggleSearch}
-        aria-label={searching ? '검색 닫기' : '검색 열기'}
-        aria-expanded={searching}
-      >
-        {searching ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-          </svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2.6" />
-            <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-          </svg>
-        )}
-      </button>
+      <div className="app-header__right">
+        <button
+          type="button"
+          className="app-header__search-toggle"
+          onClick={toggleSearch}
+          aria-label={searching ? '검색 닫기' : '검색 열기'}
+          aria-expanded={searching}
+        >
+          {searching ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2.6" />
+              <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`app-header__search-toggle app-header__fav-toggle${favMode ? ' app-header__fav-toggle--on' : ''}`}
+          onClick={onToggleFavMode}
+          aria-label={favMode ? '찜한 가게만 보기 끄기' : '찜한 가게만 보기'}
+          aria-pressed={favMode}
+        >
+          ★
+        </button>
+      </div>
     </header>
   )
 }

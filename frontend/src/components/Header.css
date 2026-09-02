@@ -227,6 +227,28 @@
   transform: translateY(-1px);
 }
 
+/* 오른쪽 칸 — 검색·찜 버튼 나란히 */
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header__fav-toggle {
+  font-size: 19px;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+
+.app-header__fav-toggle--on {
+  color: #fff9f2;
+  background: #2fbfa6;
+}
+
+.app-header__fav-toggle--on:hover {
+  background: #2fbfa6;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-header__wordmark,
   .app-header__search-row {
