@@ -331,10 +331,10 @@ function SheetBody({
         </div>
 
         {myReview && !editing ? (
-          <p className="review-form__editing">이미 이 가게에 후기를 남겼어요 — 위 내 후기의 수정 버튼으로 고칠 수 있어요</p>
+          <p className="review-form__editing">이미 이 가게에 후기를 남겼어요, 수정 버튼으로 고칠 수 있어요</p>
         ) : (
         <div className="review-form" ref={formRef}>
-          {editing && <p className="review-form__editing">내가 남긴 후기 — 고친 뒤 수정 완료를 눌러주세요</p>}
+          {editing && <p className="review-form__editing">내가 남긴 후기, 고친 뒤 수정 완료를 눌러주세요</p>}
           <div className="review-form__stars">
             <Stars value={draftRating} />
             <input
