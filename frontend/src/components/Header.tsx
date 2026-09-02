@@ -19,12 +19,7 @@ interface HeaderProps {
   following: FollowingPerson[] | null
   selectedPersonId: number | null
   onSelectPerson: (id: number | null) => void
-  // ponytail: 시안 A/B/C 비교용 임시 스위치. 하나 고르면 지운다.
-  uxVariant: UxVariant
-  onUxVariant: (v: UxVariant) => void
 }
-
-export type UxVariant = 'a' | 'b' | 'c'
 
 export interface FollowingPerson {
   id: number
@@ -47,8 +42,6 @@ export default function Header({
   following,
   selectedPersonId,
   onSelectPerson,
-  uxVariant,
-  onUxVariant,
 }: HeaderProps) {
   const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -61,11 +54,6 @@ export default function Header({
   useEffect(() => {
     if (searching) inputRef.current?.focus()
   }, [searching])
-
-  // 밖에서 검색어를 넣으면(시안 C: 친구 목록 → 사람 검색) 검색창을 연다
-  useEffect(() => {
-    if (query) setSearching(true)
-  }, [query])
 
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
@@ -156,19 +144,6 @@ export default function Header({
             </button>
             {friendsOpen && (
               <div className="app-header__account-menu" role="menu">
-                <div className="app-header__ux-switch" role="group" aria-label="시안">
-                  {(['a', 'b', 'c'] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      className={uxVariant === v ? 'app-header__menu-item--active' : undefined}
-                      aria-pressed={uxVariant === v}
-                      onClick={() => onUxVariant(v)}
-                    >
-                      {v.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
                 {following.length === 0 ? (
                   <p className="app-header__account-name">팔로잉한 사람이 없어요</p>
                 ) : (

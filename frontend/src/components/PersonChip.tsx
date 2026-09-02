@@ -11,7 +11,7 @@ interface PersonChipProps {
   onClose: () => void
 }
 
-// 시안 A — 헤더 아래 왼쪽 칩. 칩 본체를 누르면 TOP 5가 펼쳐지고, ✕로 사람 선택을 푼다.
+// 스토리 아래 왼쪽 칩. 칩 본체를 누르면 TOP 5가 펼쳐지고, ✕로 사람 선택을 푼다.
 export default function PersonChip({ name, picks, onPick, onClose }: PersonChipProps) {
   const [expanded, setExpanded] = useState(true)
   return (

@@ -2,8 +2,6 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import PersonChip from './components/PersonChip'
-import PersonSheet from './components/PersonSheet'
-import type { UxVariant } from './components/Header'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
 import MapCanvas from './components/MapCanvas'
@@ -232,33 +230,8 @@ export default function App() {
   )
   // 언팔로우·로그아웃으로 목록에서 빠지면 선택도 자동 해제
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
-  // ponytail: 시안 A(칩)/B(시트)/C(사람 검색) 비교용 임시 스위치. 하나 고르면 나머지와 함께 지운다.
-  const [uxVariant, setUxVariant] = useState<UxVariant>(() => {
-    const v = localStorage.getItem('intermap.ux')
-    return v === 'b' || v === 'c' ? v : 'a'
-  })
-  const changeUxVariant = useCallback((v: UxVariant) => {
-    localStorage.setItem('intermap.ux', v)
-    setUxVariant(v)
-    setPersonId(null)
-  }, [])
-  // A/B: 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕ / 시트 닫기로 해제.
+  // 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕로 해제.
   const personPins = selectedPerson !== null
-  const selectPerson = useCallback(
-    (id: number | null) => {
-      const person = followingPeople?.find((p) => p.id === id)
-      if (uxVariant === 'c' && person) {
-        // C: 새 UI 없이 기존 '사람' 검색을 그대로 태운다
-        setSearchMode('person')
-        setQuery(person.name)
-        setResultsOpen(true)
-        setPersonId(null)
-        return
-      }
-      setPersonId(id)
-    },
-    [uxVariant, followingPeople],
-  )
   useEffect(() => {
     if (!session) {
       setSocial(null)
@@ -431,9 +404,9 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
-  // 고른 친구가 후기 쓴 가게 전부, 별점 높은 순. 앞 5개가 TOP 5.
-  const selectedPersonAll = useMemo(
-    () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id, Infinity) : []),
+  // 고른 친구의 별점 TOP 5 (칩 아래 카드). 핀 필터와 무관하게 전체 목록에서 뽑는다.
+  const selectedPersonPicks = useMemo(
+    () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id) : []),
     [reviewedRestaurants, selectedPerson],
   )
 
@@ -568,9 +541,7 @@ export default function App() {
           onMyPage={() => setMyPageOpen(true)}
           following={followingPeople}
           selectedPersonId={selectedPerson?.id ?? null}
-          onSelectPerson={selectPerson}
-          uxVariant={uxVariant}
-          onUxVariant={changeUxVariant}
+          onSelectPerson={setPersonId}
         />
         <div className="bottom-controls" hidden={personPins}>
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
@@ -607,25 +578,16 @@ export default function App() {
           <StoryStrip stories={stories} onOpen={setOpenStory} />
         )}
         {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
-        {uxVariant === 'a' && selectedPerson && (
+        {selectedPerson && (
           <PersonChip
             name={selectedPerson.name}
-            picks={selectedPersonAll.slice(0, 5)}
+            picks={selectedPersonPicks}
             onPick={focusFromSearch}
             onClose={() => setPersonId(null)}
           />
         )}
       </div>
 
-      {uxVariant === 'b' && selectedPerson && (
-        <PersonSheet
-          name={selectedPerson.name}
-          all={selectedPersonAll}
-          groups={groups}
-          onPick={focusFromSearch}
-          onClose={() => setPersonId(null)}
-        />
-      )}
 
       <RestaurantSheet
         restaurant={selectedRestaurant}
