@@ -17,6 +17,8 @@ import {
   fetchRestaurantCells,
   fetchMe,
   fetchReviews,
+  fetchComments,
+  postComment,
   fetchSocial,
   postReview,
   updateReview,
@@ -199,9 +201,12 @@ export default function App() {
   // 서버 후기 전체 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
   // 로그인한 사람에게만 보인다 — 로그아웃하면 마커·스토리도 같이 사라져야 한다.
   const [rawReviews, setRawReviews] = useState<Review[]>([])
+  // 후기 id → 그 후기의 댓글들 (서버 /api/comments를 후기별로 나눠 둔 것)
+  const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>({})
   useEffect(() => {
     if (!session) {
       setRawReviews([])
+      setReviewComments({})
       return
     }
     let cancelled = false
@@ -211,6 +216,19 @@ export default function App() {
       })
       .catch(() => {
         // 못 받으면 후기 없는 지도로 동작
+      })
+    // 후기 댓글도 같이 받아 후기별로 나눠 둔다
+    fetchComments()
+      .then((records) => {
+        if (cancelled) return
+        const grouped: Record<number, Comment[]> = {}
+        for (const c of records) {
+          ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorName: c.author.name, text: c.text, parentId: c.parentId })
+        }
+        setReviewComments(grouped)
+      })
+      .catch(() => {
+        // 못 받으면 댓글 없는 상태로 동작
       })
     return () => {
       cancelled = true
@@ -514,18 +532,21 @@ export default function App() {
     }
   }
 
-  // 후기별 댓글 — 아직 클라이언트에만 남는다 (새로고침하면 사라짐)
-  const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>({})
-  function addComment(reviewId: number, text: string, parentId?: string) {
+  // 후기별 댓글 등록 — 서버에 저장하고 돌아온 걸 상태에 붙인다
+  async function addComment(reviewId: number, text: string, parentId?: number) {
     if (!session) {
       setAuthMode('start')
       return
     }
-    const authorName = session.nickname
-    setReviewComments((prev) => ({
-      ...prev,
-      [reviewId]: [...(prev[reviewId] ?? []), { id: `c-${Date.now()}`, authorName, text, parentId }],
-    }))
+    try {
+      const saved = await postComment(reviewId, text, parentId)
+      setReviewComments((prev) => ({
+        ...prev,
+        [reviewId]: [...(prev[reviewId] ?? []), { id: saved.id, authorName: saved.author.name, text: saved.text, parentId: saved.parentId }],
+      }))
+    } catch (e) {
+      alert((e as Error).message)
+    }
   }
 
   return (

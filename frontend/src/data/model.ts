@@ -45,12 +45,12 @@ export interface Story {
   reviews: Review[]
 }
 
-// 후기에 달리는 댓글. 아직 서버에 저장하지 않는다 — 새로고침하면 사라진다
+// 후기에 달리는 댓글. 서버 /api/comments에서 온다 (api.ts CommentRecord를 App이 이 모양으로 줄인다)
 export interface Comment {
-  id: string
+  id: number
   authorName: string
   text: string
-  parentId?: string // 있으면 해당 댓글의 대댓글
+  parentId?: number | null // 있으면 해당 댓글의 대댓글
 }
 
 export interface Restaurant {

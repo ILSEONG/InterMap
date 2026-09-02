@@ -71,14 +71,16 @@ public class ReviewController {
     private final RestaurantRepository restaurants;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
+    private final ReviewCommentRepository comments;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
-                            AuthController auth, UserAvatarRepository avatars) {
+                            AuthController auth, UserAvatarRepository avatars, ReviewCommentRepository comments) {
         this.restaurants = restaurants;
         this.repository = repository;
         this.photos = photos;
         this.auth = auth;
         this.avatars = avatars;
+        this.comments = comments;
     }
 
     // 후기의 가게 스냅샷(이름+주소)으로 가게 행을 찾는다. 프론트가 도로명 우선으로 주소를 넣으므로 그 순서로 본다.
@@ -200,6 +202,7 @@ public class ReviewController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("내가 쓴 후기만 지울 수 있어요."));
         }
         photos.deleteAllByIdInBatch(photos.findRefsByReviewId(id).stream().map(ReviewPhotoRepository.Ref::getId).toList());
+        comments.deleteAllByReviewId(id);
         repository.delete(review);
         return ResponseEntity.noContent().build();
     }

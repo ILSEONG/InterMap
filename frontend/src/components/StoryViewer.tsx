@@ -16,7 +16,7 @@ interface StoryViewerProps {
   onFocusRestaurant: (review: Review) => void
   // 후기별 댓글 — 가게 시트와 같은 데이터를 쓴다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: string) => void
+  onAddComment: (reviewId: number, text: string, parentId?: number) => void
   onClose: () => void
 }
 

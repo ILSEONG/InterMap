@@ -22,7 +22,7 @@ interface RestaurantSheetProps {
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: string) => void
+  onAddComment: (reviewId: number, text: string, parentId?: number) => void
 }
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
@@ -184,7 +184,7 @@ interface SheetBodyProps {
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: string) => void
+  onAddComment: (reviewId: number, text: string, parentId?: number) => void
 }
 
 function SheetBody({

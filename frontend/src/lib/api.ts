@@ -285,6 +285,28 @@ export async function deleteReview(id: number): Promise<void> {
   }
 }
 
+// 후기 댓글 (서버 ReviewCommentController.Item)
+export interface CommentRecord {
+  id: number
+  reviewId: number
+  parentId: number | null
+  author: { id: number; name: string; owner: boolean; avatar: string | null }
+  text: string
+  createdAt: string
+}
+
+// 전체 댓글 (오래된 순). 후기 목록처럼 통으로 받고 프론트가 후기별로 나눈다.
+export async function fetchComments(): Promise<CommentRecord[]> {
+  const res = await fetch(`${API_BASE}/api/comments`)
+  if (!res.ok) throw new Error(`댓글 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+// 로그인 필요. parentId가 있으면 그 댓글의 대댓글로 달린다.
+export function postComment(reviewId: number, text: string, parentId?: number): Promise<CommentRecord> {
+  return postJson<CommentRecord>('/api/comments', { reviewId, text, parentId })
+}
+
 export function photoUrl(id: number): string {
   return `${API_BASE}/api/photos/${id}`
 }

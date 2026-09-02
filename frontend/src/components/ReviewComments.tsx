@@ -3,7 +3,7 @@ import type { Comment } from '../data/model'
 
 interface ReviewCommentsProps {
   comments: Comment[]
-  onAdd: (text: string, parentId?: string) => void
+  onAdd: (text: string, parentId?: number) => void
 }
 
 // 후기 카드 아래에 붙는 댓글 트레이 — 후기 단위로 접고 편다.
