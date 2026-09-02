@@ -435,7 +435,9 @@ function SheetBody({
                 <ReviewCard review={review} onEdit={editHandler(review)} />
                 <ReviewComments
                   comments={comments[review.id] ?? []}
+                  myUserId={myUserId}
                   onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                  onDelete={(commentId) => onDeleteComment(review.id, commentId)}
                 />
               </div>
             ))}
