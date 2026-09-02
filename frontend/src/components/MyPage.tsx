@@ -73,6 +73,9 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
 
   const followingIds = new Set((social?.following ?? []).map((p) => p.id))
 
+  // 내 후기는 별점 높은 순으로, 같은 별점끼리는 받은 순서(최신순) 유지
+  const sortedReviews = [...myReviews].sort((a, b) => b.rating - a.rating)
+
   // 서버 호출 공통 — 실패 메시지는 화면 위쪽에, 성공 안내(doneMsg)는 가운데 토스트로
   async function run(task: Promise<SocialData>, doneMsg?: string) {
     if (busy) return
@@ -207,7 +210,7 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
             <p className="my-page__hint">아직 남긴 후기가 없어요.</p>
           ) : (
             <ul className="my-page__list">
-              {myReviews.map((r) => (
+              {sortedReviews.map((r) => (
                 <li key={r.id} className="my-page__review" onClick={() => onOpenReview(r)}>
                   <span className="my-page__who">
                     <span className="my-page__name">{r.restaurant.name}</span>
