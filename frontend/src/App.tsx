@@ -533,6 +533,7 @@ export default function App() {
             setResultsOpen(true)
           }}
           onSubmit={() => setResultsOpen(false)}
+          onSearchFocus={() => setResultsOpen(true)}
           searchMode={searchMode}
           onSearchModeChange={setSearchMode}
           nickname={session?.nickname ?? null}

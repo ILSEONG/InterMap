@@ -8,6 +8,8 @@ interface HeaderProps {
   onQueryChange: (value: string) => void
   // Enter(키보드 검색 버튼): 결과 목록은 닫고 키워드·지도 필터는 그대로 둔다
   onSubmit: () => void
+  // 검색창에 포커스가 오면 (키워드가 남아 있을 때) 결과 목록을 다시 연다
+  onSearchFocus: () => void
   searchMode: SearchMode
   onSearchModeChange: (mode: SearchMode) => void
   // 로그인 상태면 닉네임, 아니면 null
@@ -33,6 +35,7 @@ export default function Header({
   query,
   onQueryChange,
   onSubmit,
+  onSearchFocus,
   searchMode,
   onSearchModeChange,
   nickname,
@@ -68,6 +71,8 @@ export default function Header({
 
   function toggleSearch() {
     if (searching) onQueryChange('')
+    // 검색을 열면 친구 선택(TOP 5 칩)은 접는다
+    else onSelectPerson(null)
     setSearching((prev) => !prev)
   }
 
@@ -148,18 +153,6 @@ export default function Header({
                   <p className="app-header__account-name">팔로잉한 사람이 없어요</p>
                 ) : (
                   <>
-                    {selectedPersonId !== null && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setFriendsOpen(false)
-                          onSelectPerson(null)
-                        }}
-                      >
-                        전체 보기
-                      </button>
-                    )}
                     {following.map((p) => (
                       <button
                         key={p.id}
@@ -217,6 +210,7 @@ export default function Header({
             className="app-header__search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
+            onFocus={onSearchFocus}
             onKeyDown={(e) => {
               if (e.key === 'Escape') toggleSearch()
               if (e.key === 'Enter') {

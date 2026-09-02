@@ -23,7 +23,7 @@ export default function PersonChip({ name, picks, onPick, onClose }: PersonChipP
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
         >
-          <span aria-hidden="true">👥</span> {name}
+          {name}
           <span className="person-chip__caret" aria-hidden="true">
             {expanded ? '▴' : '▾'}
           </span>
