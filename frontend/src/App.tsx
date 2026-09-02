@@ -389,14 +389,17 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery],
   )
 
-  // 가게 검색 목록은 내 위치에서 가까운 순. 위치를 아직 모르면 원래 순서 그대로.
+  // 가게 검색 목록은 후기 있는 가게 먼저, 그 안에서 내 위치에서 가까운 순. 위치를 아직 모르면 원래 순서 유지.
   // 지도 핀엔 순서가 무의미하니 visibleRestaurants는 건드리지 않는다 (마커 재생성 방지).
   const searchResults = useMemo(() => {
-    if (!myLocation || searchMode !== 'restaurant') return visibleRestaurants
+    if (searchMode !== 'restaurant') return visibleRestaurants
     // 정렬용이라 정확한 거리 대신 위도 보정한 평면 거리 제곱으로 충분
-    const k = Math.cos((myLocation.lat * Math.PI) / 180)
-    const d2 = (r: Restaurant) => (r.lat - myLocation.lat) ** 2 + ((r.lng - myLocation.lng) * k) ** 2
-    return [...visibleRestaurants].sort((a, b) => d2(a) - d2(b))
+    const k = myLocation ? Math.cos((myLocation.lat * Math.PI) / 180) : 0
+    const d2 = (r: Restaurant) =>
+      myLocation ? (r.lat - myLocation.lat) ** 2 + ((r.lng - myLocation.lng) * k) ** 2 : 0
+    return [...visibleRestaurants].sort(
+      (a, b) => Number(b.reviews.length > 0) - Number(a.reviews.length > 0) || d2(a) - d2(b),
+    )
   }, [visibleRestaurants, myLocation, searchMode])
 
   // 사람 검색이면 이름이 걸린 사람마다 별점 높은 가게 TOP 5를 요약해 보여준다
