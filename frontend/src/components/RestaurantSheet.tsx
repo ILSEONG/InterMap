@@ -447,7 +447,7 @@ function SheetBody({
               aria-label="추천 메뉴"
             />
             <button type="button" className="review-form__menu-add" onClick={addMenu} disabled={!draftMenu.trim()}>
-              확인
+              추가
             </button>
           </div>
           <div className="review-form__photos">
