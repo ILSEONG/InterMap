@@ -61,3 +61,10 @@
   background: var(--accent);
   color: #fff9f2;
 }
+
+/* 친구 목록에서 고른 사람의 TOP 5 — 헤더 바로 아래 왼쪽 모서리 */
+.top-picks--pinned {
+  width: min(260px, 100%);
+  margin: 10px 0 0;
+  box-shadow: var(--shadow-float);
+}

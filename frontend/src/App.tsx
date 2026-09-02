@@ -1,6 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
+import TopPicksCard from './components/TopPicksCard'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
 import MapCanvas from './components/MapCanvas'
@@ -221,6 +222,14 @@ export default function App() {
   // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
   const [social, setSocial] = useState<SocialData | null>(null)
   const [myPageOpen, setMyPageOpen] = useState(false)
+  // 헤더 친구 목록에서 고른 사람. 그 사람이 후기 쓴 가게만 지도·목록에 남긴다.
+  const [personId, setPersonId] = useState<number | null>(null)
+  const followingPeople = useMemo(
+    () => social?.following.map((p) => ({ id: p.id, name: p.alias ?? p.nickname })) ?? null,
+    [social],
+  )
+  // 언팔로우·로그아웃으로 목록에서 빠지면 선택도 자동 해제
+  const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
   useEffect(() => {
     if (!session) {
       setSocial(null)
@@ -376,17 +385,27 @@ export default function App() {
     () => {
       const raw = deferredQuery.trim()
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
+      const pid = selectedPerson?.id ?? null
       return reviewedRestaurants.filter(
         (r) =>
-          // 검색 시작 시 필터가 '전체'로 리셋되므로(Header onQueryChange), 검색 중에도 필터를 그대로 적용한다
-          (reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
+          // 친구 한 명을 골랐으면 그 사람 후기가 있는 가게만 (후기 필터는 무의미하니 건너뛴다)
+          (pid === null
+            ? // 검색 시작 시 필터가 '전체'로 리셋되므로(Header onQueryChange), 검색 중에도 필터를 그대로 적용한다
+              reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0
+            : r.reviews.some((rev) => rev.author.id === pid)) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
               ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
               : r.reviews.some((rev) => rev.author.name.toLowerCase().includes(keyword)))),
       )
     },
-    [reviewedRestaurants, reviewFilter, searchMode, deferredQuery],
+    [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson],
+  )
+
+  // 고른 친구의 별점 TOP 5 (헤더 아래 왼쪽 카드)
+  const selectedPersonPicks = useMemo(
+    () => (selectedPerson ? topPicksOf(visibleRestaurants, selectedPerson.id) : []),
+    [visibleRestaurants, selectedPerson],
   )
 
   // 가게 검색 목록은 후기 있는 가게 먼저, 그 안에서 내 위치에서 가까운 순. 위치를 아직 모르면 원래 순서 유지.
@@ -494,8 +513,8 @@ export default function App() {
         groups={groups}
         // 요약 셀 = 후기 없는 가게 덩어리. 필터·검색으로 그런 가게가
         // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다).
-        cells={reviewFilter !== 'with' && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
-        pinsWhenFar={reviewFilter === 'with' || searchActive}
+        cells={reviewFilter !== 'with' && !selectedPerson && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
+        pinsWhenFar={reviewFilter === 'with' || searchActive || selectedPerson !== null}
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
         onViewportChange={loadViewport}
@@ -518,7 +537,18 @@ export default function App() {
           onLogin={() => setAuthMode('start')}
           onLogout={handleLogout}
           onMyPage={() => setMyPageOpen(true)}
+          following={followingPeople}
+          selectedPersonId={selectedPerson?.id ?? null}
+          onSelectPerson={setPersonId}
         />
+        {selectedPerson && selectedPersonPicks.length > 0 && (
+          <TopPicksCard
+            className="top-picks--pinned"
+            name={selectedPerson.name}
+            picks={selectedPersonPicks}
+            onPick={focusFromSearch}
+          />
+        )}
         <div className="bottom-controls">
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
             {(

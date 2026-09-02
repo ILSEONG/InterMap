@@ -209,3 +209,23 @@
     transition-duration: 1ms;
   }
 }
+
+/* 계정 버튼 옆 친구 목록 버튼 — 둘 다 왼쪽 칸에 나란히 */
+.app-header__account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header__friends {
+  position: relative;
+}
+
+.app-header__account-toggle--active {
+  background: var(--accent);
+}
+
+.app-header__account-menu .app-header__menu-item--active {
+  border-color: var(--ink);
+  background: var(--surface-raised);
+}

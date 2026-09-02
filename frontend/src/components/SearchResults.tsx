@@ -1,7 +1,7 @@
 import type { Restaurant, FriendGroup, ReviewAuthor } from '../data/model'
-import { shortLocation } from '../lib/topPicks'
 import type { TopPick } from '../lib/topPicks'
 import PlaceRow from './PlaceRow'
+import TopPicksCard from './TopPicksCard'
 import './SearchResults.css'
 
 // 목록에 그리는 최대 행 수
@@ -29,25 +29,7 @@ export default function SearchResults({ results, topPicks, groups, tooShort, min
   return (
     <div className="search-results">
       {topPicks.map(({ author, picks }) => (
-        <section key={author.id} className="top-picks">
-          <h3 className="top-picks__title">{author.name}의 별점 TOP 5</h3>
-          <ol className="top-picks__list">
-            {picks.map(({ restaurant, rating }, i) => (
-              <li key={restaurant.id}>
-                <button type="button" className="top-picks__row" onClick={() => onPick(restaurant)}>
-                  <span className="top-picks__rank">{i + 1}</span>
-                  <span className="top-picks__body">
-                    <span className="top-picks__name">{restaurant.name}</span>
-                    <span className="top-picks__meta">
-                      {restaurant.category} · {shortLocation(restaurant.address)}
-                    </span>
-                  </span>
-                  <span className="top-picks__rating">★ {rating.toFixed(1)}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <TopPicksCard key={author.id} name={author.name} picks={picks} onPick={onPick} />
       ))}
       <p className="search-results__count">검색 결과 {results.length}곳</p>
       {results.length === 0 ? (

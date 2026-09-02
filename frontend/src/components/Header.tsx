@@ -15,6 +15,15 @@ interface HeaderProps {
   onLogin: () => void
   onLogout: () => void
   onMyPage: () => void
+  // 내가 팔로잉하는 사람들. 로그인 전이거나 아직 못 받았으면 null (버튼 숨김)
+  following: FollowingPerson[] | null
+  selectedPersonId: number | null
+  onSelectPerson: (id: number | null) => void
+}
+
+export interface FollowingPerson {
+  id: number
+  name: string
 }
 
 // 로고 글자색 — AuthModal 등 다른 곳에서 "인터맵"을 로고처럼 칠할 때도 쓴다
@@ -30,11 +39,16 @@ export default function Header({
   onLogin,
   onLogout,
   onMyPage,
+  following,
+  selectedPersonId,
+  onSelectPerson,
 }: HeaderProps) {
   const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [friendsOpen, setFriendsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const accountRef = useRef<HTMLDivElement>(null)
+  const friendsRef = useRef<HTMLDivElement>(null)
   const letters = ['인', '터', '맵']
 
   useEffect(() => {
@@ -43,13 +57,14 @@ export default function Header({
 
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
-    if (!accountOpen) return
+    if (!accountOpen && !friendsOpen) return
     const close = (e: PointerEvent) => {
       if (!accountRef.current?.contains(e.target as Node)) setAccountOpen(false)
+      if (!friendsRef.current?.contains(e.target as Node)) setFriendsOpen(false)
     }
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
-  }, [accountOpen])
+  }, [accountOpen, friendsOpen])
 
   function toggleSearch() {
     if (searching) onQueryChange('')
@@ -107,6 +122,56 @@ export default function Header({
                   로그인
                 </button>
               </>
+            )}
+          </div>
+        )}
+        {following && (
+          <div className="app-header__friends" ref={friendsRef}>
+            <button
+              type="button"
+              className={`app-header__account-toggle${selectedPersonId !== null ? ' app-header__account-toggle--active' : ''}`}
+              onClick={() => setFriendsOpen((prev) => !prev)}
+              aria-label="친구 목록"
+              aria-expanded={friendsOpen}
+            >
+              <span aria-hidden="true">👥</span>
+            </button>
+            {friendsOpen && (
+              <div className="app-header__account-menu" role="menu">
+                {following.length === 0 ? (
+                  <p className="app-header__account-name">팔로잉한 사람이 없어요</p>
+                ) : (
+                  <>
+                    {selectedPersonId !== null && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setFriendsOpen(false)
+                          onSelectPerson(null)
+                        }}
+                      >
+                        전체 보기
+                      </button>
+                    )}
+                    {following.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={selectedPersonId === p.id}
+                        className={selectedPersonId === p.id ? 'app-header__menu-item--active' : undefined}
+                        onClick={() => {
+                          setFriendsOpen(false)
+                          onSelectPerson(p.id)
+                        }}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}
