@@ -5,6 +5,7 @@ import { clusterPins, clusterDistanceAt } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
 import { SUMMARY_MAX_ZOOM } from '../lib/api'
 import type { ClusterCell } from '../lib/api'
+import { STAR_PATH } from './StarIcon'
 import './MapCanvas.css'
 
 interface MapCanvasProps {
@@ -65,6 +66,9 @@ function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
 // 찜 모드 핀 색 — 워드마크의 초록
 const FAVORITE_PIN_COLOR = '#2FBFA6'
 
+// 헤더 찜 토글과 같은 통통한 별 (StarIcon.STAR_PATH)
+const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="display:block"><path d="${STAR_PATH}" style="fill:var(--pin-color);stroke:var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`
+
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
   // 요약 셀 핀은 items가 비어 있고 count만 있다 — 항상 군집 모양, 색은 미지정 그룹색
   const count = pin.count ?? pin.items.length
@@ -77,7 +81,7 @@ function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false
   return {
     content: `
       <button type="button" class="${classes}" style="--pin-color:${color}" aria-label="${title}">
-        <span class="map-pin__dot">${cluster ? count : star ? '★' : ''}</span>
+        <span class="map-pin__dot">${cluster ? count : star ? STAR_PIN_SVG : ''}</span>
         ${pin.items.length === 1 ? `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>` : ''}
       </button>
     `,

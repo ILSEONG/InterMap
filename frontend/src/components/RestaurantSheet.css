@@ -108,6 +108,10 @@
   font-size: 24px;
   margin: 0 0 4px;
   padding-right: 40px;
+  /* 이름·폐업 배지·찜 별을 세로 중앙으로 나란히 (긴 이름은 줄바꿈) */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .restaurant-sheet__closed-badge {
