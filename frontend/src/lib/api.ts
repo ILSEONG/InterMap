@@ -324,6 +324,24 @@ export async function deleteComment(id: number): Promise<void> {
   }
 }
 
+// ---- 가게 찜 (서버 FavoriteController) ----
+
+export interface FavoritePlace {
+  name: string
+  address: string
+}
+
+export async function fetchFavorites(): Promise<FavoritePlace[]> {
+  const res = await fetch(`${API_BASE}/api/me/favorites`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`찜 목록 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+// 있으면 해제, 없으면 추가. 결과 상태(favored)를 돌려준다.
+export function toggleFavorite(name: string, address: string): Promise<{ favored: boolean }> {
+  return postJson<{ favored: boolean }>('/api/me/favorites/toggle', { name, address })
+}
+
 export function photoUrl(id: number): string {
   return `${API_BASE}/api/photos/${id}`
 }

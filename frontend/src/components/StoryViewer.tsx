@@ -20,13 +20,28 @@ interface StoryViewerProps {
   myUserId?: number
   onAddComment: (reviewId: number, text: string, parentId?: number) => void
   onDeleteComment: (reviewId: number, commentId: number) => void
+  // 찜한 가게 키("이름|주소") 모음 + 별 버튼 토글
+  favorites: Set<string>
+  onToggleFavorite: (place: { name: string; address: string }) => void
   onClose: () => void
 }
 
 // 스토리를 누르면 그 사람의 24시간 내 후기를 가게 헤더 + 후기 카드 한 장씩, 좌우로 넘겨 본다.
 // 넘기기는 CSS scroll-snap — 터치·휠·키보드 전부 브라우저가 처리한다.
 // 모든 스토리의 후기를 한 트랙에 펼쳐 두고 누른 사람의 첫 후기로 이동한다 — 사람 경계를 넘는 제스처 코드가 필요 없다.
-export default function StoryViewer({ stories, story, allReviews, onFocusRestaurant, comments, myUserId, onAddComment, onDeleteComment, onClose }: StoryViewerProps) {
+export default function StoryViewer({
+  stories,
+  story,
+  allReviews,
+  onFocusRestaurant,
+  comments,
+  myUserId,
+  onAddComment,
+  onDeleteComment,
+  favorites,
+  onToggleFavorite,
+  onClose,
+}: StoryViewerProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slides = stories.flatMap((s) => s.reviews.map((review) => ({ story: s, review })))
   const start = story ? slides.findIndex((s) => s.story.id === story.id) : -1
@@ -50,7 +65,21 @@ export default function StoryViewer({ stories, story, allReviews, onFocusRestaur
           return (
             <article key={review.id} className="story-viewer__slide">
               <p className="story-viewer__author">{owner.name}의 스토리</p>
-              <h2 className="restaurant-sheet__name">{review.restaurant.name}</h2>
+              <h2 className="restaurant-sheet__name">
+                {review.restaurant.name}
+                <button
+                  type="button"
+                  className={`favorite-star${favorites.has(key) ? ' favorite-star--on' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleFavorite({ name: review.restaurant.name, address: review.restaurant.address })
+                  }}
+                  aria-label={favorites.has(key) ? '찜 해제' : '찜하기'}
+                  aria-pressed={favorites.has(key)}
+                >
+                  {favorites.has(key) ? '★' : '☆'}
+                </button>
+              </h2>
               <p className="restaurant-sheet__meta">
                 {review.restaurant.category} · {review.restaurant.address}
               </p>

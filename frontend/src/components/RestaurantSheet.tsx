@@ -24,6 +24,9 @@ interface RestaurantSheetProps {
   comments: Record<number, Comment[]>
   onAddComment: (reviewId: number, text: string, parentId?: number) => void
   onDeleteComment: (reviewId: number, commentId: number) => void
+  // 이 가게를 찜했는지 + 별 버튼 토글
+  favored: boolean
+  onToggleFavorite: (place: { name: string; address: string }) => void
 }
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
@@ -46,6 +49,8 @@ export default function RestaurantSheet({
   comments,
   onAddComment,
   onDeleteComment,
+  favored,
+  onToggleFavorite,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
   // 닫힐 때 restaurant이 즉시 null이 되는데 패널은 애니메이션으로 내려간다.
@@ -166,6 +171,8 @@ export default function RestaurantSheet({
               comments={comments}
               onAddComment={onAddComment}
               onDeleteComment={onDeleteComment}
+              favored={favored}
+              onToggleFavorite={onToggleFavorite}
             />
           </>
         )}
@@ -189,6 +196,9 @@ interface SheetBodyProps {
   comments: Record<number, Comment[]>
   onAddComment: (reviewId: number, text: string, parentId?: number) => void
   onDeleteComment: (reviewId: number, commentId: number) => void
+  // 이 가게를 찜했는지 + 별 버튼 토글
+  favored: boolean
+  onToggleFavorite: (place: { name: string; address: string }) => void
 }
 
 function SheetBody({
@@ -203,10 +213,14 @@ function SheetBody({
   comments,
   onAddComment,
   onDeleteComment,
+  favored,
+  onToggleFavorite,
 }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
+  // 추천 메뉴: 확인을 누를 때마다 draftMenus에 쌓이고, 저장 시 ", "로 합쳐 보낸다
   const [draftMenu, setDraftMenu] = useState('')
+  const [draftMenus, setDraftMenus] = useState<string[]>([])
   const [draftPhotos, setDraftPhotos] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   // 수정 중인 내 후기. 같은 폼을 재사용 — 기존 사진은 keepPhotoIds로, 새 사진은 draftPhotos로
@@ -223,16 +237,35 @@ function SheetBody({
     setDraftReview('')
     setDraftRating(5)
     setDraftMenu('')
+    setDraftMenus([])
     setDraftPhotos([])
     setEditing(null)
     setKeepPhotoIds([])
+  }
+
+  // 입력 중인 메뉴를 목록에 추가 (중복·합계 100자 초과는 무시하고 알린다)
+  function addMenu() {
+    const name = draftMenu.trim()
+    if (!name) return
+    if (draftMenus.includes(name)) {
+      setDraftMenu('')
+      return
+    }
+    const joined = [...draftMenus, name].join(', ')
+    if (joined.length > 100) {
+      alert('추천 메뉴는 다 합쳐 100자까지 담을 수 있어요.')
+      return
+    }
+    setDraftMenus((prev) => [...prev, name])
+    setDraftMenu('')
   }
 
   function fillFrom(review: Review) {
     setEditing(review)
     setDraftRating(review.rating)
     setDraftReview(review.text)
-    setDraftMenu(review.menu ?? '')
+    setDraftMenu('')
+    setDraftMenus(review.menu ? review.menu.split(',').map((m) => m.trim()).filter(Boolean) : [])
     setDraftPhotos([])
     setKeepPhotoIds(review.photoIds)
   }
@@ -273,8 +306,12 @@ function SheetBody({
     if (!draftReview.trim() || submitting) return
     setSubmitting(true)
     try {
-      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), draftMenu.trim(), keepPhotoIds, draftPhotos)
-      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), draftMenu.trim(), draftPhotos)
+      // 확인을 안 누르고 입력만 해둔 메뉴도 같이 담는다
+      const pending = draftMenu.trim()
+      const menus = pending && !draftMenus.includes(pending) ? [...draftMenus, pending] : draftMenus
+      const menu = menus.join(', ').slice(0, 100)
+      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), menu, keepPhotoIds, draftPhotos)
+      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), menu, draftPhotos)
       resetForm()
     } catch {
       // App이 이미 alert로 알렸다. 입력값은 그대로 둔다
@@ -306,6 +343,15 @@ function SheetBody({
       <h2 className="restaurant-sheet__name">
         {restaurant.name}
         {restaurant.closed && <span className="restaurant-sheet__closed-badge">폐업</span>}
+        <button
+          type="button"
+          className={`favorite-star${favored ? ' favorite-star--on' : ''}`}
+          onClick={() => onToggleFavorite({ name: restaurant.name, address: restaurant.address })}
+          aria-label={favored ? '찜 해제' : '찜하기'}
+          aria-pressed={favored}
+        >
+          {favored ? '★' : '☆'}
+        </button>
       </h2>
       <p className="restaurant-sheet__meta">
         {restaurant.category} · {restaurant.address}
@@ -368,15 +414,42 @@ function SheetBody({
             aria-label="후기 입력"
             rows={2}
           />
-          <input
-            className="review-form__menu"
-            type="text"
-            value={draftMenu}
-            maxLength={100}
-            onChange={(e) => setDraftMenu(e.target.value)}
-            placeholder="추천 메뉴 (선택) — 예: 김치찌개, 제육볶음"
-            aria-label="추천 메뉴"
-          />
+          {draftMenus.length > 0 && (
+            <div className="review-form__menu-chips">
+              {draftMenus.map((name) => (
+                <span key={name} className="review-form__menu-chip">
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => setDraftMenus((prev) => prev.filter((m) => m !== name))}
+                    aria-label={`${name} 빼기`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="review-form__menu-row">
+            <input
+              className="review-form__menu"
+              type="text"
+              value={draftMenu}
+              maxLength={50}
+              onChange={(e) => setDraftMenu(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addMenu()
+                }
+              }}
+              placeholder="추천 메뉴 (선택) — 예: 김치찌개"
+              aria-label="추천 메뉴"
+            />
+            <button type="button" className="review-form__menu-add" onClick={addMenu} disabled={!draftMenu.trim()}>
+              확인
+            </button>
+          </div>
           <div className="review-form__photos">
             {keepPhotoIds.map((id) => (
               <span key={id} className="review-form__thumb">

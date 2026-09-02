@@ -154,6 +154,29 @@
   font-style: italic;
 }
 
+/* 가게 이름 오른쪽 찜 별 — 시트·스토리 공용 */
+.favorite-star {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font-size: 24px;
+  line-height: 1;
+  vertical-align: -2px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease, color 140ms ease;
+}
+
+.favorite-star:active {
+  transform: scale(1.25);
+}
+
+.favorite-star--on {
+  color: #f5a623;
+}
+
 .restaurant-sheet__section {
   margin-bottom: 22px;
 }
@@ -228,7 +251,7 @@
   white-space: pre-wrap;
 }
 
-/* 카드 맨 밑 추천 메뉴 한 줄 */
+/* 카드 맨 밑 추천 메뉴 한 줄 — 라벨은 위 수정 버튼과 같은 크기감 */
 .review-card__menu {
   margin: 10px 0 0;
   padding-top: 8px;
@@ -239,10 +262,9 @@
 
 .review-card__menu-label {
   margin-right: 6px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border: 1.5px solid var(--ink);
   border-radius: var(--radius-pill);
-  font-family: var(--font-display);
   font-size: 11px;
   background: var(--surface-raised);
   white-space: nowrap;
@@ -379,9 +401,15 @@
   resize: vertical;
 }
 
-/* 추천 메뉴 입력 — 후기 textarea와 같은 결 */
+/* 추천 메뉴 입력 — 입력 + 확인 버튼이 한 줄, 추가된 메뉴는 위에 칩으로 */
+.review-form__menu-row {
+  display: flex;
+  gap: 8px;
+}
+
 .review-form__menu {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   box-sizing: border-box;
   padding: 8px 12px;
   border-radius: var(--radius-md);
@@ -393,6 +421,48 @@
 .review-form__menu:focus {
   border-color: var(--ink);
   outline: none;
+}
+
+.review-form__menu-add {
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--ink);
+  background: var(--surface-raised);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.review-form__menu-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.review-form__menu-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.review-form__menu-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px 3px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  font-size: 12px;
+}
+
+.review-form__menu-chip button {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  cursor: pointer;
 }
 
 .review-form__text:focus {

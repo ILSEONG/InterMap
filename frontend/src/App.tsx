@@ -20,6 +20,8 @@ import {
   fetchComments,
   postComment,
   deleteComment,
+  fetchFavorites,
+  toggleFavorite,
   fetchSocial,
   postReview,
   updateReview,
@@ -204,10 +206,13 @@ export default function App() {
   const [rawReviews, setRawReviews] = useState<Review[]>([])
   // 후기 id → 그 후기의 댓글들 (서버 /api/comments를 후기별로 나눠 둔 것)
   const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>({})
+  // 내가 찜한 가게 키("이름|주소") 모음
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
   useEffect(() => {
     if (!session) {
       setRawReviews([])
       setReviewComments({})
+      setFavorites(new Set())
       return
     }
     let cancelled = false
@@ -230,6 +235,14 @@ export default function App() {
       })
       .catch(() => {
         // 못 받으면 댓글 없는 상태로 동작
+      })
+    // 찜 목록도 같이
+    fetchFavorites()
+      .then((places) => {
+        if (!cancelled) setFavorites(new Set(places.map(restaurantKey)))
+      })
+      .catch(() => {
+        // 못 받으면 찜 없는 상태로 동작
       })
     return () => {
       cancelled = true
@@ -553,6 +566,26 @@ export default function App() {
     }
   }
 
+  // 가게 찜 토글 — 서버 결과 상태로 맞춘다
+  async function toggleFav(place: { name: string; address: string }) {
+    if (!session) {
+      setAuthMode('start')
+      return
+    }
+    try {
+      const { favored } = await toggleFavorite(place.name, place.address)
+      const key = restaurantKey(place)
+      setFavorites((prev) => {
+        const next = new Set(prev)
+        if (favored) next.add(key)
+        else next.delete(key)
+        return next
+      })
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }
+
   // 내 댓글 삭제 — 원댓글이면 서버가 답글까지 지우므로 상태에서도 같이 걷어낸다
   async function removeComment(reviewId: number, commentId: number) {
     try {
@@ -668,6 +701,8 @@ export default function App() {
         comments={reviewComments}
         onAddComment={addComment}
         onDeleteComment={removeComment}
+        favored={selectedRestaurant ? favorites.has(restaurantKey(selectedRestaurant)) : false}
+        onToggleFavorite={toggleFav}
       />
 
       {session && (
@@ -692,6 +727,8 @@ export default function App() {
         myUserId={session?.id}
         onAddComment={addComment}
         onDeleteComment={removeComment}
+        favorites={favorites}
+        onToggleFavorite={toggleFav}
         onClose={() => setOpenStory(null)}
       />
 
