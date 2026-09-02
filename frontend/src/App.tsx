@@ -295,7 +295,8 @@ export default function App() {
     const since = Date.now() - 24 * 3_600_000
     const byAuthor = new Map<number, Story>()
     for (const rv of reviews) {
-      if (Date.parse(rv.createdAt) < since) continue
+      // 주인장 후기는 가게 시트 전용 — 스토리엔 이웃 후기만
+      if (rv.author.owner || Date.parse(rv.createdAt) < since) continue
       const story = byAuthor.get(rv.author.id) ?? { id: rv.author.id, name: rv.author.name, reviews: [] }
       story.reviews.push(rv)
       byAuthor.set(rv.author.id, story)
