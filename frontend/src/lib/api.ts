@@ -68,6 +68,8 @@ export interface AuthSession {
   // 카카오 가입은 이메일이 없을 수 있다
   email: string | null
   nickname: string
+  // 프로필 사진 API 경로(?v= 포함). 없으면 null. 예전 세션엔 없을 수 있다
+  avatar?: string | null
 }
 
 const SESSION_KEY = 'intermap.session'
@@ -230,6 +232,7 @@ export interface Person {
   // 내가 이 사람을 팔로우 중 / 이 사람이 나를 팔로우 중
   following: boolean
   followsMe: boolean
+  avatar: string | null
 }
 
 export interface SocialData {
@@ -284,6 +287,23 @@ export async function deleteReview(id: number): Promise<void> {
 
 export function photoUrl(id: number): string {
   return `${API_BASE}/api/photos/${id}`
+}
+
+// 서버가 준 프로필 사진 경로(/api/users/{id}/avatar?v=...)를 실제 URL로
+export function avatarUrl(path: string): string {
+  return `${API_BASE}${path}`
+}
+
+// 프로필 사진 올리기 (있던 건 덮어씀). 새 경로를 돌려준다 (서버 AvatarController)
+export async function uploadAvatar(photo: Blob): Promise<string> {
+  const form = new FormData()
+  form.append('photo', photo, 'avatar.jpg')
+  const data = await post<{ avatar: string }>('/api/me/avatar', form, {}, 'PUT')
+  return data.avatar
+}
+
+export async function deleteAvatar(): Promise<void> {
+  await post<{ avatar: null }>('/api/me/avatar', '', {}, 'DELETE')
 }
 
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {

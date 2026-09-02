@@ -3,6 +3,7 @@ package com.intermap.backend.social;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.UserAvatarRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +31,8 @@ public class SocialController {
 
     static final int MAX_ALIAS_LENGTH = 20;
 
-    // alias는 내가 붙인 이름(없으면 null). following/followsMe로 맞팔 여부를 그린다.
-    public record Person(Long id, String nickname, String alias, boolean following, boolean followsMe) {
+    // alias는 내가 붙인 이름(없으면 null). following/followsMe로 맞팔 여부를 그린다. avatar는 프로필 사진 URL(API 경로) 또는 null
+    public record Person(Long id, String nickname, String alias, boolean following, boolean followsMe, String avatar) {
     }
 
     public record SocialResponse(List<Person> following, List<Person> followers) {
@@ -47,12 +48,15 @@ public class SocialController {
     private final UserAliasRepository aliases;
     private final AppUserRepository users;
     private final AuthController auth;
+    private final UserAvatarRepository avatars;
 
-    public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth) {
+    public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth,
+                            UserAvatarRepository avatars) {
         this.follows = follows;
         this.aliases = aliases;
         this.users = users;
         this.auth = auth;
+        this.avatars = avatars;
     }
 
     private static ResponseEntity<?> unauthorized() {
@@ -68,14 +72,16 @@ public class SocialController {
         for (Follow f : out) followingIds.add(f.getFollowee().getId());
         Set<Long> followerIds = new HashSet<>();
         for (Follow f : in) followerIds.add(f.getFollower().getId());
+        Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return new SocialResponse(
-                out.stream().map(f -> person(f.getFollowee(), aliasById, followingIds, followerIds)).toList(),
-                in.stream().map(f -> person(f.getFollower(), aliasById, followingIds, followerIds)).toList());
+                out.stream().map(f -> person(f.getFollowee(), aliasById, followingIds, followerIds, avatarUrls)).toList(),
+                in.stream().map(f -> person(f.getFollower(), aliasById, followingIds, followerIds, avatarUrls)).toList());
     }
 
-    private static Person person(AppUser u, Map<Long, String> aliasById, Set<Long> followingIds, Set<Long> followerIds) {
+    private static Person person(AppUser u, Map<Long, String> aliasById, Set<Long> followingIds, Set<Long> followerIds,
+                                 Map<Long, String> avatarUrls) {
         return new Person(u.getId(), u.getNickname(), aliasById.get(u.getId()),
-                followingIds.contains(u.getId()), followerIds.contains(u.getId()));
+                followingIds.contains(u.getId()), followerIds.contains(u.getId()), avatarUrls.get(u.getId()));
     }
 
     @GetMapping("/api/me/social")

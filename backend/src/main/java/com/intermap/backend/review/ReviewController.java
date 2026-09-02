@@ -3,6 +3,7 @@ package com.intermap.backend.review;
 import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
 import org.springframework.http.CacheControl;
@@ -38,7 +39,8 @@ public class ReviewController {
     public record Place(String name, String category, String address, Double lat, Double lng) {
     }
 
-    public record Author(Long id, String name, boolean owner) {
+    // avatar: 프로필 사진 URL(API 경로) 또는 null
+    public record Author(Long id, String name, boolean owner, String avatar) {
     }
 
     public record CreateRequest(Place restaurant, double rating, String text) {
@@ -50,12 +52,12 @@ public class ReviewController {
 
     public record Item(Long id, Place restaurant, Author author, double rating, String text, Instant createdAt,
                        List<Long> photoIds) {
-        static Item from(Review r, List<Long> photoIds, Restaurant place) {
+        static Item from(Review r, List<Long> photoIds, Restaurant place, String avatar) {
             AppUser a = r.getAuthor();
             return new Item(r.getId(),
                     new Place(r.getRestaurantName(), r.getRestaurantCategory(), r.getRestaurantAddress(),
                             place == null ? null : place.getLat(), place == null ? null : place.getLng()),
-                    new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail())),
+                    new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
                     r.getRating(), r.getText(), r.getCreatedAt(), photoIds);
         }
     }
@@ -68,13 +70,15 @@ public class ReviewController {
     private final ReviewPhotoRepository photos;
     private final RestaurantRepository restaurants;
     private final AuthController auth;
+    private final UserAvatarRepository avatars;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
-                            AuthController auth) {
+                            AuthController auth, UserAvatarRepository avatars) {
         this.restaurants = restaurants;
         this.repository = repository;
         this.photos = photos;
         this.auth = auth;
+        this.avatars = avatars;
     }
 
     // 후기의 가게 스냅샷(이름+주소)으로 가게 행을 찾는다. 프론트가 도로명 우선으로 주소를 넣으므로 그 순서로 본다.
@@ -94,10 +98,12 @@ public class ReviewController {
         for (ReviewPhotoRepository.Ref ref : photos.findAllRefs()) {
             photoIds.computeIfAbsent(ref.getReviewId(), k -> new ArrayList<>()).add(ref.getId());
         }
+        Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return repository.findAllByOrderByCreatedAtDesc().stream()
                 .map(r -> Item.from(r, photoIds.getOrDefault(r.getId(), List.of()),
                         places.computeIfAbsent(r.getRestaurantName() + "|" + r.getRestaurantAddress(),
-                                k -> findPlace(r.getRestaurantName(), r.getRestaurantAddress()))))
+                                k -> findPlace(r.getRestaurantName(), r.getRestaurantAddress())),
+                        avatarUrls.get(r.getAuthor().getId())))
                 .toList();
     }
 
@@ -134,7 +140,8 @@ public class ReviewController {
         for (MultipartFile f : uploads) {
             photoIds.add(photos.save(new ReviewPhoto(saved, f.getContentType(), f.getBytes())).getId());
         }
-        return ResponseEntity.ok(Item.from(saved, photoIds, findPlace(saved.getRestaurantName(), saved.getRestaurantAddress())));
+        return ResponseEntity.ok(Item.from(saved, photoIds, findPlace(saved.getRestaurantName(), saved.getRestaurantAddress()),
+                avatars.urlOf(saved.getAuthor().getId())));
     }
 
     // 본인 후기만 고친다. 가게는 못 바꾼다 (별점·내용·사진만).
@@ -175,7 +182,8 @@ public class ReviewController {
         for (MultipartFile f : uploads) {
             photoIds.add(photos.save(new ReviewPhoto(review, f.getContentType(), f.getBytes())).getId());
         }
-        return ResponseEntity.ok(Item.from(review, photoIds, findPlace(review.getRestaurantName(), review.getRestaurantAddress())));
+        return ResponseEntity.ok(Item.from(review, photoIds, findPlace(review.getRestaurantName(), review.getRestaurantAddress()),
+                avatars.urlOf(review.getAuthor().getId())));
     }
 
     // 본인 후기 삭제. 사진 먼저 지운다 (FK).

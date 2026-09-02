@@ -21,6 +21,8 @@ export interface ReviewAuthor {
   name: string
   // 주인장(admin) 계정이 쓴 후기 — 이웃 후기와 따로 "주인장의 후기"로 보인다
   owner: boolean
+  // 프로필 사진 API 경로. 없으면 null (api.avatarUrl로 실제 URL)
+  avatar?: string | null
 }
 
 export interface Review {
@@ -39,6 +41,7 @@ export interface Review {
 export interface Story {
   id: number
   name: string
+  avatar?: string | null
   reviews: Review[]
 }
 

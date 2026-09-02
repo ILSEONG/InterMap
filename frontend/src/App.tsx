@@ -308,7 +308,7 @@ export default function App() {
     for (const rv of reviews) {
       // 주인장 후기는 가게 시트 전용 — 스토리엔 이웃 후기만
       if (rv.author.owner || Date.parse(rv.createdAt) < since) continue
-      const story = byAuthor.get(rv.author.id) ?? { id: rv.author.id, name: rv.author.name, reviews: [] }
+      const story = byAuthor.get(rv.author.id) ?? { id: rv.author.id, name: rv.author.name, avatar: rv.author.avatar, reviews: [] }
       story.reviews.push(rv)
       byAuthor.set(rv.author.id, story)
     }

@@ -58,7 +58,8 @@ public class AuthController {
     public record LinkRequest(String linkTicket, String emailCode) {
     }
 
-    public record AuthResponse(Long id, String token, String email, String nickname) {
+    // avatar: 프로필 사진 URL(API 경로, ?v= 포함) 또는 null
+    public record AuthResponse(Long id, String token, String email, String nickname, String avatar) {
     }
 
     public record ErrorResponse(String message) {
@@ -131,12 +132,19 @@ public class AuthController {
     private final AppUserRepository repository;
     private final MailService mailService;
     private final PendingSocialLinks pendingLinks;
+    private final UserAvatarRepository avatars;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-    public AuthController(AppUserRepository repository, MailService mailService, PendingSocialLinks pendingLinks) {
+    public AuthController(AppUserRepository repository, MailService mailService, PendingSocialLinks pendingLinks,
+                          UserAvatarRepository avatars) {
         this.repository = repository;
         this.mailService = mailService;
         this.pendingLinks = pendingLinks;
+        this.avatars = avatars;
+    }
+
+    private AuthResponse authResponse(AppUser user) {
+        return new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname(), avatars.urlOf(user.getId()));
     }
 
     private static String normalizeEmail(String raw) {
@@ -202,7 +210,7 @@ public class AuthController {
     private AuthResponse signIn(AppUser user) {
         user.issueToken(UUID.randomUUID().toString());
         repository.save(user);
-        return new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname());
+        return authResponse(user);
     }
 
     // 이메일 하나로 로그인/가입을 가른다. 계정 존재 여부가 드러나지만 요즘 흔한 흐름이라 감수한다.
@@ -347,7 +355,7 @@ public class AuthController {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
         }
-        return ResponseEntity.ok(new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname()));
+        return ResponseEntity.ok(authResponse(user));
     }
 
     // 닉네임 변경. 가입 때와 같은 규칙(1~20자, 중복 불가). 같은 이름이면 그대로 200.
@@ -365,7 +373,7 @@ public class AuthController {
             user.rename(nickname);
             repository.save(user);
         }
-        return ResponseEntity.ok(new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname()));
+        return ResponseEntity.ok(authResponse(user));
     }
 
     // 서버 쪽 토큰을 지워 다른 기기에 남은 사본도 무효화한다

@@ -4,6 +4,7 @@ import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import { timeAgo } from '../lib/time'
 import Stars from './Stars'
+import Avatar from './Avatar'
 
 // 시트·스토리 뷰어가 같은 카드를 쓴다. 스타일은 RestaurantSheet.css(.review-card*)
 // onEdit이 있으면 (내 후기) 수정 버튼이 붙는다
@@ -28,7 +29,7 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
       style={{ ['--group-color' as string]: '#8B6BFF' }}
     >
       <header className="review-card__header">
-        <span className="review-card__avatar">{review.author.name.slice(0, 1)}</span>
+        <Avatar className="review-card__avatar" src={review.author.avatar} name={review.author.name} />
         <div>
           <p className="review-card__name">{review.author.name}</p>
           <p className="review-card__time">{timeAgo(review.createdAt)}</p>

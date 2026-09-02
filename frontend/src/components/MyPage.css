@@ -198,3 +198,28 @@
     opacity: 0;
   }
 }
+
+/* 내 프로필 — 사진 + 바꾸기/지우기 */
+.my-page__profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.my-page__profile .my-page__avatar {
+  width: 72px;
+  height: 72px;
+  font-size: 26px;
+  border-width: 2.5px;
+  overflow: hidden;
+}
+
+.my-page__profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.my-page__person .my-page__avatar {
+  overflow: hidden;
+}

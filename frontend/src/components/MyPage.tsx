@@ -1,6 +1,8 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import type { AuthSession, Person, SocialData, UserItem } from '../lib/api'
-import { changeNickname, followUser, unfollowUser, setAlias, searchUsers } from '../lib/api'
+import { changeNickname, followUser, unfollowUser, setAlias, searchUsers, uploadAvatar, deleteAvatar } from '../lib/api'
+import { shrinkImage } from '../lib/image'
+import Avatar from './Avatar'
 import './MyPage.css'
 
 interface MyPageProps {
@@ -94,6 +96,36 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
     }
   }
 
+  // 프로필 사진. 512px JPEG로 줄여 올리고, 돌아온 새 경로(?v= 갱신)로 세션을 바꾼다
+  async function changeAvatar(file: File | undefined) {
+    if (!file || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const avatar = await uploadAvatar(await shrinkImage(file, 512, 0.85))
+      onSessionChange({ ...session, avatar })
+      showToast('프로필 사진을 바꿨어요')
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeAvatar() {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteAvatar()
+      onSessionChange({ ...session, avatar: null })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // 나만 보이는 이름. 비우면 원래 닉네임으로 돌아간다.
   function rename(person: Person) {
     const next = window.prompt(`${person.nickname}님을 뭐라고 부를까요? (비우면 원래 이름)`, person.alias ?? '')
@@ -112,6 +144,33 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
 
       <div className="my-page__scroll">
         {error && <p className="my-page__error">{error}</p>}
+
+        <section className="my-page__section">
+          <h3 className="my-page__section-title">프로필 사진</h3>
+          <div className="my-page__profile">
+            <Avatar className="my-page__avatar" src={session.avatar} name={session.nickname} />
+            <div className="my-page__profile-actions">
+              <label className="my-page__action">
+                {session.avatar ? '사진 바꾸기' : '사진 올리기'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={busy}
+                  onChange={(e) => {
+                    void changeAvatar(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {session.avatar && (
+                <button type="button" className="my-page__action my-page__action--ghost" onClick={removeAvatar} disabled={busy}>
+                  지우기
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
 
         <section className="my-page__section">
           <h3 className="my-page__section-title">닉네임</h3>
@@ -214,9 +273,7 @@ function PersonList({ title, people, empty, busy, onRename, onToggleFollow, togg
         <ul className="my-page__list">
           {people.map((p) => (
             <li key={p.id} className="my-page__person">
-              <span className="my-page__avatar" aria-hidden="true">
-                {(p.alias ?? p.nickname).slice(0, 1)}
-              </span>
+              <Avatar className="my-page__avatar" src={p.avatar} name={p.alias ?? p.nickname} />
               <span className="my-page__who">
                 <span className="my-page__name">{p.alias ?? p.nickname}</span>
                 {p.alias && <span className="my-page__nick">@{p.nickname}</span>}

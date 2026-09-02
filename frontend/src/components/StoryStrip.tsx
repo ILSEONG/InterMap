@@ -1,4 +1,5 @@
 import type { Story } from '../data/model'
+import Avatar from './Avatar'
 import './StoryStrip.css'
 
 interface StoryStripProps {
@@ -15,7 +16,7 @@ export default function StoryStrip({ stories, onOpen }: StoryStripProps) {
       {stories.map((story) => (
         <button type="button" key={story.id} className="story-chip" role="listitem" onClick={() => onOpen(story)}>
           <span className="story-chip__ring">
-            <span className="story-chip__avatar">{story.name.slice(0, 1)}</span>
+            <Avatar className="story-chip__avatar" src={story.avatar} name={story.name} />
           </span>
           <span className="story-chip__name">{story.name}</span>
         </button>
