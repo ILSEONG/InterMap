@@ -378,8 +378,8 @@ export default function App() {
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
       return reviewedRestaurants.filter(
         (r) =>
-          // 검색 중엔 하단 후기 필터를 무시한다 — '후기 없음' 상태에서도 후기 있는 가게가 검색에 걸린다
-          (keyword !== '' || reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
+          // 검색 시작 시 필터가 '전체'로 리셋되므로(Header onQueryChange), 검색 중에도 필터를 그대로 적용한다
+          (reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
               ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
@@ -506,6 +506,8 @@ export default function App() {
         <Header
           query={query}
           onQueryChange={(value) => {
+            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다
+            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) setReviewFilter('all')
             setQuery(value)
             setResultsOpen(true)
           }}
