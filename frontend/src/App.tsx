@@ -147,11 +147,12 @@ export default function App() {
   const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
   const [filterOpen, setFilterOpen] = useState(false)
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
+  // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
   const [groupColors, setGroupColors] = useState<Record<GroupId, string>>({
-    close: '#FF5D73',
-    work: '#2FBFA6',
-    college: '#8B6BFF',
-    none: '#A9746E',
+    close: '#A9C4E3',
+    work: '#A9C4E3',
+    college: '#A9C4E3',
+    none: '#A9C4E3',
   })
   // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만
   const [reviewFilter, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')

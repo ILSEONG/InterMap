@@ -48,7 +48,7 @@ function escapeHtml(value: string): string {
 }
 
 // 후기 있는 가게 핀 색. 그룹색보다 우선 — "이웃이 다녀간 곳"이 지도에서 바로 보이게.
-const REVIEWED_PIN_COLOR = '#4C8DFF'
+const REVIEWED_PIN_COLOR = '#8FB2DC'
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   if (items.every((r) => r.closed)) return '#9b93ab'
@@ -74,7 +74,7 @@ function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean) {
         ${pin.items.length === 1 ? `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>` : ''}
       </button>
     `,
-    anchor: new window.naver.maps.Point(cluster ? 13 : 8, cluster ? 26 : 16),
+    anchor: new window.naver.maps.Point(cluster ? 11 : 8, cluster ? 22 : 16),
   }
 }
 

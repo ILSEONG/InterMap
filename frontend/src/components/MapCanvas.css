@@ -113,30 +113,33 @@
   height: 14px;
   border-radius: 50%;
   background: var(--pin-color, var(--accent));
-  border: 1.5px solid var(--ink);
+  /* 테두리 없음 — 어두운 링은 원이 많을 때 "구멍 무리"로 보인다(환공포증 유발). */
+  border: none;
   display: block;
   /* box-shadow 금지: 마커 수백 개면 pan마다 전체 표면 재래스터 → 모바일 WebView 깜빡임.
      잉크 외곽선(border)만으로 두들 느낌을 유지한다. */
 }
 
 .map-pin--cluster {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   z-index: 1;
 }
 
 .map-pin--cluster .map-pin__dot {
   left: 0;
   top: 0;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-width: 2px;
   font-family: var(--font-display);
   font-size: 12px;
   color: #fff9f2;
+  /* 파스텔 원색 그대로면 흰 숫자가 안 읽힌다 — 같은 색조를 어둡게 섞어 대비 확보.
+     군집 원은 수가 적고 숫자가 반복 패턴을 깨서 어두워도 환공포증 유발이 덜하다. */
+  background: color-mix(in srgb, var(--pin-color, var(--accent)) 60%, var(--ink));
 }
 
 .map-pin:hover,
@@ -192,10 +195,10 @@
   pointer-events: none;
 }
 
-/* 뭉친 핀은 원 자체가 26px이라 링을 더 크게 잡아야 밖으로 퍼져 보인다 */
+/* 뭉친 핀은 원 자체가 22px이라 링을 더 크게 잡아야 밖으로 퍼져 보인다 */
 .map-pin--cluster.map-pin--focused::after {
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
 }
 
 @keyframes map-pin-pulse {
@@ -260,7 +263,6 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid var(--ink);
   background: var(--pin-color);
 }
 
