@@ -1,0 +1,71 @@
+.person-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  max-height: 45vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 3px solid var(--ink);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  box-shadow: var(--shadow-float);
+  padding: 6px 12px calc(12px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  z-index: 30;
+}
+
+.person-sheet__handle {
+  width: 44px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: rgba(43, 33, 64, 0.25);
+  margin: 4px auto 8px;
+}
+
+.person-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 6px;
+}
+
+.person-sheet__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.person-sheet__close {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.person-sheet__scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+
+.person-sheet__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

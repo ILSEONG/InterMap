@@ -229,3 +229,20 @@
   border-color: var(--ink);
   background: var(--surface-raised);
 }
+
+/* ponytail: 시안 A/B/C 임시 스위치 — 하나 고르면 지운다 */
+.app-header__ux-switch {
+  display: flex;
+  gap: 4px;
+  padding: 2px 4px 6px;
+  border-bottom: 2px dashed var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.app-header__account-menu .app-header__ux-switch button {
+  min-height: 30px;
+  flex: 1;
+  padding: 2px 6px;
+  text-align: center;
+  font-size: 12px;
+}

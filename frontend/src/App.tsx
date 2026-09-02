@@ -1,7 +1,9 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
-import TopPicksCard from './components/TopPicksCard'
+import PersonChip from './components/PersonChip'
+import PersonSheet from './components/PersonSheet'
+import type { UxVariant } from './components/Header'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
 import MapCanvas from './components/MapCanvas'
@@ -230,14 +232,33 @@ export default function App() {
   )
   // 언팔로우·로그아웃으로 목록에서 빠지면 선택도 자동 해제
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
-  // 사람을 고르면 그 사람 후기 가게만 핀으로. TOP 5에서 하나를 누르면 카드는 두고 핀 제한만 푼다 —
-  // 안 그러면 지도가 그 사람 가게 몇 개에 갇혀 주변 가게가 안 보인다.
-  const [personPinsOnly, setPersonPinsOnly] = useState(false)
-  const personPins = personPinsOnly && selectedPerson !== null
-  const selectPerson = useCallback((id: number | null) => {
-    setPersonId(id)
-    setPersonPinsOnly(id !== null)
+  // ponytail: 시안 A(칩)/B(시트)/C(사람 검색) 비교용 임시 스위치. 하나 고르면 나머지와 함께 지운다.
+  const [uxVariant, setUxVariant] = useState<UxVariant>(() => {
+    const v = localStorage.getItem('intermap.ux')
+    return v === 'b' || v === 'c' ? v : 'a'
+  })
+  const changeUxVariant = useCallback((v: UxVariant) => {
+    localStorage.setItem('intermap.ux', v)
+    setUxVariant(v)
+    setPersonId(null)
   }, [])
+  // A/B: 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕ / 시트 닫기로 해제.
+  const personPins = selectedPerson !== null
+  const selectPerson = useCallback(
+    (id: number | null) => {
+      const person = followingPeople?.find((p) => p.id === id)
+      if (uxVariant === 'c' && person) {
+        // C: 새 UI 없이 기존 '사람' 검색을 그대로 태운다
+        setSearchMode('person')
+        setQuery(person.name)
+        setResultsOpen(true)
+        setPersonId(null)
+        return
+      }
+      setPersonId(id)
+    },
+    [uxVariant, followingPeople],
+  )
   useEffect(() => {
     if (!session) {
       setSocial(null)
@@ -410,9 +431,9 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
-  // 고른 친구의 별점 TOP 5 (스토리 아래 왼쪽 카드). 핀 제한을 풀어도 카드는 그대로여야 하니 전체 목록에서 뽑는다.
-  const selectedPersonPicks = useMemo(
-    () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id) : []),
+  // 고른 친구가 후기 쓴 가게 전부, 별점 높은 순. 앞 5개가 TOP 5.
+  const selectedPersonAll = useMemo(
+    () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id, Infinity) : []),
     [reviewedRestaurants, selectedPerson],
   )
 
@@ -548,8 +569,18 @@ export default function App() {
           following={followingPeople}
           selectedPersonId={selectedPerson?.id ?? null}
           onSelectPerson={selectPerson}
+          uxVariant={uxVariant}
+          onUxVariant={changeUxVariant}
         />
-        <div className="bottom-controls">
+        {uxVariant === 'a' && selectedPerson && (
+          <PersonChip
+            name={selectedPerson.name}
+            picks={selectedPersonAll.slice(0, 5)}
+            onPick={focusFromSearch}
+            onClose={() => setPersonId(null)}
+          />
+        )}
+        <div className="bottom-controls" hidden={personPins}>
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
             {(
               [
@@ -583,18 +614,17 @@ export default function App() {
         ) : (
           <StoryStrip stories={stories} onOpen={setOpenStory} />
         )}
-        {selectedPerson && selectedPersonPicks.length > 0 && (
-          <TopPicksCard
-            className="top-picks--pinned"
-            name={selectedPerson.name}
-            picks={selectedPersonPicks}
-            onPick={(restaurant) => {
-              setPersonPinsOnly(false)
-              focusFromSearch(restaurant)
-            }}
-          />
-        )}
       </div>
+
+      {uxVariant === 'b' && selectedPerson && (
+        <PersonSheet
+          name={selectedPerson.name}
+          all={selectedPersonAll}
+          groups={groups}
+          onPick={focusFromSearch}
+          onClose={() => setPersonId(null)}
+        />
+      )}
 
       <RestaurantSheet
         restaurant={selectedRestaurant}
