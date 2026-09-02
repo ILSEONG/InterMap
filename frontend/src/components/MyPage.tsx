@@ -2,7 +2,9 @@ import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import type { AuthSession, Person, SocialData, UserItem } from '../lib/api'
 import { changeNickname, followUser, unfollowUser, setAlias, searchUsers, uploadAvatar, deleteAvatar } from '../lib/api'
 import { shrinkImage } from '../lib/image'
+import type { Review } from '../data/model'
 import Avatar from './Avatar'
+import Stars from './Stars'
 import './MyPage.css'
 
 interface MyPageProps {
@@ -13,12 +15,16 @@ interface MyPageProps {
   onSocialChange: (next: SocialData) => void
   // 닉네임을 바꾸면 새 세션(localStorage 포함)으로 갱신
   onSessionChange: (next: AuthSession) => void
+  // 내가 쓴 후기 전부, 최신순
+  myReviews: Review[]
+  // 후기를 누르면 그 가게 시트를 연다
+  onOpenReview: (review: Review) => void
   onClose: () => void
 }
 
 const MIN_SEARCH_LENGTH = 1
 
-export default function MyPage({ open, session, social, onSocialChange, onSessionChange, onClose }: MyPageProps) {
+export default function MyPage({ open, session, social, onSocialChange, onSessionChange, myReviews, onOpenReview, onClose }: MyPageProps) {
   const [nickname, setNickname] = useState(session.nickname)
   const [nicknameMsg, setNicknameMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [query, setQuery] = useState('')
@@ -189,6 +195,27 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
             </button>
           </div>
           {nicknameMsg && <p className={`my-page__hint${nicknameMsg.ok ? '' : ' my-page__hint--error'}`}>{nicknameMsg.text}</p>}
+        </section>
+
+        <section className="my-page__section">
+          <h3 className="my-page__section-title">내가 쓴 후기 {myReviews.length}</h3>
+          {myReviews.length === 0 ? (
+            <p className="my-page__hint">아직 남긴 후기가 없어요.</p>
+          ) : (
+            <ul className="my-page__list">
+              {myReviews.map((r) => (
+                <li key={r.id} className="my-page__review" onClick={() => onOpenReview(r)}>
+                  <span className="my-page__who">
+                    <span className="my-page__name">{r.restaurant.name}</span>
+                    <span className="my-page__nick">{r.text}</span>
+                  </span>
+                  <span className="my-page__review-rating">
+                    <Stars value={r.rating} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="my-page__section">

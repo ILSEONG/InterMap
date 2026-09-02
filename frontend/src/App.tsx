@@ -457,6 +457,19 @@ export default function App() {
     [reviewedRestaurants, focusFromSearch],
   )
 
+  // 마이페이지 "내가 쓴 후기" — 눌러서 그 가게 시트를 연다 (수정은 시트의 수정 버튼으로)
+  const openMyReview = useCallback(
+    (review: Review) => {
+      const key = restaurantKey(review.restaurant)
+      const target = reviewedRestaurants.find((r) => restaurantKey(r) === key)
+      if (!target) return
+      setMyPageOpen(false)
+      setSelectedId(target.id)
+      focusFromSearch(target)
+    },
+    [reviewedRestaurants, focusFromSearch],
+  )
+
   // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
   async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
     if (!session) {
@@ -630,6 +643,8 @@ export default function App() {
           social={social}
           onSocialChange={setSocial}
           onSessionChange={handleAuthed}
+          myReviews={rawReviews.filter((rv) => rv.author.id === session.id)}
+          onOpenReview={openMyReview}
           onClose={() => setMyPageOpen(false)}
         />
       )}

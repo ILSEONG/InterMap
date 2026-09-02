@@ -223,3 +223,23 @@
 .my-page__person .my-page__avatar {
   overflow: hidden;
 }
+
+/* 내가 쓴 후기 목록 — 누르면 그 가게로 이동 */
+.my-page__review {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(43, 33, 64, 0.12);
+  cursor: pointer;
+}
+
+.my-page__review .my-page__nick {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-page__review-rating {
+  flex: 0 0 auto;
+}
