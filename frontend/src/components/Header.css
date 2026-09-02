@@ -108,7 +108,8 @@
 }
 
 .app-header__center {
-  position: relative;
+  /* position을 주지 않아야 워드마크의 absolute 기준이 헤더 전체(translateZ 컨테이닝 블록)가
+     되어, 좌우 버튼 수가 달라도 "인터맵"이 헤더 정가운데에 온다 */
   grid-column: 2;
   min-width: 0;
   min-height: 34px;
