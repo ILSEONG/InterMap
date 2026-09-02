@@ -230,6 +230,14 @@ export default function App() {
   )
   // 언팔로우·로그아웃으로 목록에서 빠지면 선택도 자동 해제
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
+  // 사람을 고르면 그 사람 후기 가게만 핀으로. TOP 5에서 하나를 누르면 카드는 두고 핀 제한만 푼다 —
+  // 안 그러면 지도가 그 사람 가게 몇 개에 갇혀 주변 가게가 안 보인다.
+  const [personPinsOnly, setPersonPinsOnly] = useState(false)
+  const personPins = personPinsOnly && selectedPerson !== null
+  const selectPerson = useCallback((id: number | null) => {
+    setPersonId(id)
+    setPersonPinsOnly(id !== null)
+  }, [])
   useEffect(() => {
     if (!session) {
       setSocial(null)
@@ -385,7 +393,7 @@ export default function App() {
     () => {
       const raw = deferredQuery.trim()
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
-      const pid = selectedPerson?.id ?? null
+      const pid = personPins ? selectedPerson.id : null
       return reviewedRestaurants.filter(
         (r) =>
           // 친구 한 명을 골랐으면 그 사람 후기가 있는 가게만 (후기 필터는 무의미하니 건너뛴다)
@@ -399,13 +407,13 @@ export default function App() {
               : r.reviews.some((rev) => rev.author.name.toLowerCase().includes(keyword)))),
       )
     },
-    [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson],
+    [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
-  // 고른 친구의 별점 TOP 5 (헤더 아래 왼쪽 카드)
+  // 고른 친구의 별점 TOP 5 (스토리 아래 왼쪽 카드). 핀 제한을 풀어도 카드는 그대로여야 하니 전체 목록에서 뽑는다.
   const selectedPersonPicks = useMemo(
-    () => (selectedPerson ? topPicksOf(visibleRestaurants, selectedPerson.id) : []),
-    [visibleRestaurants, selectedPerson],
+    () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id) : []),
+    [reviewedRestaurants, selectedPerson],
   )
 
   // 가게 검색 목록은 후기 있는 가게 먼저, 그 안에서 내 위치에서 가까운 순. 위치를 아직 모르면 원래 순서 유지.
@@ -513,8 +521,8 @@ export default function App() {
         groups={groups}
         // 요약 셀 = 후기 없는 가게 덩어리. 필터·검색으로 그런 가게가
         // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다).
-        cells={reviewFilter !== 'with' && !selectedPerson && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
-        pinsWhenFar={reviewFilter === 'with' || searchActive || selectedPerson !== null}
+        cells={reviewFilter !== 'with' && !personPins && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
+        pinsWhenFar={reviewFilter === 'with' || searchActive || personPins}
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
         onViewportChange={loadViewport}
@@ -539,7 +547,7 @@ export default function App() {
           onMyPage={() => setMyPageOpen(true)}
           following={followingPeople}
           selectedPersonId={selectedPerson?.id ?? null}
-          onSelectPerson={setPersonId}
+          onSelectPerson={selectPerson}
         />
         <div className="bottom-controls">
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
@@ -580,7 +588,10 @@ export default function App() {
             className="top-picks--pinned"
             name={selectedPerson.name}
             picks={selectedPersonPicks}
-            onPick={focusFromSearch}
+            onPick={(restaurant) => {
+              setPersonPinsOnly(false)
+              focusFromSearch(restaurant)
+            }}
           />
         )}
       </div>
