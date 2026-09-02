@@ -36,6 +36,26 @@
   background: #fff0e0;
 }
 
+.app-header__person-icon {
+  width: 20px;
+  height: auto;
+  display: block;
+}
+
+.app-header__friends-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-header__friends-icon .app-header__person-icon {
+  width: 15px;
+}
+
+.app-header__friends-icon .app-header__person-icon--flipped {
+  transform: scaleX(-1);
+  margin-left: -4px;
+}
+
 /* 이모지 버튼 바로 아래에 뜨는 로그인/회원가입 메뉴 */
 .app-header__account-menu {
   position: absolute;

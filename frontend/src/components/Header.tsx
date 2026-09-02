@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import personIcon from '../assets/person-icon.png'
 import './Header.css'
 
 export type SearchMode = 'restaurant' | 'person'
@@ -248,28 +249,17 @@ export default function Header({
   )
 }
 
-// 내 계정 버튼 아이콘 — 동그란 사람 실루엣
+// 내 계정 버튼 아이콘
 function PersonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="8.2" r="4.2" stroke="currentColor" strokeWidth="2.4" />
-      <path d="M4 20c0-4.4 3.6-6.8 8-6.8s8 2.4 8 6.8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-    </svg>
-  )
+  return <img className="app-header__person-icon" src={personIcon} alt="" aria-hidden="true" />
 }
 
-// 친구 목록 버튼 아이콘 — 같은 사람 실루엣 둘이 마주 보는 모양
+// 친구 목록 버튼 아이콘 — 같은 사람 아이콘 둘이 마주 보는 모양
 function FriendsIcon() {
   return (
-    <svg width="20" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <g transform="translate(-3)">
-        <circle cx="12" cy="8.2" r="4.2" stroke="currentColor" strokeWidth="2.2" />
-        <path d="M4 20c0-4.4 3.6-6.8 8-6.8s8 2.4 8 6.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      </g>
-      <g transform="translate(3) scale(-1, 1) translate(-24, 0)">
-        <circle cx="12" cy="8.2" r="4.2" stroke="currentColor" strokeWidth="2.2" />
-        <path d="M4 20c0-4.4 3.6-6.8 8-6.8s8 2.4 8 6.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      </g>
-    </svg>
+    <span className="app-header__friends-icon" aria-hidden="true">
+      <img className="app-header__person-icon" src={personIcon} alt="" />
+      <img className="app-header__person-icon app-header__person-icon--flipped" src={personIcon} alt="" />
+    </span>
   )
 }
