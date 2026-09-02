@@ -443,7 +443,7 @@ function SheetBody({
                   addMenu()
                 }
               }}
-              placeholder="추천 메뉴 (선택) — 예: 김치찌개"
+              placeholder="추천 메뉴"
               aria-label="추천 메뉴"
             />
             <button type="button" className="review-form__menu-add" onClick={addMenu} disabled={!draftMenu.trim()}>
