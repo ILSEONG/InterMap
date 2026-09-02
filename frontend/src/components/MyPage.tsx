@@ -30,7 +30,7 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
   function showToast(text: string) {
     setToast(text)
     window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2000)
+    toastTimer.current = window.setTimeout(() => setToast(null), 1500)
   }
 
   // 열릴 때마다 입력값을 현재 세션 기준으로 되돌린다
@@ -185,7 +185,8 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
       </div>
 
       {toast && (
-        <p className="my-page__toast" role="status">
+        // 연달아 뜰 때 애니메이션이 처음부터 다시 돌도록 key로 리마운트
+        <p key={toast} className="my-page__toast" role="status">
           {toast}
         </p>
       )}
