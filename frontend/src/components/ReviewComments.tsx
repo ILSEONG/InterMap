@@ -6,59 +6,85 @@ interface ReviewCommentsProps {
   onAdd: (text: string, parentId?: string) => void
 }
 
-// 후기 카드 아래에 붙는 댓글 트레이 — 목록 + "댓글 달기" 토글 입력.
+// 후기 카드 아래에 붙는 댓글 트레이 — 후기 단위로 접고 편다.
+// 접힌 상태에선 "댓글 N개 보기"(없으면 "댓글 달기")만 보이고, 펴면 목록과 입력이 나온다.
 // 가게 시트와 스토리 뷰어가 같이 쓴다. 스타일은 RestaurantSheet.css에 있다.
 export default function ReviewComments({ comments, onAdd }: ReviewCommentsProps) {
+  const [open, setOpen] = useState(false)
   const [writing, setWriting] = useState(false)
   const [draft, setDraft] = useState('')
   const roots = comments.filter((c) => !c.parentId)
 
-  function close() {
+  function stopWriting() {
     setDraft('')
     setWriting(false)
+  }
+
+  // 쓰다 취소했는데 보여줄 댓글도 없으면 빈 트레이가 남지 않게 같이 접는다
+  function cancelWriting() {
+    stopWriting()
+    if (comments.length === 0) setOpen(false)
+  }
+
+  function toggleOpen() {
+    if (open) {
+      stopWriting()
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    // 댓글이 하나도 없으면 펴자마자 바로 쓸 수 있게
+    if (comments.length === 0) setWriting(true)
   }
 
   function submit() {
     if (!draft.trim()) return
     onAdd(draft.trim())
-    close()
+    stopWriting()
   }
 
   return (
     <div className="review-comments">
-      {roots.length > 0 && (
-        <ul className="restaurant-sheet__comments">
-          {roots.map((comment) => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              replies={comments.filter((c) => c.parentId === comment.id)}
-              onReply={(text) => onAdd(text, comment.id)}
-            />
-          ))}
-        </ul>
-      )}
-      <button type="button" className="comment__reply-toggle" onClick={() => (writing ? close() : setWriting(true))}>
-        {writing ? '취소' : '댓글 달기'}
+      <button type="button" className="comment__reply-toggle" onClick={toggleOpen}>
+        {open ? '댓글 접기' : comments.length > 0 ? `댓글 ${comments.length}개 보기` : '댓글 달기'}
       </button>
-      {writing && (
-        <div className="restaurant-sheet__comment-form">
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit()
-              if (e.key === 'Escape') close()
-            }}
-            placeholder="이 후기에 댓글 남기기"
-            aria-label="댓글 입력"
-            autoFocus
-          />
-          <button type="button" onClick={submit} disabled={!draft.trim()}>
-            등록
+      {open && (
+        <>
+          {roots.length > 0 && (
+            <ul className="restaurant-sheet__comments">
+              {roots.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  replies={comments.filter((c) => c.parentId === comment.id)}
+                  onReply={(text) => onAdd(text, comment.id)}
+                />
+              ))}
+            </ul>
+          )}
+          <button type="button" className="comment__reply-toggle" onClick={() => (writing ? cancelWriting() : setWriting(true))}>
+            {writing ? '취소' : '댓글 달기'}
           </button>
-        </div>
+          {writing && (
+            <div className="restaurant-sheet__comment-form">
+              <input
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submit()
+                  if (e.key === 'Escape') cancelWriting()
+                }}
+                placeholder="이 후기에 댓글 남기기"
+                aria-label="댓글 입력"
+                autoFocus
+              />
+              <button type="button" onClick={submit} disabled={!draft.trim()}>
+                등록
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
