@@ -40,6 +40,10 @@ public class OAuthController {
     }
 
     private static final long STATE_TTL_SECONDS = 600;
+    // 앱에서 시작한 로그인의 state 꼬리표. 콜백을 앱 딥링크로 돌려보내는 기준.
+    private static final String APP_STATE_SUFFIX = "-app";
+    // Android 매니페스트 intent-filter(scheme=intermap, host=auth)와 맞춘 딥링크 주소
+    private static final String APP_DEEP_LINK = "intermap://auth";
 
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper mapper = new ObjectMapper();
@@ -89,15 +93,18 @@ public class OAuthController {
         return backendBaseUrl + "/api/auth/oauth/" + provider + "/callback";
     }
 
+    // 앱(WebView)에서 시작한 로그인은 ?app=1 — state에 표시를 실어 콜백에서 커스텀 스킴으로 돌려보낸다
     @GetMapping("/api/auth/oauth/{provider}")
-    public ResponseEntity<Void> authorize(@PathVariable String provider) {
+    public ResponseEntity<Void> authorize(@PathVariable String provider, @RequestParam(required = false) String app) {
+        boolean fromApp = app != null;
         ProviderConfig config = providers.get(provider);
         if (config == null) return ResponseEntity.notFound().build();
         if (!config.configured()) {
-            return redirectWithError("해당 간편 로그인은 아직 연결되지 않았어요.");
+            return redirectWithError("해당 간편 로그인은 아직 연결되지 않았어요.", fromApp);
         }
 
-        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(UUID.randomUUID().toString().getBytes());
+        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(UUID.randomUUID().toString().getBytes())
+            + (fromApp ? APP_STATE_SUFFIX : "");
         pendingStates.put(state, Instant.now());
 
         URI target = UriComponentsBuilder.fromUriString(config.authorizeUri())
@@ -117,16 +124,17 @@ public class OAuthController {
         @RequestParam(required = false) String state,
         @RequestParam(required = false) String error
     ) {
+        boolean fromApp = state != null && state.endsWith(APP_STATE_SUFFIX);
         ProviderConfig config = providers.get(provider);
-        if (config == null || !config.configured()) return redirectWithError("연결되지 않은 로그인이에요.");
-        if (error != null || code == null) return redirectWithError("로그인이 취소됐어요.");
-        if (state == null || pendingStates.remove(state) == null) return redirectWithError("로그인 요청이 만료됐어요. 다시 시도해주세요.");
+        if (config == null || !config.configured()) return redirectWithError("연결되지 않은 로그인이에요.", fromApp);
+        if (error != null || code == null) return redirectWithError("로그인이 취소됐어요.", fromApp);
+        if (state == null || pendingStates.remove(state) == null) return redirectWithError("로그인 요청이 만료됐어요. 다시 시도해주세요.", fromApp);
 
         try {
             String accessToken = exchangeToken(provider, config, code, state);
             Profile profile = fetchProfile(provider, config, accessToken);
             if (profile.providerId() == null || profile.providerId().isBlank()) {
-                return redirectWithError("로그인 정보를 가져오지 못했어요.");
+                return redirectWithError("로그인 정보를 가져오지 못했어요.", fromApp);
             }
             String email = profile.email() == null ? "" : profile.email().trim().toLowerCase();
 
@@ -138,7 +146,7 @@ public class OAuthController {
             if (user == null) {
                 String ticket = pendingLinks.put(provider, profile.providerId(), email);
                 boolean emailTaken = !email.isBlank() && repository.findByEmail(email).isPresent();
-                URI target = UriComponentsBuilder.fromUriString(frontendBaseUrl)
+                URI target = UriComponentsBuilder.fromUriString(redirectBase(fromApp))
                     .queryParam(emailTaken ? "linkTicket" : "signupTicket", ticket)
                     .queryParam("provider", provider)
                     .queryParamIfPresent("email", email.isBlank() ? Optional.empty() : Optional.of(email))
@@ -149,15 +157,19 @@ public class OAuthController {
             user.issueToken(UUID.randomUUID().toString());
             repository.save(user);
 
-            URI target = UriComponentsBuilder.fromUriString(frontendBaseUrl)
+            URI target = UriComponentsBuilder.fromUriString(redirectBase(fromApp))
                 .queryParam("token", user.getToken())
                 .queryParamIfPresent("email", Optional.ofNullable(user.getEmail()))
                 .queryParam("nickname", user.getNickname())
                 .encode().build().toUri();
             return ResponseEntity.status(302).location(target).build();
         } catch (Exception e) {
-            return redirectWithError("로그인 중 문제가 생겼어요. 다시 시도해주세요.");
+            return redirectWithError("로그인 중 문제가 생겼어요. 다시 시도해주세요.", fromApp);
         }
+    }
+
+    private String redirectBase(boolean fromApp) {
+        return fromApp ? APP_DEEP_LINK : frontendBaseUrl;
     }
 
     private String exchangeToken(String provider, ProviderConfig config, String code, String state) {
@@ -210,9 +222,9 @@ public class OAuthController {
         }
     }
 
-    private ResponseEntity<Void> redirectWithError(String message) {
+    private ResponseEntity<Void> redirectWithError(String message, boolean fromApp) {
         pendingStates.values().removeIf(issuedAt -> issuedAt.plusSeconds(STATE_TTL_SECONDS).isBefore(Instant.now()));
-        URI target = UriComponentsBuilder.fromUriString(frontendBaseUrl)
+        URI target = UriComponentsBuilder.fromUriString(redirectBase(fromApp))
             .queryParam("authError", message)
             .encode().build().toUri();
         return ResponseEntity.status(302).location(target).build();

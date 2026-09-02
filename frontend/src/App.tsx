@@ -1,4 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import PersonChip from './components/PersonChip'
@@ -370,26 +372,49 @@ export default function App() {
 
   // 소셜 로그인 완료 후 백엔드가 연결된 회원이면 ?token=&email=&nickname=,
   // 같은 이메일 계정이 있으면 ?linkTicket=, 처음이면 ?signupTicket= (둘 다 &provider=&email=&nickname= 동반),
-  // 실패 시 ?authError= 를 달고 돌려보낸다
+  // 실패 시 ?authError= 를 달고 돌려보낸다. 웹은 리다이렉트 쿼리로, 앱은 intermap:// 딥링크로 들어온다.
+  const applyAuthParams = useCallback(
+    (params: URLSearchParams) => {
+      const token = params.get('token')
+      const linkTicket = params.get('linkTicket')
+      const signupTicket = params.get('signupTicket')
+      const provider = params.get('provider') as SocialTicket['provider'] | null
+      const email = params.get('email')
+      const nickname = params.get('nickname')
+      const authError = params.get('authError')
+      if (!token && !linkTicket && !signupTicket && !authError) return false
+      if (token && nickname) handleAuthed({ token, email, nickname })
+      const ticket = linkTicket ?? signupTicket
+      if (ticket && provider) {
+        setSocialLink({ ticket, provider, email: email ?? undefined, nickname: nickname ?? undefined })
+        setAuthMode(linkTicket ? 'link' : 'social')
+      }
+      if (authError) alert(authError)
+      return true
+    },
+    [handleAuthed],
+  )
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
-    const linkTicket = params.get('linkTicket')
-    const signupTicket = params.get('signupTicket')
-    const provider = params.get('provider') as SocialTicket['provider'] | null
-    const email = params.get('email')
-    const nickname = params.get('nickname')
-    const authError = params.get('authError')
-    if (!token && !linkTicket && !signupTicket && !authError) return
-    if (token && nickname) handleAuthed({ token, email, nickname })
-    const ticket = linkTicket ?? signupTicket
-    if (ticket && provider) {
-      setSocialLink({ ticket, provider, email: email ?? undefined, nickname: nickname ?? undefined })
-      setAuthMode(linkTicket ? 'link' : 'social')
+    if (applyAuthParams(new URLSearchParams(window.location.search))) {
+      window.history.replaceState(null, '', window.location.pathname)
     }
-    if (authError) alert(authError)
-    window.history.replaceState(null, '', window.location.pathname)
-  }, [handleAuthed])
+  }, [applyAuthParams])
+
+  // 앱(WebView): 외부 브라우저에서 로그인이 끝나면 intermap://auth?... 딥링크로 돌아온다
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    const listener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      try {
+        applyAuthParams(new URL(url).searchParams)
+      } catch {
+        // 딥링크 형식이 아니면 무시
+      }
+    })
+    return () => {
+      void listener.then((sub) => sub.remove())
+    }
+  }, [applyAuthParams])
 
   // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
   const deferredQuery = useDeferredValue(query)

@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import type { Review } from '../data/model'
 
 export interface PlaceSearchResult {
@@ -162,7 +163,10 @@ export function signupSocial(ticket: string, nickname: string, marketingAgreed: 
 }
 
 export function oauthUrl(provider: OAuthProvider): string {
-  return `${API_BASE}/api/auth/oauth/${provider}`
+  // 앱(WebView)에서는 ?app=1을 붙인다 — 백엔드가 콜백을 intermap:// 딥링크로 돌려보내
+  // 로그인 후 브라우저가 아니라 앱으로 돌아온다
+  const app = Capacitor.isNativePlatform() ? '?app=1' : ''
+  return `${API_BASE}/api/auth/oauth/${provider}${app}`
 }
 
 // 성공 메시지를 반환하고, 형식 오류·발송 제한은 Error로 던진다
