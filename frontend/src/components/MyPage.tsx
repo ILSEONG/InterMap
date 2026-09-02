@@ -210,10 +210,17 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
             <p className="my-page__hint">아직 남긴 후기가 없어요.</p>
           ) : (
             <ul className="my-page__list">
-              {sortedReviews.map((r) => (
+              {sortedReviews.map((r, i) => (
                 <li key={r.id} className="my-page__review" onClick={() => onOpenReview(r)}>
                   <span className="my-page__who">
-                    <span className="my-page__name">{r.restaurant.name}</span>
+                    <span className="my-page__name">
+                      {r.restaurant.name}
+                      {i < 3 && (
+                        <span className="my-page__medal" aria-hidden="true">
+                          {['🥇', '🥈', '🥉'][i]}
+                        </span>
+                      )}
+                    </span>
                     <span className="my-page__nick">{r.text}</span>
                   </span>
                   <span className="my-page__review-rating">

@@ -301,3 +301,8 @@
 .my-page__review-rating {
   flex: 0 0 auto;
 }
+
+/* 별점 상위 3개 후기 옆 금은동 메달 */
+.my-page__medal {
+  margin-left: 4px;
+}
