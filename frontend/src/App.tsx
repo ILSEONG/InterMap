@@ -4,7 +4,6 @@ import SearchResults from './components/SearchResults'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
 import MapCanvas from './components/MapCanvas'
-import GroupFilterSheet from './components/GroupFilterSheet'
 import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
@@ -144,11 +143,9 @@ export default function App() {
   }, [])
   // 누적된 셀을 배열로. byKey 자체가 바뀔 때만 다시 만든다.
   const cellList = useMemo(() => (cellStore ? [...cellStore.byKey.values()] : []), [cellStore])
-  const [activeGroupIds, setActiveGroupIds] = useState<Set<GroupId>>(new Set(groups.map((g) => g.id)))
-  const [filterOpen, setFilterOpen] = useState(false)
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
   // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
-  const [groupColors, setGroupColors] = useState<Record<GroupId, string>>({
+  const [groupColors] = useState<Record<GroupId, string>>({
     close: '#A9C4E3',
     work: '#A9C4E3',
     college: '#A9C4E3',
@@ -242,16 +239,21 @@ export default function App() {
       cancelled = true
     }
   }, [session])
-  // 내가 붙인 이름을 후기 작성자 이름 자리에 씌운다. 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다.
+  // 팔로우한 사람(+나, 주인장)의 후기만 남기고, 내가 붙인 이름을 작성자 이름 자리에 씌운다.
+  // 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다. social을 못 받았으면 필터 없이 동작.
   const reviews = useMemo(() => {
+    const followingIds = social ? new Set(social.following.map((p) => p.id)) : null
+    const filtered = followingIds
+      ? rawReviews.filter((rv) => rv.author.owner || rv.author.id === session?.id || followingIds.has(rv.author.id))
+      : rawReviews
     const alias = new Map<number, string>()
     for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) if (p.alias) alias.set(p.id, p.alias)
-    if (alias.size === 0) return rawReviews
-    return rawReviews.map((rv) => {
+    if (alias.size === 0) return filtered
+    return filtered.map((rv) => {
       const name = alias.get(rv.author.id)
       return name ? { ...rv, author: { ...rv.author, name } } : rv
     })
-  }, [rawReviews, social])
+  }, [rawReviews, social, session])
   // 이웃 후기를 가게에 붙인다. 주인장 후기는 시트에서 따로 보여주므로 뺀다.
   // 후기 없는 가게는 객체를 그대로 둬서 마커가 다시 그려지지 않게 한다.
   // 후기 있는 가게는 줌·뷰포트와 무관하게 항상 보여야 하므로, 아직 뷰포트로 안 받은 가게는
@@ -375,15 +377,15 @@ export default function App() {
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
       return reviewedRestaurants.filter(
         (r) =>
-          (r.groupIds.length === 0 ? activeGroupIds.has('none') : r.groupIds.some((g) => activeGroupIds.has(g))) &&
-          (reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
+          // 검색 중엔 하단 후기 필터를 무시한다 — '후기 없음' 상태에서도 후기 있는 가게가 검색에 걸린다
+          (keyword !== '' || reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
               ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
               : r.reviews.some((rev) => rev.author.name.toLowerCase().includes(keyword)))),
       )
     },
-    [reviewedRestaurants, activeGroupIds, reviewFilter, searchMode, deferredQuery],
+    [reviewedRestaurants, reviewFilter, searchMode, deferredQuery],
   )
 
   // 가게 검색 목록은 내 위치에서 가까운 순. 위치를 아직 모르면 원래 순서 그대로.
@@ -417,14 +419,6 @@ export default function App() {
     setFocusTarget({ id: restaurant.id })
     setResultsOpen(false)
   }, [])
-
-  function toggleGroup(id: GroupId) {
-    setActiveGroupIds((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
 
   // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
   async function addReview(restaurantId: string, rating: number, text: string, photos: File[]) {
@@ -494,13 +488,9 @@ export default function App() {
       <MapCanvas
         restaurants={visibleRestaurants}
         groups={groups}
-        // 요약 셀 = 후기 없는 그룹 미지정 가게 덩어리. 필터·검색으로 그런 가게가
+        // 요약 셀 = 후기 없는 가게 덩어리. 필터·검색으로 그런 가게가
         // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다).
-        cells={
-          reviewFilter !== 'with' && activeGroupIds.has('none') && deferredQuery.trim().length < MIN_QUERY_LENGTH
-            ? cellList
-            : []
-        }
+        cells={reviewFilter !== 'with' && deferredQuery.trim().length < MIN_QUERY_LENGTH ? cellList : []}
         pinsWhenFar={reviewFilter === 'with' || searchActive}
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
@@ -524,13 +514,6 @@ export default function App() {
           onMyPage={() => setMyPageOpen(true)}
         />
         <div className="bottom-controls">
-          <button type="button" className="map-filter-btn" onClick={() => setFilterOpen(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 6H20M7 12H17M10 18H14" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-            </svg>
-            맵필터
-            {activeGroupIds.size > 0 && <span className="map-filter-btn__badge">{activeGroupIds.size}</span>}
-          </button>
           <div className="review-filter" role="group" aria-label="후기 유무 필터">
             {(
               [
@@ -565,16 +548,6 @@ export default function App() {
           <StoryStrip stories={stories} onOpen={setOpenStory} />
         )}
       </div>
-
-      <GroupFilterSheet
-        open={filterOpen}
-        groups={groups}
-        activeGroupIds={activeGroupIds}
-        colors={groupColors}
-        onToggle={toggleGroup}
-        onColorChange={(id, color) => setGroupColors((prev) => ({ ...prev, [id]: color }))}
-        onClose={() => setFilterOpen(false)}
-      />
 
       <RestaurantSheet
         restaurant={selectedRestaurant}

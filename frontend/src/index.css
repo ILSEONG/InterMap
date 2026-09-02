@@ -62,6 +62,12 @@ body {
 button {
   font-family: inherit;
   color: inherit;
+  /* 모든 버튼 공통 눌림 효과. transform이 아니라 scale 속성이라 기존 transform과 겹쳐도 안전 */
+  transition: scale 90ms ease;
+}
+
+button:active {
+  scale: 0.94;
 }
 
 ::selection {
