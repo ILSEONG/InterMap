@@ -48,7 +48,7 @@ function escapeHtml(value: string): string {
 }
 
 // 후기 있는 가게 핀 색. 그룹색보다 우선 — "이웃이 다녀간 곳"이 지도에서 바로 보이게.
-const REVIEWED_PIN_COLOR = '#8FB2DC'
+const REVIEWED_PIN_COLOR = '#F5C542'
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   if (items.every((r) => r.closed)) return '#9b93ab'
