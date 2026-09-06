@@ -247,6 +247,11 @@
   background: #2fbfa6;
 }
 
+/* 검색 열리면 찜 버튼은 숨겨 검색창 폭을 넓힌다 */
+.app-header--searching .app-header__fav-toggle {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-header__wordmark,
   .app-header__search-row {
