@@ -383,7 +383,16 @@ export default function App() {
       const nickname = params.get('nickname')
       const authError = params.get('authError')
       if (!token && !linkTicket && !signupTicket && !authError) return false
-      if (token && nickname) handleAuthed({ token, email, nickname })
+      if (token && nickname) {
+        handleAuthed({ token, email, nickname })
+        // 콜백 파라미터엔 id·avatar가 없다. 내 후기 판별이 session.id에 달려 있으니 서버 값으로 바로 채운다.
+        // (handleAuthed가 localStorage에 토큰을 먼저 써야 fetchMe의 Authorization 헤더가 붙는다)
+        fetchMe()
+          .then((me) => me && handleAuthed(me))
+          .catch(() => {
+            // 네트워크 오류면 id 없는 세션으로 두고, 다음 실행 때 마운트 fetchMe가 채운다
+          })
+      }
       const ticket = linkTicket ?? signupTicket
       if (ticket && provider) {
         setSocialLink({ ticket, provider, email: email ?? undefined, nickname: nickname ?? undefined })
