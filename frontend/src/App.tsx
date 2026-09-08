@@ -25,6 +25,8 @@ import {
   fetchFavorites,
   toggleFavorite,
   fetchSocial,
+  searchUsers,
+  followUser,
   postReview,
   updateReview,
   deleteReview,
@@ -35,7 +37,7 @@ import {
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
 import { shrinkImage } from './lib/image'
-import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialData, SocialTicket } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -521,6 +523,36 @@ export default function App() {
     )
   }, [visibleRestaurants, myLocation, searchMode])
 
+  // 사람 검색: 팔로우한 사람의 후기에서만 찾으면 아직 팔로우 안 한 사람은 영영 안 걸린다.
+  // 서버 사용자 검색으로 인터맵 사용자 전체에서 찾아 목록에 같이 보여준다 (거기서 바로 팔로우).
+  const [foundUsers, setFoundUsers] = useState<UserItem[]>([])
+  useEffect(() => {
+    if (!session || searchMode !== 'person' || !searchActive) {
+      setFoundUsers([])
+      return
+    }
+    let cancelled = false
+    searchUsers(deferredQuery.trim())
+      .then((list) => {
+        if (!cancelled) setFoundUsers(list)
+      })
+      .catch(() => {
+        // 못 받으면 팔로우한 사람 후기 안에서만 검색
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [session, searchMode, searchActive, deferredQuery])
+
+  // 팔로우 — 서버가 돌려준 새 소셜 목록으로 맞춘다 (그 사람 후기·스토리가 바로 보이기 시작한다)
+  const follow = useCallback(async (userId: number) => {
+    try {
+      setSocial(await followUser(userId))
+    } catch (e) {
+      alert((e as Error).message)
+    }
+  }, [])
+
   // 사람 검색이면 이름이 걸린 사람마다 별점 높은 가게 TOP 5를 요약해 보여준다
   const personPicks = useMemo(() => {
     const keyword = deferredQuery.trim().toLowerCase()
@@ -532,6 +564,12 @@ export default function App() {
       .map((author) => ({ author, picks: topPicksOf(visibleRestaurants, author.id) }))
       .filter(({ picks }) => picks.length > 0)
   }, [searchMode, deferredQuery, reviews, visibleRestaurants])
+
+  // TOP 5 카드로 이미 보여준 사람은 사용자 목록에서 뺀다 (같은 사람이 두 번 나오지 않게)
+  const otherUsers = useMemo(() => {
+    const shown = new Set(personPicks.map((p) => p.author.id))
+    return foundUsers.filter((u) => !shown.has(u.id))
+  }, [foundUsers, personPicks])
 
   // 매 렌더마다 새 함수를 넘기면 MapCanvas가 마커를 통째로 다시 그린다.
   const pickRestaurant = useCallback((restaurant: Restaurant) => setSelectedId(restaurant.id), [])
@@ -738,6 +776,8 @@ export default function App() {
           <SearchResults
             results={searchResults}
             topPicks={personPicks}
+            people={otherUsers}
+            onFollow={follow}
             groups={groups}
             // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
             tooShort={!searchActive}

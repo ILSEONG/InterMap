@@ -34,6 +34,60 @@
   gap: 4px;
 }
 
+/* 사람 검색 — 아직 팔로우 안 한 사용자 (여기서 바로 팔로우) */
+.search-results__people {
+  margin: 2px 0 10px;
+}
+
+.search-results__person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 2px;
+}
+
+.search-results__person-avatar {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.search-results__person-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-results__follow {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 12px;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.search-results__follow:active {
+  background: var(--surface-raised);
+}
+
 /* 사람 검색 — 그 사람의 별점 TOP 5 요약 카드 (결과 목록 위) */
 .top-picks {
   margin: 2px 0 10px;

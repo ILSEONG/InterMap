@@ -1,5 +1,7 @@
 import type { Restaurant, FriendGroup, ReviewAuthor } from '../data/model'
 import type { TopPick } from '../lib/topPicks'
+import type { UserItem } from '../lib/api'
+import Avatar from './Avatar'
 import PlaceRow from './PlaceRow'
 import TopPicksCard from './TopPicksCard'
 import './SearchResults.css'
@@ -11,13 +13,16 @@ interface SearchResultsProps {
   results: Restaurant[]
   // 사람 검색일 때 이름이 걸린 사람별 별점 TOP 5 요약
   topPicks: { author: Pick<ReviewAuthor, 'id' | 'name'>; picks: TopPick[] }[]
+  // 사람 검색일 때 아직 팔로우하지 않아 후기가 안 보이는 인터맵 사용자들
+  people?: UserItem[]
+  onFollow?: (userId: number) => void
   groups: FriendGroup[]
   tooShort: boolean
   minLength: number
   onPick: (restaurant: Restaurant) => void
 }
 
-export default function SearchResults({ results, topPicks, groups, tooShort, minLength, onPick }: SearchResultsProps) {
+export default function SearchResults({ results, topPicks, people = [], onFollow, groups, tooShort, minLength, onPick }: SearchResultsProps) {
   if (tooShort) {
     return (
       <div className="search-results">
@@ -31,6 +36,22 @@ export default function SearchResults({ results, topPicks, groups, tooShort, min
       {topPicks.map(({ author, picks }) => (
         <TopPicksCard key={author.id} name={author.name} picks={picks} onPick={onPick} />
       ))}
+      {people.length > 0 && (
+        <section className="search-results__people">
+          <p className="search-results__count">인터맵 사용자 {people.length}명</p>
+          <ul className="search-results__list">
+            {people.map((u) => (
+              <li key={u.id} className="search-results__person">
+                <Avatar className="search-results__person-avatar" src={null} name={u.nickname} />
+                <span className="search-results__person-name">{u.nickname}</span>
+                <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
+                  팔로우
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <p className="search-results__count">검색 결과 {results.length}곳</p>
       {results.length === 0 ? (
         <p className="search-results__empty">찾는 가게가 없어요. 다른 키워드로 찾아보세요.</p>
