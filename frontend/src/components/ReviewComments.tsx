@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Comment } from '../data/model'
+import { useOpenProfile } from '../lib/openProfile'
 
 interface ReviewCommentsProps {
   comments: Comment[]
@@ -191,13 +192,21 @@ interface CommentRowProps {
 
 // 프로필 사진 왼쪽, 이름 위 / 내용 아래, 답글은 내용 밑에 붙는 인스타그램식 배치
 function CommentRow({ comment, small, children }: CommentRowProps) {
+  // 이름을 누르면 그 사람 프로필 (App이 컨텍스트로 내려준다)
+  const openProfile = useOpenProfile()
   return (
     <div className={`comment${small ? ' comment--small' : ''}`} style={{ ['--group-color' as string]: '#8B6BFF' }}>
       <span className="comment__avatar" aria-hidden="true">
         {comment.authorName.slice(0, 1)}
       </span>
       <div className="comment__body">
-        <p className="comment__author">{comment.authorName}</p>
+        {openProfile ? (
+          <button type="button" className="comment__author" onClick={() => openProfile(comment.authorId)}>
+            {comment.authorName}
+          </button>
+        ) : (
+          <p className="comment__author">{comment.authorName}</p>
+        )}
         <p className="comment__text">{comment.text}</p>
         {children}
       </div>

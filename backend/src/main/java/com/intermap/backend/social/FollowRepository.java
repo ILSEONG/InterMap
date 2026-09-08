@@ -18,4 +18,9 @@ public interface FollowRepository extends JpaRepository<Follow, Long> {
     List<Follow> findByFolloweeOrderByCreatedAtDesc(AppUser followee);
 
     Optional<Follow> findByFollowerAndFollowee(AppUser follower, AppUser followee);
+
+    // 프로필 개요의 팔로잉·팔로워 수 — 목록을 통째로 들고 오지 않고 센다
+    long countByFollower(AppUser follower);
+
+    long countByFollowee(AppUser followee);
 }

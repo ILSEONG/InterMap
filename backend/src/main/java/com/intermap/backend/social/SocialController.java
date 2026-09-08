@@ -44,6 +44,12 @@ public class SocialController {
     public record UserItem(Long id, String nickname) {
     }
 
+    // 다른 사람 프로필 개요. 후기·별점은 프론트가 이미 /api/reviews 로 받아 두므로
+    // 여기선 프론트가 모르는 것(사진, 팔로잉·팔로워 수, 관계)만 준다.
+    public record Profile(Long id, String nickname, String alias, String avatar, boolean following, boolean followsMe,
+                          long followingCount, long followerCount) {
+    }
+
     private final FollowRepository follows;
     private final UserAliasRepository aliases;
     private final AppUserRepository users;
@@ -149,6 +155,26 @@ public class SocialController {
             existing.rename(alias);
         }
         return ResponseEntity.ok(socialOf(me));
+    }
+
+    // 프로필 개요. 로그인 필요. 팔로우하지 않은 사람이면 후기 내용은 프론트가 가리고
+    // 여기서도 팔로잉·팔로워 수는 -1로 감춘다 (이름·사진과 관계만 보인다).
+    @GetMapping("/api/users/{userId}")
+    public ResponseEntity<?> profile(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                     @PathVariable Long userId) {
+        AppUser me = auth.currentUser(authorization);
+        if (me == null) return unauthorized();
+        AppUser target = users.findById(userId).orElse(null);
+        if (target == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new AuthController.ErrorResponse("없는 사용자예요."));
+        }
+        boolean following = follows.findByFollowerAndFollowee(me, target).isPresent();
+        boolean followsMe = follows.findByFollowerAndFollowee(target, me).isPresent();
+        String alias = aliases.findByOwnerAndTarget(me, target).map(UserAlias::getAlias).orElse(null);
+        return ResponseEntity.ok(new Profile(target.getId(), target.getNickname(), alias, avatars.urlOf(target.getId()),
+                following, followsMe,
+                following ? follows.countByFollower(target) : -1,
+                following ? follows.countByFollowee(target) : -1));
     }
 
     // 팔로우할 사람 찾기 — 닉네임 부분 일치 상위 20, 본인 제외. 로그인 필요 (사용자 목록 열람 방지).

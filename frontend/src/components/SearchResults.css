@@ -47,6 +47,27 @@
   padding: 2px;
 }
 
+/* 사진+이름 = 프로필 열기 버튼, 오른쪽 팔로우 버튼과 나란히 */
+.search-results__person-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.search-results__person-open:active {
+  opacity: 0.7;
+}
+
 .search-results__person-avatar {
   flex: 0 0 30px;
   width: 30px;
@@ -102,6 +123,19 @@
   font-family: var(--font-display);
   font-size: 14px;
   color: var(--ink);
+}
+
+/* 카드 제목의 사람 이름 — 누르면 프로필 */
+.top-picks__title-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .top-picks__list {

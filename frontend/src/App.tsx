@@ -11,6 +11,8 @@ import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MyPage from './components/MyPage'
+import ProfileSheet from './components/ProfileSheet'
+import { OpenProfileContext } from './lib/openProfile'
 import { groups } from './data/model'
 import type { Comment, GroupId, Restaurant, Review, Story } from './data/model'
 import {
@@ -437,6 +439,7 @@ export default function App() {
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)
   handleBackRef.current = () => {
+    if (profileUserId !== null) return setProfileUserId(null), true
     if (openStory) return setOpenStory(null), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
@@ -543,6 +546,20 @@ export default function App() {
       cancelled = true
     }
   }, [session, searchMode, searchActive, deferredQuery])
+
+  // 후기·댓글·검색 결과에서 누른 사람의 프로필 개요. 내 프로필이면 마이페이지로 보낸다.
+  const [profileUserId, setProfileUserId] = useState<number | null>(null)
+  const openProfile = useCallback(
+    (userId: number) => {
+      if (!session) {
+        setAuthMode('start')
+        return
+      }
+      if (userId === session.id) setMyPageOpen(true)
+      else setProfileUserId(userId)
+    },
+    [session],
+  )
 
   // 팔로우 — 서버가 돌려준 새 소셜 목록으로 맞춘다 (그 사람 후기·스토리가 바로 보이기 시작한다)
   const follow = useCallback(async (userId: number) => {
@@ -703,7 +720,16 @@ export default function App() {
     }
   }
 
+  // 프로필을 열 때 서버 응답을 기다리는 동안 쓸 이름 — 이미 화면에 있던 이름 그대로
+  const profileName =
+    profileUserId === null
+      ? ''
+      : (foundUsers.find((u) => u.id === profileUserId)?.nickname ??
+        rawReviews.find((rv) => rv.author.id === profileUserId)?.author.name ??
+        '사용자')
+
   return (
+    <OpenProfileContext.Provider value={openProfile}>
     <div
       className="app"
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
@@ -847,6 +873,21 @@ export default function App() {
         onClose={() => setOpenStory(null)}
       />
 
+      {session && profileUserId !== null && (
+        <ProfileSheet
+          userId={profileUserId}
+          fallbackName={profileName}
+          allReviews={rawReviews}
+          restaurants={reviewedRestaurants}
+          onSocialChange={setSocial}
+          onPick={(restaurant) => {
+            setProfileUserId(null)
+            focusFromSearch(restaurant)
+          }}
+          onClose={() => setProfileUserId(null)}
+        />
+      )}
+
       <AuthModal
         mode={authMode}
         social={socialLink}
@@ -857,5 +898,6 @@ export default function App() {
         onAuthed={handleAuthed}
       />
     </div>
+    </OpenProfileContext.Provider>
   )
 }

@@ -1,0 +1,23 @@
+/* 다른 사람 프로필 개요 — 껍데기는 마이페이지(.my-page*)를 그대로 쓴다 */
+
+.profile-sheet__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.profile-sheet__counts {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.profile-sheet__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.profile-sheet__follow {
+  margin-top: 10px;
+  padding: 0 22px;
+}

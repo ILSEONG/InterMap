@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
+import { useOpenProfile } from '../lib/openProfile'
 import { timeAgo } from '../lib/time'
 import Stars from './Stars'
 import Avatar from './Avatar'
@@ -11,6 +12,8 @@ import Avatar from './Avatar'
 export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?: () => void }) {
   // 크게 보기: 누른 사진 index. 같은 후기의 사진들을 좌우 스냅으로 넘긴다
   const [lightbox, setLightbox] = useState<number | null>(null)
+  // 작성자 프로필 열기 (App이 컨텍스트로 내려준다). 없으면 이름은 눌러도 아무 일 없다.
+  const openProfile = useOpenProfile()
   const [shown, setShown] = useState(0)
   const trackRef = useRef<HTMLDivElement>(null)
   // 열릴 때 누른 사진으로 바로 이동 (스냅 트랙이라 scrollIntoView 한 번이면 된다)
@@ -29,11 +32,19 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
       style={{ ['--group-color' as string]: '#8B6BFF' }}
     >
       <header className="review-card__header">
-        <Avatar className="review-card__avatar" src={review.author.avatar} name={review.author.name} />
-        <div>
-          <p className="review-card__name">{review.author.name}</p>
-          <p className="review-card__time">{timeAgo(review.createdAt)}</p>
-        </div>
+        <button
+          type="button"
+          className="review-card__profile"
+          onClick={() => openProfile?.(review.author.id)}
+          disabled={!openProfile}
+          aria-label={`${review.author.name}님 프로필`}
+        >
+          <Avatar className="review-card__avatar" src={review.author.avatar} name={review.author.name} />
+          <span>
+            <span className="review-card__name">{review.author.name}</span>
+            <span className="review-card__time">{timeAgo(review.createdAt)}</span>
+          </span>
+        </button>
         <span className="review-card__rating">
           <Stars value={review.rating} />
           <em>{review.rating.toFixed(1)}</em>

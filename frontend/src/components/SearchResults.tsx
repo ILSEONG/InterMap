@@ -1,6 +1,7 @@
 import type { Restaurant, FriendGroup, ReviewAuthor } from '../data/model'
 import type { TopPick } from '../lib/topPicks'
 import type { UserItem } from '../lib/api'
+import { useOpenProfile } from '../lib/openProfile'
 import Avatar from './Avatar'
 import PlaceRow from './PlaceRow'
 import TopPicksCard from './TopPicksCard'
@@ -23,6 +24,9 @@ interface SearchResultsProps {
 }
 
 export default function SearchResults({ results, topPicks, people = [], onFollow, groups, tooShort, minLength, onPick }: SearchResultsProps) {
+  // 사람을 누르면 프로필 개요 (App이 컨텍스트로 내려준다)
+  const openProfile = useOpenProfile()
+
   if (tooShort) {
     return (
       <div className="search-results">
@@ -34,7 +38,7 @@ export default function SearchResults({ results, topPicks, people = [], onFollow
   return (
     <div className="search-results">
       {topPicks.map(({ author, picks }) => (
-        <TopPicksCard key={author.id} name={author.name} picks={picks} onPick={onPick} />
+        <TopPicksCard key={author.id} name={author.name} picks={picks} userId={author.id} onPick={onPick} />
       ))}
       {people.length > 0 && (
         <section className="search-results__people">
@@ -42,8 +46,15 @@ export default function SearchResults({ results, topPicks, people = [], onFollow
           <ul className="search-results__list">
             {people.map((u) => (
               <li key={u.id} className="search-results__person">
-                <Avatar className="search-results__person-avatar" src={null} name={u.nickname} />
-                <span className="search-results__person-name">{u.nickname}</span>
+                <button
+                  type="button"
+                  className="search-results__person-open"
+                  onClick={() => openProfile?.(u.id)}
+                  disabled={!openProfile}
+                >
+                  <Avatar className="search-results__person-avatar" src={null} name={u.nickname} />
+                  <span className="search-results__person-name">{u.nickname}</span>
+                </button>
                 <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
                   팔로우
                 </button>

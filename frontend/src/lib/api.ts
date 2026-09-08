@@ -257,6 +257,25 @@ export interface UserItem {
   nickname: string
 }
 
+// 다른 사람 프로필 개요. 후기·별점은 프론트가 이미 받은 목록으로 그리므로
+// 서버는 사진·관계·팔로잉/팔로워 수만 준다. 팔로우 전이면 두 수는 -1(가림).
+export interface UserProfile {
+  id: number
+  nickname: string
+  alias: string | null
+  avatar: string | null
+  following: boolean
+  followsMe: boolean
+  followingCount: number
+  followerCount: number
+}
+
+export async function fetchUserProfile(userId: number): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`프로필 조회 실패 (${res.status})`)
+  return res.json()
+}
+
 export async function fetchSocial(): Promise<SocialData> {
   const res = await fetch(`${API_BASE}/api/me/social`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`팔로우 목록 조회 실패 (${res.status})`)
