@@ -431,6 +431,29 @@ export default function App() {
   const [resultsOpen, setResultsOpen] = useState(true)
   const searchActive = deferredQuery.trim().length >= MIN_QUERY_LENGTH
 
+  // 안드로이드 하드웨어 뒤로가기: 열려 있는 레이어를 위에서부터 하나씩 닫고, 닫을 게 없으면 앱을 종료한다.
+  // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
+  const handleBackRef = useRef<() => boolean>(() => false)
+  handleBackRef.current = () => {
+    if (openStory) return setOpenStory(null), true
+    if (authMode) return setAuthMode(null), setSocialLink(null), true
+    if (myPageOpen) return setMyPageOpen(false), true
+    if (selectedId) return setSelectedId(null), true
+    if (personId !== null) return setPersonId(null), true
+    if (query.trim()) return setQuery(''), setResultsOpen(true), true
+    if (favMode) return setFavMode(false), true
+    return false
+  }
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    const listener = CapacitorApp.addListener('backButton', () => {
+      if (!handleBackRef.current()) void CapacitorApp.exitApp()
+    })
+    return () => {
+      void listener.then((sub) => sub.remove())
+    }
+  }, [])
+
   // 가게 이름 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
   // 받은 건 누적 목록에 합쳐두고 필터·핀은 기존 경로를 그대로 탄다.
   useEffect(() => {
