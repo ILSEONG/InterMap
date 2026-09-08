@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import type { AuthSession, Person, SocialData, UserItem } from '../lib/api'
 import { changeNickname, followUser, unfollowUser, setAlias, searchUsers, uploadAvatar, deleteAvatar } from '../lib/api'
+import { useOpenProfile } from '../lib/openProfile'
 import { shrinkImage } from '../lib/image'
 import type { Review } from '../data/model'
 import Avatar from './Avatar'
@@ -25,6 +26,8 @@ interface MyPageProps {
 const MIN_SEARCH_LENGTH = 1
 
 export default function MyPage({ open, session, social, onSocialChange, onSessionChange, myReviews, onOpenReview, onClose }: MyPageProps) {
+  // 사람을 누르면 그 사람 프로필 개요 (App이 컨텍스트로 내려준다)
+  const openProfile = useOpenProfile()
   const [nickname, setNickname] = useState(session.nickname)
   const [nicknameMsg, setNicknameMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [query, setQuery] = useState('')
@@ -248,7 +251,14 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
             <ul className="my-page__list">
               {found.map((u) => (
                 <li key={u.id} className="my-page__person">
-                  <span className="my-page__name">{u.nickname}</span>
+                  <button
+                    type="button"
+                    className="my-page__person-open"
+                    onClick={() => openProfile?.(u.id)}
+                    disabled={!openProfile}
+                  >
+                    <span className="my-page__name">{u.nickname}</span>
+                  </button>
                   {followingIds.has(u.id) ? (
                     <span className="my-page__hint">팔로잉</span>
                   ) : (
@@ -306,6 +316,7 @@ interface PersonListProps {
 }
 
 function PersonList({ title, people, empty, busy, onRename, onToggleFollow, toggleLabel }: PersonListProps) {
+  const openProfile = useOpenProfile()
   return (
     <section className="my-page__section">
       <h3 className="my-page__section-title">{title}</h3>
@@ -315,11 +326,19 @@ function PersonList({ title, people, empty, busy, onRename, onToggleFollow, togg
         <ul className="my-page__list">
           {people.map((p) => (
             <li key={p.id} className="my-page__person">
-              <Avatar className="my-page__avatar" src={p.avatar} name={p.alias ?? p.nickname} />
-              <span className="my-page__who">
-                <span className="my-page__name">{p.alias ?? p.nickname}</span>
-                {p.alias && <span className="my-page__nick">@{p.nickname}</span>}
-              </span>
+              <button
+                type="button"
+                className="my-page__person-open"
+                onClick={() => openProfile?.(p.id)}
+                disabled={!openProfile}
+                aria-label={`${p.alias ?? p.nickname}님 프로필`}
+              >
+                <Avatar className="my-page__avatar" src={p.avatar} name={p.alias ?? p.nickname} />
+                <span className="my-page__who">
+                  <span className="my-page__name">{p.alias ?? p.nickname}</span>
+                  {p.alias && <span className="my-page__nick">@{p.nickname}</span>}
+                </span>
+              </button>
               <button type="button" className="my-page__action" onClick={() => onRename(p)} disabled={busy}>
                 이름 바꾸기
               </button>
