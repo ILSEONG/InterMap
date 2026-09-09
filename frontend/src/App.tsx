@@ -435,6 +435,32 @@ export default function App() {
   const [resultsOpen, setResultsOpen] = useState(true)
   const searchActive = deferredQuery.trim().length >= MIN_QUERY_LENGTH
 
+  // 키보드가 올라오면 화면 아래 가려진 높이를 --kb로 알린다. 모달·시트가 그만큼 위로 올라온다.
+  // 기종마다 창을 줄이기도(adjustResize) 밀어 올리기도(adjustPan) 해서, 어느 쪽이든 맞도록
+  // 레이아웃 뷰포트와 실제 보이는 뷰포트의 차이를 직접 잰다. 입력칸은 초점이 오면 가운데로 끌어온다.
+  useEffect(() => {
+    const vv = window.visualViewport
+    const applyKeyboard = () => {
+      const overlap = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
+      document.documentElement.style.setProperty('--kb', `${Math.round(overlap)}px`)
+    }
+    // 키보드가 다 올라오고 레이아웃이 정리된 뒤에 스크롤해야 원하는 자리에 선다
+    const scrollToInput = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null
+      if (!el?.matches?.('input, textarea')) return
+      window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+    }
+    applyKeyboard()
+    vv?.addEventListener('resize', applyKeyboard)
+    vv?.addEventListener('scroll', applyKeyboard)
+    document.addEventListener('focusin', scrollToInput)
+    return () => {
+      vv?.removeEventListener('resize', applyKeyboard)
+      vv?.removeEventListener('scroll', applyKeyboard)
+      document.removeEventListener('focusin', scrollToInput)
+    }
+  }, [])
+
   // 안드로이드 하드웨어 뒤로가기: 열려 있는 레이어를 위에서부터 하나씩 닫고, 닫을 게 없으면 앱을 종료한다.
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)

@@ -34,6 +34,9 @@
 
   --font-display: 'Jua', 'Pretendard', system-ui, sans-serif;
   --font-body: 'Pretendard', system-ui, sans-serif;
+
+  /* 키보드가 가린 화면 아래 높이. App이 실제 뷰포트를 재서 채운다 (키보드 없으면 0) */
+  --kb: 0px;
 }
 
 * {

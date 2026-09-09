@@ -5,7 +5,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  /* 키보드가 올라온 만큼 아래를 비워 모달이 가려지지 않게 (--kb는 App이 잰다) */
+  padding: 24px 24px calc(24px + var(--kb));
   opacity: 0;
   pointer-events: none;
   transition: opacity 220ms ease;

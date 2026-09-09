@@ -5,6 +5,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  /* 키보드가 올라오면 시트를 그만큼 올려 후기·댓글 입력칸이 가려지지 않게 한다 */
+  padding-bottom: var(--kb);
   opacity: 0;
   pointer-events: none;
   transition: opacity 220ms ease;

@@ -6,7 +6,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: max(env(safe-area-inset-top), 14px) 0 max(env(safe-area-inset-bottom), 14px);
+  /* 아래 여백에 키보드 높이를 더해 댓글 입력칸이 키보드에 가려지지 않게 한다 */
+  padding: max(env(safe-area-inset-top), 14px) 0 calc(max(env(safe-area-inset-bottom), 14px) + var(--kb));
 }
 
 .story-viewer__close {

@@ -35,7 +35,8 @@
 .my-page__scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px max(env(safe-area-inset-bottom), 24px);
+  /* 닉네임·검색 입력칸이 키보드에 가리지 않도록 아래 여백에 키보드 높이를 더한다 */
+  padding: 0 16px calc(max(env(safe-area-inset-bottom), 24px) + var(--kb));
 }
 
 .my-page__section {
