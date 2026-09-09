@@ -251,9 +251,9 @@ export default function MapCanvas({
         const map = new naver.maps.Map(mapDivRef.current, {
           center: new naver.maps.LatLng(CENTER.lat, CENTER.lng),
           zoom: DEFAULT_ZOOM,
-          // 11 ≈ 수도권 전체가 한 화면. 이보다 더 빼면 서버 요약 셀 한 변이 도 단위로 커져
+          // 9 ≈ 남한 절반이 한 화면. 이 아래로는 서버 요약 셀 한 변이 도 단위로 커져
           // 셀 하나가 시 전체를 삼킨다 (건수만 남고 위치 의미가 없어진다).
-          minZoom: 11,
+          minZoom: 9,
           scaleControl: false,
           mapDataControl: false,
         })
