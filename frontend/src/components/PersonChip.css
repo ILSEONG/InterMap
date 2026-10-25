@@ -61,9 +61,10 @@
 
 /* 펼친 TOP 5 — 작은 진한 유리 카드 */
 .person-chip__card.top-picks {
-  width: min(260px, 100%);
+  width: min(280px, 100%);
   margin: 0;
-  border-radius: 26px;
+  padding: 14px 8px 8px;
+  border-radius: 34px;
 }
 
 @media (prefers-reduced-motion: reduce) {
