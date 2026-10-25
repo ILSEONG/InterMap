@@ -1,0 +1,161 @@
+/*
+  한 사람의 별점 TOP 5 — 제목은 카드 밖, 목록은 흰 카드.
+  유리 시트(프로필·검색 결과·친구 칩) 위에 얹히므로 카드 자체엔 blur를 쓰지 않는다.
+  카드 반경 28 - 안쪽 여백 6 = 행 반경 22 (동심원)
+*/
+.top-picks {
+  margin: 2px 0 10px;
+  min-width: 0;
+}
+
+.top-picks__title {
+  margin: 0 6px 10px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+/* 제목의 사람 이름 — 누르면 프로필. 글자 높이는 그대로 두고 터치 영역만 위아래로 넓힌다 */
+.top-picks__title-link {
+  margin: -12px 0;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-ink);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.top-picks__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.top-picks__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    scale 90ms ease;
+}
+
+.top-picks__row--first {
+  background: var(--accent-tint);
+}
+
+.top-picks__row:active {
+  background: var(--fill);
+}
+
+.top-picks__row--first:active {
+  background: rgba(217, 54, 90, 0.2);
+}
+
+@media (hover: hover) {
+  .top-picks__row:hover {
+    background: var(--fill);
+  }
+
+  .top-picks__row--first:hover {
+    background: rgba(217, 54, 90, 0.18);
+  }
+}
+
+.top-picks__row:focus-visible {
+  outline-offset: -1px;
+}
+
+.top-picks__rank {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.top-picks__row--first .top-picks__rank {
+  background: var(--accent);
+  color: #fff;
+}
+
+.top-picks__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-picks__name,
+.top-picks__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-picks__name {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.top-picks__meta {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.top-picks__rating {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 화면엔 안 보이고 스크린리더만 읽는 글자 ("별점 4.5") */
+.top-picks__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-picks__row {
+    transition: none;
+  }
+}
