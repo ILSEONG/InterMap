@@ -35,41 +35,50 @@ jobs:
         working-directory: frontend
         shell: bash -eo pipefail {0}
     steps:
-      - uses: actions/checkout@v5
+      - id: checkout
+        uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - id: node
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       # Capacitor 8 안드로이드 프로젝트는 JDK 21로 빌드한다
-      - uses: actions/setup-java@v5
+      - id: java
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      - id: android
+        uses: android-actions/setup-android@v3
 
-      - name: Install
+      - id: install
+        name: Install
         run: npm ci 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
-      - name: Build web
+      - id: web
+        name: Build web
         env:
           VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
         run: npm run build 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
-      - name: Sync Capacitor
+      - id: sync
+        name: Sync Capacitor
         run: npx cap sync android 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
-      - name: Build APK
+      - id: apk
+        name: Build APK
         working-directory: frontend/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
-      - name: Publish to Releases
+      - id: publish
+        name: Publish to Releases
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,6 +103,16 @@ jobs:
       - name: Report failure
         if: failure()
         working-directory: .
+        env:
+          OUTCOMES: >-
+            checkout=${{ steps.checkout.outcome }} node=${{ steps.node.outcome }}
+            java=${{ steps.java.outcome }} android=${{ steps.android.outcome }}
+            install=${{ steps.install.outcome }} web=${{ steps.web.outcome }}
+            sync=${{ steps.sync.outcome }} apk=${{ steps.apk.outcome }} publish=${{ steps.publish.outcome }}
         run: |
-          tail -n 80 "$RUNNER_TEMP/build.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt || true
-          echo "::error title=APK build failed::$(cat tail.txt)"
+          {
+            echo "steps: $OUTCOMES"
+            if [ -f "$RUNNER_TEMP/build.log" ]; then grep -v '^\s*$' "$RUNNER_TEMP/build.log" | tail -n 60; else echo "(build.log 없음 — 설치 전 단계에서 실패)"; fi
+          } > report.txt
+          msg=$(sed 's/%/%25/g' report.txt | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::error title=APK build failed::${msg}"
