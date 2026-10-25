@@ -1,39 +1,56 @@
-@import '@fontsource/jua';
-@import '@fontsource/pretendard/400.css';
-@import '@fontsource/pretendard/500.css';
-@import '@fontsource/pretendard/600.css';
-@import '@fontsource/pretendard/700.css';
+@import '@fontsource/noto-sans-kr/400.css';
+@import '@fontsource/noto-sans-kr/500.css';
+@import '@fontsource/noto-sans-kr/700.css';
+@import '@fontsource/noto-sans-kr/900.css';
 
+/*
+  리퀴드 글래스 테마 토큰.
+  지도가 항상 바탕이고, 그 위에 떠 있는 컨트롤·시트는 반투명 유리 재질(--glass-*)을 쓴다.
+  글이 빽빽한 곳(입력창, 목록, 시트 본문)은 --glass-strong 처럼 더 불투명한 면을 써서 읽기 쉽게 한다.
+*/
 :root {
   color-scheme: light;
 
-  --sky-top: #ffb199;
-  --sky-bottom: #ffd9a0;
-  --ground: #bfe6b0;
-  --ground-path: #f5e3c6;
-  --ink: #2b2140;
-  --ink-soft: #6b5f82;
-  --surface: #fffaf3;
+  /* 글자색 3단계 */
+  --ink: #1c1c1e;
+  --ink-2: #3a3a3c;
+  --ink-soft: #6b6b70;
+
+  /* 면 */
+  --map-bg: #f2f1ed;
+  --surface: #f2f2f7;
   --surface-raised: #ffffff;
-  --line: #2b2140;
+  --fill: rgba(118, 118, 128, 0.14);
+  --fill-strong: rgba(118, 118, 128, 0.2);
+  --line: rgba(60, 60, 67, 0.12);
 
-  --accent: #ff7a45;
-  --accent-ink: #7a2f10;
+  /* 포인트 색 — 흰 글자 OK. 연한 틴트 위 글자는 --accent-ink */
+  --accent: #d9365a;
+  --accent-ink: #b3204a;
+  --accent-tint: rgba(217, 54, 90, 0.13);
+  --blue: #2f7bf6;
+  --star: #ff9f0a;
 
-  --group-close: #a9c4e3;
-  --group-work: #a9c4e3;
-  --group-college: #a9c4e3;
+  /* 유리 재질 */
+  --glass: rgba(255, 255, 255, 0.58);
+  --glass-strong: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(22px) saturate(180%);
+  --glass-shadow: 0 10px 30px rgba(20, 20, 30, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --control-shadow: 0 3px 8px rgba(20, 20, 30, 0.12);
 
+  /* 모서리 — 바깥 반경 - 안쪽 여백 = 안쪽 반경 (동심원) */
+  --radius-sheet: 36px;
   --radius-lg: 28px;
-  --radius-md: 20px;
+  --radius-md: 22px;
   --radius-sm: 14px;
   --radius-pill: 999px;
 
-  --shadow-float: 0 14px 30px -10px rgba(43, 33, 64, 0.35);
-  --shadow-pop: 0 6px 16px -6px rgba(43, 33, 64, 0.28);
+  --shadow-float: 0 10px 30px rgba(20, 20, 30, 0.14);
+  --shadow-pop: 0 6px 16px rgba(20, 20, 30, 0.16);
 
-  --font-display: 'Jua', 'Pretendard', system-ui, sans-serif;
-  --font-body: 'Pretendard', system-ui, sans-serif;
+  --font-display: 'Noto Sans KR', system-ui, sans-serif;
+  --font-body: 'Noto Sans KR', system-ui, sans-serif;
 
   /* 키보드가 가린 화면 아래 높이. App이 실제 뷰포트를 재서 채운다 (키보드 없으면 0) */
   --kb: 0px;
@@ -55,33 +72,39 @@ body {
   margin: 0;
   font-family: var(--font-body);
   color: var(--ink);
-  background: var(--sky-top);
+  background: var(--map-bg);
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
   /* 페이지 핀치줌·더블탭줌 차단 (viewport meta 무시하는 브라우저 보강). 스크롤 팬은 허용 */
   touch-action: pan-x pan-y;
 }
 
-button {
+button,
+input,
+textarea {
   font-family: inherit;
+  letter-spacing: inherit;
+}
+
+button {
   color: inherit;
   /* 모든 버튼 공통 눌림 효과. transform이 아니라 scale 속성이라 기존 transform과 겹쳐도 안전 */
   transition: scale 90ms ease;
 }
 
 button:active {
-  scale: 0.94;
+  scale: 0.96;
 }
 
 ::selection {
-  background: var(--accent);
-  color: #fff9f2;
+  background: var(--accent-tint);
+  color: var(--ink);
 }
 
 :focus-visible {
-  outline: 3px solid var(--accent-ink);
-  outline-offset: 3px;
-  border-radius: var(--radius-sm);
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
 }
 
 ::-webkit-scrollbar {
@@ -94,10 +117,23 @@ button:active {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(43, 33, 64, 0.28);
+  background: rgba(60, 60, 67, 0.24);
   border-radius: var(--radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
+}
+
+/* 공통 유리 재질 — 지도 위에 떠 있는 컨트롤·시트 */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass--strong {
+  background: var(--glass-strong);
 }
 
 /* 프로필 사진 — 동그란 아바타 칸(Avatar 컴포넌트)을 꽉 채운다 */

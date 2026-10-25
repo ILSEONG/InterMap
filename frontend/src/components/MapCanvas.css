@@ -2,7 +2,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--ground-path);
+  background: var(--map-bg);
 }
 
 .map-canvas__surface {
@@ -12,48 +12,42 @@
   height: 100%;
 }
 
-/* GPS 버튼 — 좌측 하단, 우측 하단 후기 필터(.review-filter)와 같은 높이·정렬 기준 */
+/* 현재 위치 버튼 — 오른쪽, 하단 검색 독 바로 위 (유리 원) */
 .map-gps {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + 16px);
-  left: calc(max(0px, 50vw - 240px) + 12px);
-  width: 40px;
-  height: 40px;
+  bottom: calc(max(env(safe-area-inset-bottom), 16px) + 12px + 146px);
+  right: calc(max(0px, 50vw - 240px) + 14px);
+  z-index: 5;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-raised);
-  border: 2.5px solid var(--ink);
-  border-radius: 50%;
-  box-shadow: var(--shadow-float);
-  color: var(--ink);
+  padding: 0;
+  border-radius: 25px;
+  color: var(--blue);
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.map-gps:active {
-  transform: scale(0.94);
 }
 
 .map-gps--locating svg {
-  animation: map-gps-spin 1s linear infinite;
+  animation: map-gps-pulse 1s ease-in-out infinite alternate;
 }
 
-@keyframes map-gps-spin {
+@keyframes map-gps-pulse {
   to {
-    transform: rotate(360deg);
+    opacity: 0.35;
   }
 }
 
-/* 실시간 현재 위치 점 — 핀과 헷갈리지 않게 흰 테두리의 빨간 점 하나 */
+/* 실시간 현재 위치 — 흰 테두리의 파란 점 + 옅은 파란 후광 (마커 하나뿐이라 그림자 허용) */
 .my-loc {
   display: block;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ff3b30;
-  border: 2.5px solid #fff;
-  box-shadow: 0 0 0 1.5px var(--ink);
+  background: var(--blue);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 11px rgba(47, 123, 246, 0.16), 0 2px 6px rgba(20, 20, 30, 0.3);
 }
 
 .map-canvas__error {
@@ -64,10 +58,10 @@
   justify-content: center;
   text-align: center;
   padding: 24px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--ink-soft);
-  background: var(--surface);
+  background: var(--map-bg);
 }
 
 .map-pin {
@@ -80,11 +74,11 @@
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  /* filter: drop-shadow는 마커 수백 개가 지도 이동마다 재래스터라이즈되어 끊긴다.
-     그림자는 box-shadow로 dot에만 준다. */
+  /* 성능: 마커 수백 개가 지도 이동마다 다시 그려진다.
+     filter·box-shadow·backdrop-filter는 마커에 쓰지 않는다 — 모바일 WebView가 pan마다 깜빡인다.
+     유리 느낌은 반투명 흰 면과 흰 테두리로만 낸다. */
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  /* 지도 canvas 표면과 래스터를 분리해 pan 중 재페인트로 인한 깜빡임 방지.
-     셀 요약으로 마커 수가 ~100개 이하로 묶여 있어 레이어 수는 감당 범위. */
+  /* 지도 canvas 표면과 래스터를 분리해 pan 중 재페인트로 인한 깜빡임 방지 */
   transform: translateZ(0);
 }
 
@@ -102,35 +96,33 @@
 
 .map-pin:hover,
 .map-pin:focus-visible {
-  transform: scale(1.08);
+  transform: scale(1.1);
 }
 
+/* 가게 하나 — 흰 테두리를 두른 그룹색 점 */
 .map-pin__dot {
   position: absolute;
-  left: 1px;
-  top: 1px;
-  width: 14px;
-  height: 14px;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
   border-radius: 50%;
   background: var(--pin-color, var(--accent));
-  /* 테두리 없음 — 어두운 링은 원이 많을 때 "구멍 무리"로 보인다(환공포증 유발). */
-  border: none;
+  border: 2px solid #fff;
   display: block;
-  /* box-shadow 금지: 마커 수백 개면 pan마다 전체 표면 재래스터 → 모바일 WebView 깜빡임.
-     잉크 외곽선(border)만으로 두들 느낌을 유지한다. */
 }
 
-/* 찜 모드 — 원 대신 초록 별 글리프 */
+/* 찜 모드 — 점 대신 별 */
 .map-pin--star {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
 
 .map-pin--star .map-pin__dot {
-  left: 0;
-  top: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  border: none;
   border-radius: 0;
   background: none;
   display: flex;
@@ -138,26 +130,51 @@
   justify-content: center;
 }
 
+/* 겹친 가게 — 흰 원에 그룹색 링, 가운데 개수 */
 .map-pin--cluster {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   z-index: 1;
 }
 
 .map-pin--cluster .map-pin__dot {
-  left: 0;
-  top: 0;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-size: 12px;
-  color: #fff9f2;
-  /* 파스텔 원색 그대로면 흰 숫자가 안 읽힌다 — 같은 색조를 어둡게 섞어 대비 확보.
-     군집 원은 수가 적고 숫자가 반복 패턴을 깨서 어두워도 환공포증 유발이 덜하다. */
-  background: color-mix(in srgb, var(--pin-color, var(--accent)) 60%, var(--ink));
+  background: rgba(255, 255, 255, 0.94);
+  border: 3px solid var(--pin-color, var(--accent));
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+/* 후기 없는 가게 요약 셀 — 회색 반투명 알약 "+N" */
+.map-pin--cell {
+  width: 48px;
+  height: 30px;
+}
+
+.map-pin--cell::before {
+  width: 48px;
+  height: 30px;
+}
+
+.map-pin--cell .map-pin__dot {
+  width: 48px;
+  height: 30px;
+  border: none;
+  border-radius: 15px;
+  background: rgba(118, 118, 128, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
 }
 
 .map-pin:hover,
@@ -174,17 +191,17 @@
 /* 겹치지 않은 핀은 이름을 항상 아래에 붙여둔다 (터치엔 hover가 없으므로) */
 .map-pin__name {
   position: absolute;
-  top: calc(100% + 3px);
+  top: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
-  max-width: 92px;
-  padding: 1px 6px;
+  max-width: 108px;
+  padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 249, 242, 0.92);
-  border: 1.5px solid var(--ink);
-  font-family: var(--font-display);
-  font-size: 10px;
-  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.92);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -192,9 +209,13 @@
   pointer-events: none;
 }
 
+/* 고른 핀 — 이름이 진한 알약으로 */
 .map-pin--focused .map-pin__name {
-  font-size: 11px;
-  max-width: 130px;
+  max-width: 160px;
+  padding: 4px 12px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
 }
 
 /* 목록에서 방금 고른 핀은 퍼지는 링 하나로만 구분한다 */
@@ -203,8 +224,8 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   /* margin으로 맞추면 크기 바뀔 때 중심이 어긋난다. transform으로 고정. */
   transform: translate(-50%, -50%) scale(0);
   border-radius: 50%;
@@ -213,10 +234,10 @@
   pointer-events: none;
 }
 
-/* 뭉친 핀은 원 자체가 22px이라 링을 더 크게 잡아야 밖으로 퍼져 보인다 */
+/* 뭉친 핀은 원 자체가 커서 링을 더 크게 잡아야 밖으로 퍼져 보인다 */
 .map-pin--cluster.map-pin--focused::after {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
 }
 
 @keyframes map-pin-pulse {
@@ -230,18 +251,28 @@
   }
 }
 
-/* 겹친 핀을 누르면 핀 위에 뜨는 목록 (InfoWindow 안에 들어간다) */
+@media (prefers-reduced-motion: reduce) {
+  .map-pin--focused::after,
+  .map-gps--locating svg {
+    animation: none;
+  }
+}
+
+/* 겹친 핀을 누르면 핀 위에 뜨는 목록 (InfoWindow 안에 들어간다) — 진한 유리 카드 */
 .pin-list {
-  max-width: 260px;
-  max-height: 232px;
+  max-width: 280px;
+  max-height: 248px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  background: var(--surface);
-  border: 3px solid var(--ink);
-  border-radius: 18px;
-  box-shadow: var(--shadow-float);
-  padding: 6px;
+  padding: 8px;
+  border-radius: 26px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  font-family: var(--font-body);
 }
 
 .pin-list__items {
@@ -256,13 +287,13 @@
 .pin-list__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  min-height: 44px;
-  padding: 6px 8px;
+  min-height: 48px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 18px;
   background: transparent;
-  border: 2px solid transparent;
-  border-radius: 12px;
   text-align: left;
   font-family: var(--font-body);
   color: var(--ink);
@@ -272,8 +303,7 @@
 
 .pin-list__row:hover,
 .pin-list__row:active {
-  background: var(--surface-raised);
-  border-color: var(--ink);
+  background: var(--fill);
 }
 
 .pin-list__dot {
@@ -287,11 +317,12 @@
 .pin-list__body {
   display: flex;
   flex-direction: column;
+  gap: 1px;
   min-width: 0;
 }
 
 .pin-list__name {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -299,17 +330,18 @@
 }
 
 .pin-list__name em {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: rgba(118, 118, 128, 0.16);
   font-style: normal;
-  font-size: 10px;
-  color: #fff9f2;
-  background: #9b93ab;
-  border-radius: var(--radius-pill);
-  padding: 1px 6px;
-  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
 }
 
 .pin-list__meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;

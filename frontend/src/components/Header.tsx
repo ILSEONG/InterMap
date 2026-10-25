@@ -1,19 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import personIcon from '../assets/person-icon.png'
 import StarIcon from './StarIcon'
 import './Header.css'
 
 export type SearchMode = 'restaurant' | 'person'
 
 interface HeaderProps {
-  query: string
-  onQueryChange: (value: string) => void
-  // Enter(키보드 검색 버튼): 결과 목록은 닫고 키워드·지도 필터는 그대로 둔다
-  onSubmit: () => void
-  // 검색창에 포커스가 오면 (키워드가 남아 있을 때) 결과 목록을 다시 연다
-  onSearchFocus: () => void
-  searchMode: SearchMode
-  onSearchModeChange: (mode: SearchMode) => void
   // 로그인 상태면 닉네임, 아니면 null
   nickname: string | null
   onLogin: () => void
@@ -23,7 +14,7 @@ interface HeaderProps {
   following: FollowingPerson[] | null
   selectedPersonId: number | null
   onSelectPerson: (id: number | null) => void
-  // 찜 모드 — 켜면 지도에 내가 찜한 가게만 초록 별로 나온다
+  // 찜 모드 — 켜면 지도에 내가 찜한 가게만 별로 나온다
   favMode: boolean
   onToggleFavMode: () => void
 }
@@ -33,16 +24,12 @@ export interface FollowingPerson {
   name: string
 }
 
-// 로고 글자색 — AuthModal 등 다른 곳에서 "인터맵"을 로고처럼 칠할 때도 쓴다
-export const WORDMARK_COLORS = ['#ff5d73', '#ff7a45', '#2fbfa6', '#8b6bff']
+// 예전 다색 로고 글자색. 새 워드마크는 한 가지 잉크색이지만 외부에서 참조할 수 있게 남겨둔다.
+export const WORDMARK_COLORS = ['#1c1c1e']
 
+// 상단 유리 캡슐 — 내 계정 · 친구 목록 · 인터맵 · 찜 모드.
+// 검색은 엄지가 닿는 하단 독(SearchDock)으로 옮겼다.
 export default function Header({
-  query,
-  onQueryChange,
-  onSubmit,
-  onSearchFocus,
-  searchMode,
-  onSearchModeChange,
   nickname,
   onLogin,
   onLogout,
@@ -53,17 +40,10 @@ export default function Header({
   favMode,
   onToggleFavMode,
 }: HeaderProps) {
-  const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [friendsOpen, setFriendsOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
   const accountRef = useRef<HTMLDivElement>(null)
   const friendsRef = useRef<HTMLDivElement>(null)
-  const letters = ['인', '터', '맵']
-
-  useEffect(() => {
-    if (searching) inputRef.current?.focus()
-  }, [searching])
 
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
@@ -76,56 +56,49 @@ export default function Header({
     return () => document.removeEventListener('pointerdown', close)
   }, [accountOpen, friendsOpen])
 
-  function toggleSearch() {
-    if (searching) onQueryChange('')
-    // 검색을 열면 친구 선택(TOP 5 칩)은 접는다
-    else onSelectPerson(null)
-    setSearching((prev) => !prev)
-  }
-
   return (
-    <header className={`app-header${searching ? ' app-header--searching' : ''}`}>
-      <div className="app-header__account" ref={accountRef}>
-        <button
-          type="button"
-          className="app-header__account-toggle"
-          onClick={() => {
-            setFriendsOpen(false)
-            setAccountOpen((prev) => !prev)
-          }}
-          aria-label="내 계정"
-          aria-expanded={accountOpen}
-        >
-          <PersonIcon />
-        </button>
-        {accountOpen && (
-          <div className="app-header__account-menu" role="menu">
-            {nickname ? (
-              <>
-                <p className="app-header__account-name">{nickname}님</p>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setAccountOpen(false)
-                    onMyPage()
-                  }}
-                >
-                  마이페이지
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setAccountOpen(false)
-                    onLogout()
-                  }}
-                >
-                  로그아웃
-                </button>
-              </>
-            ) : (
-              <>
+    <header className="app-header glass">
+      <div className="app-header__left">
+        <div className="app-header__menu-anchor" ref={accountRef}>
+          <button
+            type="button"
+            className="app-header__icon-btn app-header__icon-btn--filled"
+            onClick={() => {
+              setFriendsOpen(false)
+              setAccountOpen((prev) => !prev)
+            }}
+            aria-label="내 계정"
+            aria-expanded={accountOpen}
+          >
+            <PersonIcon />
+          </button>
+          {accountOpen && (
+            <div className="app-header__menu" role="menu">
+              {nickname ? (
+                <>
+                  <p className="app-header__menu-label">{nickname}님</p>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountOpen(false)
+                      onMyPage()
+                    }}
+                  >
+                    마이페이지
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountOpen(false)
+                      onLogout()
+                    }}
+                  >
+                    로그아웃
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   role="menuitem"
@@ -136,15 +109,15 @@ export default function Header({
                 >
                   로그인
                 </button>
-              </>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
         {following && (
-          <div className="app-header__friends" ref={friendsRef}>
+          <div className="app-header__menu-anchor" ref={friendsRef}>
             <button
               type="button"
-              className={`app-header__account-toggle${selectedPersonId !== null ? ' app-header__account-toggle--active' : ''}`}
+              className={`app-header__icon-btn${selectedPersonId !== null ? ' app-header__icon-btn--active' : ''}`}
               onClick={() => {
                 setAccountOpen(false)
                 setFriendsOpen((prev) => !prev)
@@ -155,27 +128,25 @@ export default function Header({
               <FriendsIcon />
             </button>
             {friendsOpen && (
-              <div className="app-header__account-menu" role="menu">
+              <div className="app-header__menu" role="menu">
                 {following.length === 0 ? (
-                  <p className="app-header__account-name">팔로잉한 사람이 없어요</p>
+                  <p className="app-header__menu-label">팔로잉한 사람이 없어요</p>
                 ) : (
-                  <>
-                    {following.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={selectedPersonId === p.id}
-                        className={selectedPersonId === p.id ? 'app-header__menu-item--active' : undefined}
-                        onClick={() => {
-                          setFriendsOpen(false)
-                          onSelectPerson(p.id)
-                        }}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </>
+                  following.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selectedPersonId === p.id}
+                      className={selectedPersonId === p.id ? 'app-header__menu-item--active' : undefined}
+                      onClick={() => {
+                        setFriendsOpen(false)
+                        onSelectPerson(p.id)
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                  ))
                 )}
               </div>
             )}
@@ -183,100 +154,37 @@ export default function Header({
         )}
       </div>
 
-      <div className="app-header__center">
-        <h1 className="app-header__wordmark" aria-label="인터맵" aria-hidden={searching}>
-          {letters.map((letter, i) => (
-            <span key={i} style={{ color: WORDMARK_COLORS[i % WORDMARK_COLORS.length] }}>
-              {letter}
-            </span>
-          ))}
-        </h1>
-        <div className="app-header__search-row">
-          <div className="app-header__search-mode" role="group" aria-label="검색 대상">
-            {(
-              [
-                ['restaurant', '가게'],
-                ['person', '사람'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`app-header__search-mode-chip${searchMode === value ? ' app-header__search-mode-chip--active' : ''}`}
-                aria-pressed={searchMode === value}
-                tabIndex={searching ? 0 : -1}
-                onClick={() => onSearchModeChange(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <input
-            ref={inputRef}
-            type="search"
-            className="app-header__search"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={onSearchFocus}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') toggleSearch()
-              if (e.key === 'Enter') {
-                e.currentTarget.blur()
-                onSubmit()
-              }
-            }}
-            enterKeyHint="search"
-            placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '사람 이름으로 찾기'}
-            aria-label="가게 검색"
-            tabIndex={searching ? 0 : -1}
-          />
-        </div>
-      </div>
+      <h1 className="app-header__wordmark">인터맵</h1>
 
-      <div className="app-header__right">
-        <button
-          type="button"
-          className="app-header__search-toggle"
-          onClick={toggleSearch}
-          aria-label={searching ? '검색 닫기' : '검색 열기'}
-          aria-expanded={searching}
-        >
-          {searching ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2.6" />
-              <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-            </svg>
-          )}
-        </button>
-        <button
-          type="button"
-          className={`app-header__search-toggle app-header__fav-toggle${favMode ? ' app-header__fav-toggle--on' : ''}`}
-          onClick={onToggleFavMode}
-          aria-label={favMode ? '찜한 가게만 보기 끄기' : '찜한 가게만 보기'}
-          aria-pressed={favMode}
-        >
-          <StarIcon filled size={19} />
-        </button>
-      </div>
+      <button
+        type="button"
+        className={`app-header__icon-btn app-header__fav${favMode ? ' app-header__fav--on' : ''}`}
+        onClick={onToggleFavMode}
+        aria-label={favMode ? '찜한 가게만 보기 끄기' : '찜한 가게만 보기'}
+        aria-pressed={favMode}
+      >
+        <StarIcon filled={favMode} size={22} />
+      </button>
     </header>
   )
 }
 
-// 내 계정 버튼 아이콘
 function PersonIcon() {
-  return <img className="app-header__person-icon app-header__person-icon--flipped" src={personIcon} alt="" aria-hidden="true" />
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />
+    </svg>
+  )
 }
 
-// 친구 목록 버튼 아이콘 — 같은 사람 아이콘 둘이 마주 보는 모양
 function FriendsIcon() {
   return (
-    <span className="app-header__friends-icon" aria-hidden="true">
-      <img className="app-header__person-icon app-header__person-icon--flipped" src={personIcon} alt="" />
-      <img className="app-header__person-icon" src={personIcon} alt="" />
-    </span>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20c1-3.2 3.5-4.8 6.5-4.8s5.5 1.6 6.5 4.8" />
+      <path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.6" />
+      <path d="M17.5 15.4c2 .6 3.4 2.2 4 4.6" />
+    </svg>
   )
 }

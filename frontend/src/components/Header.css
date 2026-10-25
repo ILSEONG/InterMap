@@ -1,122 +1,61 @@
+/* 상단 유리 캡슐 — 58px 높이, 좌: 내 계정·친구 / 가운데: 인터맵 / 우: 찜 */
 .app-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--surface-raised);
-  border: 3px solid var(--ink);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-float);
+  height: 58px;
+  padding: 0 7px;
+  border-radius: 29px;
   /* 지도 canvas와 같은 표면에 래스터되면 Android WebView에서 pan마다 같이 깜빡인다.
      자체 GPU 레이어로 분리. (조상 .app__chrome에 주면 fixed 자손 위치가 틀어짐) */
   transform: translateZ(0);
 }
 
-.app-header__account {
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-header__menu-anchor {
   position: relative;
 }
 
-.app-header__account-toggle {
+.app-header__icon-btn {
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  background: var(--surface);
-  border: 2.5px solid var(--ink);
-  border-radius: 50%;
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.app-header__account-toggle:active {
-  background: #fff0e0;
-}
-
-.app-header__person-icon {
-  width: 20px;
-  height: auto;
-  display: block;
-}
-
-.app-header__friends-icon {
-  display: inline-flex;
-  align-items: center;
-}
-
-.app-header__friends-icon .app-header__person-icon {
-  width: 15px;
-}
-
-.app-header__person-icon--flipped {
-  transform: scaleX(-1);
-}
-
-.app-header__friends-icon .app-header__person-icon + .app-header__person-icon {
-  margin-left: -4px;
-}
-
-/* 이모지 버튼 바로 아래에 뜨는 로그인/회원가입 메뉴 */
-.app-header__account-menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  min-width: 120px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  background: var(--surface);
-  border: 2.5px solid var(--ink);
-  border-radius: 16px;
-  box-shadow: var(--shadow-float);
-  z-index: 20;
-}
-
-.app-header__account-menu button {
-  min-height: 44px;
-  padding: 6px 12px;
+  padding: 0;
+  border: none;
+  border-radius: 22px;
   background: transparent;
-  border: 2px solid transparent;
-  border-radius: 10px;
-  font-family: var(--font-display);
-  font-size: 14px;
   color: var(--ink);
-  text-align: left;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  transition: background 140ms ease, scale 90ms ease;
 }
 
-.app-header__account-menu button:active {
-  background: var(--surface-raised);
-  border-color: var(--ink);
+.app-header__icon-btn--filled {
+  background: rgba(255, 255, 255, 0.7);
 }
 
-.app-header__account-name {
-  margin: 0;
-  padding: 8px 12px 4px;
-  font-family: var(--font-display);
-  font-size: 13px;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
+/* 친구 한 명을 골라 보는 중 */
+.app-header__icon-btn--active {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
 }
 
-.app-header__center {
-  /* position을 주지 않아야 워드마크의 absolute 기준이 헤더 전체(translateZ 컨테이닝 블록)가
-     되어, 좌우 버튼 수가 달라도 "인터맵"이 헤더 정가운데에 온다 */
-  grid-column: 2;
-  min-width: 0;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
+.app-header__fav {
+  margin-left: auto;
 }
 
+.app-header__fav--on {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+/* 헤더 정가운데 — 좌우 버튼 수가 달라도 가운데에 오도록 절대 위치 */
 .app-header__wordmark {
   position: absolute;
   left: 50%;
@@ -124,158 +63,86 @@
   transform: translate(-50%, -50%);
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: 0.02em;
-  display: flex;
-  transition: opacity 200ms ease, transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1), filter 200ms ease;
-}
-
-.app-header__wordmark span {
-  -webkit-text-stroke: 1.4px var(--ink);
-  paint-order: stroke fill;
-}
-
-.app-header--searching .app-header__wordmark {
-  opacity: 0;
-  transform: translate(-50%, -150%) scale(0.7) rotate(-6deg);
-  filter: blur(2px);
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--ink);
   pointer-events: none;
-}
-
-.app-header__search-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  opacity: 0;
-  transform: scaleX(0.7);
-  transform-origin: right center;
-  pointer-events: none;
-  transition: opacity 180ms ease 60ms, transform 280ms cubic-bezier(0.34, 1.4, 0.64, 1) 60ms;
-}
-
-.app-header--searching .app-header__search-row {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-}
-
-/* 검색창 왼쪽에 붙는 가게/사람 검색 대상 토글 */
-.app-header__search-mode {
-  flex: 0 0 auto;
-  display: inline-flex;
-  padding: 2px;
-  background: var(--ground-path);
-  border: 2px solid var(--ink);
-  border-radius: var(--radius-pill);
-}
-
-.app-header__search-mode-chip {
-  border: none;
-  background: none;
-  padding: 5px 9px;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-display);
-  font-size: 11px;
-  color: var(--ink-soft);
-  cursor: pointer;
   white-space: nowrap;
-  transition: background 140ms ease, color 140ms ease;
 }
 
-.app-header__search-mode-chip--active {
-  background: var(--accent);
-  color: #fff9f2;
-}
-
-.app-header__search {
-  flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 7px 14px;
-  background: var(--surface);
-  border: 2.5px solid var(--ink);
-  border-radius: var(--radius-pill);
-  font-family: inherit;
-  font-size: 14px;
-  color: var(--ink);
-}
-
-.app-header__search:focus {
-  outline: none;
-  background: #fff0e0;
-}
-
-.app-header__search-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  background: var(--surface);
-  border: 2.5px solid var(--ink);
-  border-radius: var(--radius-pill);
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease;
-}
-
-.app-header__search-toggle:hover {
-  background: #fff0e0;
-  transform: translateY(-1px);
-}
-
-/* 오른쪽 칸 — 검색·찜 버튼 나란히 */
-.app-header__right {
+/* 계정·친구 버튼 아래 뜨는 메뉴 */
+.app-header__menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: -7px;
+  min-width: 168px;
+  max-height: min(60vh, 360px);
+  overflow-y: auto;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 24px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  z-index: 20;
+  animation: header-menu-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transform-origin: top left;
 }
 
-.app-header__fav-toggle {
+.app-header__menu button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-header__menu button:hover,
+.app-header__menu button:active {
+  background: var(--fill);
+}
+
+.app-header__menu .app-header__menu-item--active {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.app-header__menu-label {
+  margin: 0;
+  padding: 8px 14px 6px;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
 }
 
-.app-header__fav-toggle--on {
-  color: #fff9f2;
-  background: #2fbfa6;
-}
-
-.app-header__fav-toggle--on:hover {
-  background: #2fbfa6;
-}
-
-/* 검색 열리면 찜 버튼은 숨겨 검색창 폭을 넓힌다 */
-.app-header--searching .app-header__fav-toggle {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-header__wordmark,
-  .app-header__search-row {
-    transition-duration: 1ms;
+@keyframes header-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-/* 계정 버튼 옆 친구 목록 버튼 — 둘 다 왼쪽 칸에 나란히 */
-.app-header__account {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+@media (prefers-reduced-motion: reduce) {
+  .app-header__menu {
+    animation: none;
+  }
 }
-
-.app-header__friends {
-  position: relative;
-}
-
-.app-header__account-toggle--active {
-  background: var(--accent);
-}
-
-.app-header__account-menu .app-header__menu-item--active {
-  border-color: var(--ink);
-  background: var(--surface-raised);
-}
-

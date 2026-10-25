@@ -51,10 +51,10 @@ function escapeHtml(value: string): string {
 }
 
 // 후기 있는 가게 핀 색. 그룹색보다 우선 — "이웃이 다녀간 곳"이 지도에서 바로 보이게.
-const REVIEWED_PIN_COLOR = '#F5C542'
+const REVIEWED_PIN_COLOR = '#FF5D73'
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
-  if (items.every((r) => r.closed)) return '#9b93ab'
+  if (items.every((r) => r.closed)) return '#AEAEB2'
   if (items.some((r) => !r.closed && r.reviews.length > 0)) return REVIEWED_PIN_COLOR
   // 그룹 미지정 가게는 'none' 유사 그룹으로 취급해 필터·색을 같이 태운다
   const active = groups.filter((g) =>
@@ -63,29 +63,43 @@ function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? 'var(--gc-none)'
 }
 
-// 찜 모드 핀 색 — 워드마크의 초록
-const FAVORITE_PIN_COLOR = '#2FBFA6'
+// 찜 모드 핀 색 — 별 노랑
+const FAVORITE_PIN_COLOR = '#FF9F0A'
 
 // 헤더 찜 토글과 같은 통통한 별 (StarIcon.STAR_PATH)
-const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="display:block"><path d="${STAR_PATH}" style="fill:var(--pin-color);stroke:var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`
+const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="display:block"><path d="${STAR_PATH}" style="fill:var(--pin-color);stroke:#fff" stroke-width="2" stroke-linejoin="round"/></svg>`
 
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
   // 요약 셀 핀은 items가 비어 있고 count만 있다 — 항상 군집 모양, 색은 미지정 그룹색
   const count = pin.count ?? pin.items.length
   const cluster = count > 1
+  // 후기 없는 가게 덩어리(요약 셀) — 회색 반투명 알약에 "+N"
+  const cell = pin.items.length === 0
   const color = star ? FAVORITE_PIN_COLOR : pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
-  const classes = ['map-pin', cluster && 'map-pin--cluster', !cluster && star && 'map-pin--star', focused && 'map-pin--focused']
+  const classes = [
+    'map-pin',
+    cell ? 'map-pin--cell' : cluster && 'map-pin--cluster',
+    !cluster && star && 'map-pin--star',
+    focused && 'map-pin--focused',
+  ]
     .filter(Boolean)
     .join(' ')
   const title = cluster || pin.items.length === 0 ? `이 자리 ${count}곳` : escapeHtml(pin.items[0].name)
   return {
     content: `
       <button type="button" class="${classes}" style="--pin-color:${color}" aria-label="${title}">
-        <span class="map-pin__dot">${cluster ? count : star ? STAR_PIN_SVG : ''}</span>
+        <span class="map-pin__dot">${cell ? `+${count}` : cluster ? count : star ? STAR_PIN_SVG : ''}</span>
         ${pin.items.length === 1 ? `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>` : ''}
       </button>
     `,
-    anchor: new window.naver.maps.Point(cluster ? 11 : star ? 10 : 8, cluster ? 22 : star ? 18 : 16),
+    // 크기는 MapCanvas.css와 맞춘다: 셀 48×30, 군집 32×32, 별 22×22, 점 16×16 — 모두 가운데 기준
+    anchor: cell
+      ? new window.naver.maps.Point(24, 15)
+      : cluster
+        ? new window.naver.maps.Point(16, 16)
+        : star
+          ? new window.naver.maps.Point(11, 11)
+          : new window.naver.maps.Point(8, 8),
   }
 }
 
@@ -456,14 +470,12 @@ export default function MapCanvas({
       <div ref={mapDivRef} className="map-canvas__surface" />
       <button
         type="button"
-        className={`map-gps${locating ? ' map-gps--locating' : ''}`}
+        className={`map-gps glass${locating ? ' map-gps--locating' : ''}`}
         aria-label="현재 위치로 이동"
         onClick={goToMyLocation}
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-          <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2.2" />
-          <circle cx="12" cy="12" r="2.4" fill="currentColor" />
-          <path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M20 4L4 11l7 2 2 7z" />
         </svg>
       </button>
       {mapError && (

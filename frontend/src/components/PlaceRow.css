@@ -1,74 +1,114 @@
 .place-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  /* 터치 타깃 44px 확보 */
-  min-height: 44px;
-  padding: 10px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 26px;
   background: transparent;
-  border: 2px solid transparent;
-  border-radius: var(--radius-md);
   text-align: left;
-  font-family: inherit;
   color: var(--ink);
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease;
 }
 
 .place-row:hover,
 .place-row:focus-visible,
 .place-row:active {
-  background: var(--surface);
-  border-color: var(--ink);
-  outline: none;
+  background: var(--fill);
 }
 
-.place-row__dot {
+/* 이웃 후기가 있는 가게 */
+.place-row--reviewed {
+  background: var(--accent-tint);
+}
+
+.place-row--reviewed:hover,
+.place-row--reviewed:focus-visible,
+.place-row--reviewed:active {
+  background: rgba(217, 54, 90, 0.18);
+}
+
+.place-row__icon {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2.5px solid var(--ink);
-  background: var(--pin-color);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+}
+
+.place-row--reviewed .place-row__icon {
+  background: #fff;
+  color: var(--accent-ink);
+}
+
+.place-row--closed .place-row__icon {
+  color: var(--ink-soft);
 }
 
 .place-row__body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
-  flex: 1;
 }
 
 .place-row__name {
+  font-size: 16px;
   font-weight: 700;
-  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.place-row__closed {
-  margin-left: 6px;
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff9f2;
-  background: #9b93ab;
-  border-radius: var(--radius-pill);
-  padding: 1px 8px;
+.place-row--closed .place-row__name {
+  color: var(--ink-2);
 }
 
 .place-row__meta {
-  font-size: 12px;
-  color: var(--ink-soft);
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.place-row__reviews {
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 700;
+.place-row--closed .place-row__meta {
   color: var(--ink-soft);
+}
+
+.place-row__dots {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+}
+
+.place-row__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+}
+
+.place-row__closed {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(118, 118, 128, 0.16);
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+/* 검색어 일치 부분 */
+.highlight {
+  background: none;
+  color: var(--accent-ink);
 }
