@@ -1,146 +1,487 @@
-.my-page {
+/*
+  마이페이지 · 프로필 개요 공통 껍데기 — 지도 위에 떠 있는 유리 시트.
+  blur는 시트 한 장에만 걸고, 안쪽 목록 카드는 불투명한 흰 면으로 그린다 (반복 행에 backdrop-filter 금지).
+*/
+
+/* 화면 전체를 덮는 투명 레이어. 예전처럼 시트 뒤 지도·헤더가 눌리지 않게 막아 둔다 */
+.my-page-layer {
   position: fixed;
   inset: 0;
   z-index: 45;
+}
+
+.my-page {
+  position: absolute;
+  left: max(6px, env(safe-area-inset-left));
+  right: max(6px, env(safe-area-inset-right));
+  top: max(env(safe-area-inset-top), 12px);
+  /* 키보드가 올라오면 시트 바닥을 그만큼 올려 닉네임·검색 입력칸이 가려지지 않게 한다 */
+  bottom: calc(6px + var(--kb));
+  max-width: 480px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
   color: var(--ink);
-  padding-top: max(env(safe-area-inset-top), 10px);
+  border-radius: 38px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 -6px 30px rgba(20, 20, 30, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  animation: my-page-in 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes my-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .my-page__header {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px 10px;
-}
-
-.my-page__back {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2.5px solid var(--ink);
-  background: var(--surface-raised);
-  font-size: 18px;
-  cursor: pointer;
+  height: 44px;
+  margin-top: 19px;
+  padding: 0 14px;
 }
 
 .my-page__title {
-  margin: 0;
+  margin: 0 0 0 6px;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.my-page__close {
+  flex: none;
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.my-page__close:active {
+  background: var(--fill-strong);
 }
 
 .my-page__scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  /* 닉네임·검색 입력칸이 키보드에 가리지 않도록 아래 여백에 키보드 높이를 더한다 */
-  padding: 0 16px calc(max(env(safe-area-inset-bottom), 24px) + var(--kb));
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* 좌우 여백을 스크롤 안쪽에 둬서 카드 그림자가 잘리지 않게 한다 */
+  padding: 0 14px max(22px, env(safe-area-inset-bottom));
 }
 
 .my-page__section {
-  margin-top: 18px;
+  margin-top: 12px;
+}
+
+.my-page__section--reviews {
+  margin-top: 14px;
 }
 
 .my-page__section-title {
-  margin: 0 0 8px;
+  margin: 0 6px 6px;
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 32px;
 }
 
-.my-page__row-input {
+.my-page__section-title--small {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.my-page__count {
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 흰 목록 카드 — 시트 반경 안쪽 동심원 */
+.my-page__card {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border-radius: 26px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
   display: flex;
-  gap: 8px;
+  flex-direction: column;
 }
 
-.my-page__row-input input {
+.my-page__empty {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 24px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.my-page__hint {
+  margin: 6px 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.my-page__hint--field {
+  margin: 6px 16px 0;
+}
+
+.my-page__hint--error,
+.my-page__error {
+  color: var(--accent-ink);
+}
+
+.my-page__error {
+  margin: 8px 6px 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* 화면엔 안 보이고 스크린리더만 읽는 글자 */
+.my-page__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 아바타 ─────────────────────────────── */
+.my-page__avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── 내 프로필: 사진 + 닉네임 칸 + 사진 바꾸기 ─────────── */
+.my-page__profile {
+  margin-top: 12px;
+  padding: 4px 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.my-page__avatar--me {
+  width: 84px;
+  height: 84px;
+  font-size: 34px;
+  font-weight: 900;
+  background: #fce3ea;
+  color: var(--accent-ink);
+  box-shadow:
+    0 0 0 4px #fff,
+    0 8px 20px rgba(20, 20, 30, 0.1);
+}
+
+.my-page__profile-main {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 2px solid var(--ink);
-  border-radius: var(--radius-pill);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 흰 알약 입력칸 (닉네임·사람 찾기) */
+.my-page__field {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: 24px;
   background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.1);
+  color: var(--ink-2);
+}
+
+.my-page__field:has(input:focus-visible) {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.my-page__field--search {
+  gap: 10px;
+}
+
+.my-page__field svg {
+  flex: none;
+}
+
+.my-page__field-label {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.my-page__field input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  outline: none;
   font: inherit;
   font-size: 15px;
   color: var(--ink);
 }
 
-.my-page__row-input input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.my-page__row-input button,
-.my-page__action {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 2px solid var(--ink);
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  font-family: var(--font-display);
-  font-size: 13px;
-  color: var(--ink);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.my-page__action--ghost {
-  border-color: transparent;
-  background: transparent;
+.my-page__field input::placeholder {
   color: var(--ink-soft);
 }
 
-.my-page__row-input button:disabled,
-.my-page__action:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.my-page__field input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
 }
 
-.my-page__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.my-page__field .my-page__nickname-input {
+  font-size: 16px;
+  font-weight: 700;
 }
 
-.my-page__person {
+/* 닉네임을 고쳤을 때만 칸 안 오른쪽에 뜨는 저장 버튼 — 칸 반경 24 - 여백 2 = 22 */
+.my-page__save {
+  flex: none;
+  height: 44px;
+  margin-right: -14px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 22px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.my-page__photo-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(43, 33, 64, 0.12);
+  gap: 2px;
 }
 
-.my-page__avatar {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+.my-page__photo-change,
+.my-page__photo-remove {
+  height: 44px;
+  border: none;
+  border-radius: 22px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.my-page__photo-change {
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.my-page__photo-remove {
+  width: 44px;
+  padding: 0;
+  color: var(--ink-2);
+}
+
+.my-page__photo-change:active,
+.my-page__photo-remove:active {
+  background: var(--fill);
+}
+
+/* ── 내가 쓴 후기: 별점 순, 상위 3개는 순위 배지 ─────────── */
+.my-page__reviews > li {
+  display: block;
+}
+
+.my-page__review {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 22px;
+  background: transparent;
+  text-align: left;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    scale 90ms ease;
+}
+
+.my-page__review:active {
+  background: var(--fill);
+}
+
+@media (hover: hover) {
+  .my-page__review:hover {
+    background: var(--fill);
+  }
+}
+
+.my-page__review:focus-visible {
+  outline-offset: -1px;
+}
+
+.my-page__rank {
+  flex: none;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--ink);
-  background: var(--surface-raised);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
   font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 
-/* 사진+이름 = 프로필 열기 버튼. 오른쪽 이름 바꾸기·팔로우 버튼과 한 줄 */
-.my-page__person-open {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.my-page__rank--1,
+.my-page__rank--2,
+.my-page__rank--3 {
+  font-weight: 900;
+  color: #fff;
+}
+
+.my-page__rank--1 {
+  background: var(--accent);
+}
+
+.my-page__rank--2 {
+  background: var(--ink);
+}
+
+.my-page__rank--3 {
+  background: var(--ink-soft);
+}
+
+.my-page__review-name {
   flex: 1;
   min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-page__review-rating {
+  flex: none;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.my-page__review--top {
+  color: var(--ink);
+}
+
+.my-page__review--top .my-page__review-name {
+  font-weight: 700;
+}
+
+.my-page__review--top .my-page__review-rating {
+  color: var(--accent-ink);
+}
+
+/* ── 사람 목록 (검색 결과 · 팔로잉 · 팔로워) ─────────── */
+.my-page__found {
+  margin-top: 8px;
+}
+
+.my-page__columns {
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.my-page__column {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-page__people {
+  border-radius: 24px;
+}
+
+.my-page__person {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 0 6px;
+}
+
+/* 사진+이름 = 프로필 열기 버튼 (이름 바꾸기는 열린 프로필에서) */
+.my-page__person-open {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 0;
   border: 0;
+  border-radius: 22px;
   background: none;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+}
+
+.my-page__person-open:disabled {
+  cursor: default;
 }
 
 .my-page__person-open:active {
@@ -157,8 +498,9 @@
 .my-page__name {
   flex: 1;
   min-width: 0;
-  font-weight: 700;
   font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -166,24 +508,58 @@
 
 .my-page__nick {
   font-size: 11px;
-  color: var(--ink-soft);
+  line-height: 1.3;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.my-page__hint {
-  margin: 6px 0 0;
+.my-page__action {
+  flex: none;
+  height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 22px;
+  background: rgba(118, 118, 128, 0.12);
   font-size: 12px;
-  color: var(--ink-soft);
-}
-
-.my-page__hint--error,
-.my-page__error {
-  color: #d23b4f;
-}
-
-.my-page__error {
-  margin: 12px 0 0;
-  font-size: 13px;
   font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.my-page__action:active {
+  background: var(--fill-strong);
+}
+
+.my-page__action--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.my-page__action--primary:active {
+  background: var(--accent-ink);
+}
+
+.my-page__action:disabled,
+.my-page__save:disabled,
+.my-page__photo-change:disabled,
+.my-page__photo-remove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.my-page__status {
+  flex: none;
+  height: 32px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
 }
 
 /* 화면 정가운데 1.5초 토스트 — 페이드인·아웃 */
@@ -195,12 +571,13 @@
   z-index: 46;
   margin: 0;
   padding: 12px 20px;
-  background: var(--ink);
-  color: #fff9f2;
-  font-family: var(--font-display);
+  background: rgba(28, 28, 30, 0.88);
+  color: #fff;
   font-size: 14px;
+  font-weight: 700;
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-float);
+  white-space: nowrap;
   pointer-events: none;
   /* JS가 1500ms에 지우는 것과 길이를 맞춘다 */
   animation: my-page-toast 1500ms ease-in-out forwards;
@@ -221,110 +598,17 @@
   }
 }
 
-/* 내 프로필 — 사진(누르면 업로드)과 닉네임이 한 줄 */
-.my-page__profile {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
+@media (prefers-reduced-motion: reduce) {
+  .my-page {
+    animation: none;
+  }
 
-.my-page__profile .my-page__avatar {
-  width: 72px;
-  height: 72px;
-  font-size: 26px;
-  border-width: 2.5px;
-  overflow: hidden;
-}
+  .my-page__review {
+    transition: none;
+  }
 
-.my-page__avatar-button {
-  position: relative;
-  flex: 0 0 auto;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 140ms ease;
-}
-
-.my-page__avatar-button:active {
-  transform: scale(0.94);
-}
-
-.my-page__avatar-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* 아바타 우측 하단 편집 배지 — 사진을 누르면 바꿀 수 있다는 힌트 */
-.my-page__avatar-badge {
-  position: absolute;
-  right: -3px;
-  bottom: -1px;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  line-height: 1;
-  background: var(--surface-raised);
-  border: 2px solid var(--ink);
-  border-radius: 50%;
-}
-
-.my-page__avatar-button:active .my-page__avatar-badge {
-  background: #fff0e0;
-}
-
-.my-page__profile-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.my-page__avatar-remove {
-  margin-top: 6px;
-  padding: 4px 0;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 12px;
-  color: var(--ink-soft);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
-.my-page__avatar-remove:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.my-page__person .my-page__avatar {
-  overflow: hidden;
-}
-
-/* 내가 쓴 후기 목록 — 누르면 그 가게로 이동 */
-.my-page__review {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(43, 33, 64, 0.12);
-  cursor: pointer;
-}
-
-.my-page__review .my-page__nick {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.my-page__review-rating {
-  flex: 0 0 auto;
-}
-
-/* 별점 상위 3개 후기 옆 금은동 메달 */
-.my-page__medal {
-  margin-left: 4px;
+  /* 토스트는 움직임 없이 나타났다 사라지기만 한다 */
+  .my-page__toast {
+    animation-timing-function: steps(1, end);
+  }
 }

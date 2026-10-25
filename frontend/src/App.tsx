@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
+import SearchDock from './components/SearchDock'
 import PersonChip from './components/PersonChip'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
@@ -46,10 +47,10 @@ import './App.css'
 const MIN_QUERY_LENGTH = 2
 
 /*
-  THESIS: the map is a lively neighborhood scene where a friend's pick pops up
-  like a doodle character you tap, not a data dashboard of pins.
-  OWN-WORLD: chunky ink-outlined shapes, candy-bright per-group color, soft
-  floating shadows, Jua display type over Pretendard body text.
+  THESIS: the map is always the ground; everything else floats over it as
+  Liquid Glass — translucent capsules and sheets that keep the map visible.
+  OWN-WORLD: frosted glass controls, concentric radii, one rose accent,
+  Noto Sans KR, primary actions gathered in a bottom dock for one-handed use.
   STORY: open app -> see illustrated map with friends' story chips and
   colored pins -> tap a pin -> read neighbor reviews and their comments.
   FIRST VIEWPORT: full-bleed illustrated map, floating pill header (필터 +
@@ -156,10 +157,11 @@ export default function App() {
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
   // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
   const [groupColors] = useState<Record<GroupId, string>>({
-    close: '#A9C4E3',
-    work: '#A9C4E3',
-    college: '#A9C4E3',
-    none: '#A9C4E3',
+    close: '#FF5D73',
+    work: '#2F7BF6',
+    college: '#1FA38C',
+    // 후기 없는 가게(대부분)는 이 색 — 밀집해도 눈에 덜 띄는 중간 회색
+    none: '#A7A7AE',
   })
   // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만
   const [reviewFilter, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
@@ -216,6 +218,8 @@ export default function App() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   // 헤더 별 버튼: 켜면 지도에 찜한 가게만 (후기 필터 무시, 초록 별 마커)
   const [favMode, setFavMode] = useState(false)
+  // 하단 독이 검색 모드인지 (검색 버튼 → 입력창)
+  const [searching, setSearching] = useState(false)
   useEffect(() => {
     if (!session) {
       setRawReviews([])
@@ -471,7 +475,7 @@ export default function App() {
     if (myPageOpen) return setMyPageOpen(false), true
     if (selectedId) return setSelectedId(null), true
     if (personId !== null) return setPersonId(null), true
-    if (query.trim()) return setQuery(''), setResultsOpen(true), true
+    if (searching || query.trim()) return setQuery(''), setResultsOpen(true), setSearching(false), true
     if (favMode) return setFavMode(false), true
     return false
   }
@@ -757,7 +761,7 @@ export default function App() {
   return (
     <OpenProfileContext.Provider value={openProfile}>
     <div
-      className="app"
+      className={`app${searching ? ' app--searching' : ''}`}
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
     >
       <MapCanvas
@@ -776,17 +780,6 @@ export default function App() {
 
       <div className="app__chrome">
         <Header
-          query={query}
-          onQueryChange={(value) => {
-            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다
-            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) setReviewFilter('all')
-            setQuery(value)
-            setResultsOpen(true)
-          }}
-          onSubmit={() => setResultsOpen(false)}
-          onSearchFocus={() => setResultsOpen(true)}
-          searchMode={searchMode}
-          onSearchModeChange={setSearchMode}
           nickname={session?.nickname ?? null}
           onLogin={() => setAuthMode('start')}
           onLogout={handleLogout}
@@ -803,42 +796,7 @@ export default function App() {
             setFavMode((prev) => !prev)
           }}
         />
-        <div className="bottom-controls" hidden={personPins}>
-          <div className="review-filter" role="group" aria-label="후기 유무 필터">
-            {(
-              [
-                ['all', '전체'],
-                ['with', '후기 있음'],
-                ['without', '후기 없음'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`review-filter__chip${reviewFilter === value ? ' review-filter__chip--active' : ''}`}
-                aria-pressed={reviewFilter === value}
-                onClick={() => setReviewFilter(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {query.trim() && resultsOpen ? (
-          <SearchResults
-            results={searchResults}
-            topPicks={personPicks}
-            people={otherUsers}
-            onFollow={follow}
-            groups={groups}
-            // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
-            tooShort={!searchActive}
-            minLength={MIN_QUERY_LENGTH}
-            onPick={focusFromSearch}
-          />
-        ) : (
-          <StoryStrip stories={stories} onOpen={setOpenStory} />
-        )}
+        {!searching && <StoryStrip stories={stories} onOpen={setOpenStory} />}
         {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
         {selectedPerson && (
           <PersonChip
@@ -848,8 +806,51 @@ export default function App() {
             onClose={() => setPersonId(null)}
           />
         )}
+        <SearchDock
+          searching={searching}
+          onOpenSearch={() => {
+            // 검색을 열면 친구 선택(TOP 5 칩)은 접는다
+            setPersonId(null)
+            setResultsOpen(true)
+            setSearching(true)
+          }}
+          onCloseSearch={() => {
+            setQuery('')
+            setResultsOpen(true)
+            setSearching(false)
+          }}
+          query={query}
+          onQueryChange={(value) => {
+            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다
+            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) setReviewFilter('all')
+            setQuery(value)
+            setResultsOpen(true)
+          }}
+          onSubmit={() => setResultsOpen(false)}
+          onSearchFocus={() => setResultsOpen(true)}
+          searchMode={searchMode}
+          onSearchModeChange={setSearchMode}
+          reviewFilter={reviewFilter}
+          onReviewFilterChange={setReviewFilter}
+          showReviewFilter={!personPins}
+          results={
+            query.trim() && resultsOpen ? (
+              <SearchResults
+                results={searchResults}
+                topPicks={personPicks}
+                people={otherUsers}
+                onFollow={follow}
+                groups={groups}
+                // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
+                tooShort={!searchActive}
+                minLength={MIN_QUERY_LENGTH}
+                highlight={deferredQuery.trim()}
+                onPick={focusFromSearch}
+              />
+            ) : undefined
+          }
+        />
       </div>
-
 
       <RestaurantSheet
         restaurant={selectedRestaurant}

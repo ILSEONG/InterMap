@@ -1,23 +1,224 @@
-/* 다른 사람 프로필 개요 — 껍데기는 마이페이지(.my-page*)를 그대로 쓴다 */
+/*
+  다른 사람 프로필 개요 — 껍데기(유리 시트·닫기·스크롤)는 마이페이지(.my-page*)를 그대로 쓰고,
+  가운데 정렬 히어로·통계·팔로우 버튼·TOP 5만 여기서 그린다.
+*/
 
-.profile-sheet__name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 18px;
+/* 헤더 아래로 조금 내려 시트 위쪽에 지도가 보이게 둔다 */
+.my-page--profile {
+  top: calc(max(env(safe-area-inset-top), 12px) + 42px);
 }
 
-.profile-sheet__counts {
-  margin: 4px 0 0;
+.my-page--profile .my-page__scroll {
+  padding: 35px 18px max(22px, env(safe-area-inset-bottom));
+}
+
+.profile-sheet__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  margin: 0;
+}
+
+.profile-sheet__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  /* 닫기 버튼과 이름이 겹치지 않게 좌우 여유 */
+  padding: 0 48px;
+}
+
+.profile-sheet__avatar {
+  width: 96px;
+  height: 96px;
+  font-size: 38px;
+  font-weight: 900;
+  box-shadow:
+    0 0 0 4px #fff,
+    0 10px 24px rgba(20, 20, 30, 0.12);
+}
+
+.profile-sheet__name {
+  margin: 14px 0 0;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.profile-sheet__nick {
+  margin: 2px 0 0;
   font-size: 13px;
-  color: var(--ink-soft);
+  color: var(--ink-2);
+}
+
+.profile-sheet__badge {
+  margin-top: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 13px;
+  background: rgba(255, 93, 115, 0.14);
+  color: #b42a44;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.profile-sheet__badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5d73;
+}
+
+/* 후기 · 팔로잉 · 팔로워 — 숫자가 위, 이름표가 아래 */
+.profile-sheet__stats {
+  margin: 18px 0 0;
+  padding: 12px 0;
+  display: flex;
+  border-radius: 26px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.profile-sheet__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+}
+
+.profile-sheet__stat + .profile-sheet__stat {
+  box-shadow: -1px 0 0 rgba(60, 60, 67, 0.1);
+}
+
+.profile-sheet__stat dt {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.profile-sheet__stat dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-sheet__loading {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 14px;
 }
 
 .profile-sheet__actions {
+  margin-top: 12px;
   display: flex;
   gap: 8px;
 }
 
+.profile-sheet__follow,
+.profile-sheet__rename {
+  height: 52px;
+  border: none;
+  border-radius: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* 아직 안 팔로우 — 포인트 색. 팔로잉 중 — 회색 (다시 누르면 언팔로우) */
 .profile-sheet__follow {
-  margin-top: 10px;
-  padding: 0 22px;
+  flex: 1;
+  min-width: 0;
+  background: var(--accent);
+  color: #fff;
+}
+
+.profile-sheet__follow:active {
+  background: var(--accent-ink);
+}
+
+.profile-sheet__follow--on {
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink);
+}
+
+.profile-sheet__follow--on:active {
+  background: var(--fill-strong);
+}
+
+.profile-sheet__rename {
+  flex: none;
+  padding: 0 18px;
+  gap: 6px;
+  font-size: 15px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+}
+
+.profile-sheet__rename:active {
+  background: var(--fill-strong);
+}
+
+.profile-sheet__follow:disabled,
+.profile-sheet__rename:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 별점 TOP 5 — TopPicksCard를 시트 크기에 맞게 */
+.profile-sheet__picks {
+  margin: 22px 0 0;
+}
+
+.profile-sheet__picks .top-picks__title,
+.profile-sheet__section-title {
+  margin: 0 6px 10px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.profile-sheet__section-title {
+  margin-top: 22px;
+}
+
+/* 팔로우 전 잠금 안내 · 별점 없음 */
+.profile-sheet__locked {
+  margin: 22px 0 0;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 26px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.profile-sheet__section-title + .profile-sheet__locked {
+  margin-top: 0;
+}
+
+.profile-sheet__locked svg {
+  flex: none;
 }

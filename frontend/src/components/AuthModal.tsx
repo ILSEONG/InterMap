@@ -12,7 +12,6 @@ import {
   linkSocial,
 } from '../lib/api'
 import type { AuthSession, SocialTicket } from '../lib/api'
-import { WORDMARK_COLORS } from './Header'
 import './AuthModal.css'
 
 // start: 소셜 버튼 + 이메일 입력. 이메일이 기존 회원이면 로그인, 아니면 가입으로 이어진다.
@@ -22,11 +21,108 @@ export type AuthMode = 'start' | 'social' | 'link'
 
 // 각 provider 콘솔에 앱을 등록하고 CLIENT_ID/SECRET을 넣기 전까지는
 // 서버가 /api/auth/oauth/{provider}에서 "아직 연결 안 됨" 에러로 돌려보낸다.
+// 시작 화면에는 시안 순서대로 네이버 → 카카오 → Google 순으로 놓는다
 const SOCIAL_PROVIDERS = [
-  { id: 'google', name: 'Google', initial: 'G' },
-  { id: 'naver', name: '네이버', initial: 'N' },
-  { id: 'kakao', name: '카카오', initial: 'K' },
+  { id: 'naver', name: '네이버' },
+  { id: 'kakao', name: '카카오' },
+  { id: 'google', name: 'Google' },
 ] as const
+
+// 선 아이콘 공통 속성 (24 그리드, currentColor)
+const STROKE = {
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': true,
+} as const
+
+const ICONS = {
+  pin: (
+    <>
+      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <path d="M3.5 7l8.5 6 8.5-6" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="4.5" y="10.5" width="15" height="10" rx="3" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    </>
+  ),
+  code: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="3" />
+      <path d="M7.5 12h.01M12 12h.01M16.5 12h.01" strokeWidth={3} />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8.5" r="3.8" />
+      <path d="M4.5 20c.9-3.6 3.9-5.6 7.5-5.6s6.6 2 7.5 5.6" />
+    </>
+  ),
+  doc: (
+    <>
+      <path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5A1.5 1.5 0 0 1 7.5 3.5z" />
+      <path d="M9.5 12.5l2 2 3.5-4" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  back: <path d="M15 5l-7 7 7 7" />,
+  alert: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5M12 16.2h.01" />
+    </>
+  ),
+}
+
+function Icon({ name, size = 20, strokeWidth = 2 }: { name: keyof typeof ICONS; size?: number; strokeWidth?: number }) {
+  return (
+    <svg {...STROKE} width={size} height={size} strokeWidth={strokeWidth}>
+      {ICONS[name]}
+    </svg>
+  )
+}
+
+// 소셜 버튼 앞 글리프 — 네이버 N, 카카오 말풍선, Google 선 G (공식 로고 아님)
+function SocialIcon({ id }: { id: (typeof SOCIAL_PROVIDERS)[number]['id'] }) {
+  if (id === 'naver') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M5 4h4.6l4.8 7.4V4H19v16h-4.6L9.6 12.6V20H5z" />
+      </svg>
+    )
+  }
+  if (id === 'kakao') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 5.9L6.5 20l3.6-2.3c.6.1 1.2.1 1.9.1 5 0 9-3.1 9-6.9S17 4 12 4z" />
+      </svg>
+    )
+  }
+  return (
+    <svg {...STROKE} width={20} height={20} strokeWidth={2.2}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4" />
+      <path d="M12.5 12h7" />
+    </svg>
+  )
+}
 
 // 이메일 흐름 안의 단계. start → (password | code) → terms → nickname(+비밀번호) → done
 type Step = 'start' | 'password' | 'code' | 'terms' | 'nickname'
@@ -117,7 +213,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       setExisting(exists)
       if (exists && !hasPassword) {
         const name = SOCIAL_PROVIDERS.find((s) => s.id === p)?.name ?? 'SNS'
-        setError(`${name}로 가입한 계정이에요. 위의 "${name}로 계속하기"를 눌러주세요.`)
+        setError(`${name}로 가입한 계정이에요. 위의 "${name}로 시작하기"를 눌러주세요.`)
         return
       }
       if (exists) {
@@ -184,41 +280,67 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
     setMarketing(next)
   }
 
+
   const hintEl = (hint: Hint | null) =>
     hint && <p className={`auth-modal__hint auth-modal__hint--${hint.tone}`}>{hint.text}</p>
 
-  const brand = (
-    <span className="auth-modal__brand">
-      {['인', '터', '맵'].map((letter, i) => (
-        <span key={i} style={{ color: WORDMARK_COLORS[i % WORDMARK_COLORS.length] }}>
-          {letter}
-        </span>
-      ))}
-    </span>
+  const errorEl = error && (
+    <p className="auth-modal__error" role="alert">
+      <Icon name="alert" size={18} />
+      <span>{error}</span>
+    </p>
+  )
+
+  // 아이콘 + 입력칸이 한 알약 안에 들어간 시안의 입력 필드. 라벨은 화면에선 숨기고 placeholder로 보여준다.
+  const fieldBox = (icon: keyof typeof ICONS, id: string, label: string, input: React.ReactNode, extra = '') => (
+    <div className={`auth-modal__input${extra}`}>
+      <Icon name={icon} />
+      <label htmlFor={id} className="auth-modal__sr">
+        {label}
+      </label>
+      {input}
+    </div>
+  )
+
+  // 단계 화면 머리: 아이콘 타일 + 제목 + 안내문
+  const stepHead = (icon: keyof typeof ICONS, title: string, desc?: React.ReactNode) => (
+    <div className="auth-modal__head">
+      <span className="auth-modal__tile" aria-hidden="true">
+        <Icon name={icon} size={28} strokeWidth={2.1} />
+      </span>
+      <h2 className="auth-modal__title">{title}</h2>
+      {desc && <p className="auth-modal__desc">{desc}</p>}
+    </div>
   )
 
   const backButton = (
     <button type="button" className="auth-modal__back" onClick={() => setStep('start')} aria-label="처음으로">
-      ←
+      <Icon name="back" size={22} strokeWidth={2.4} />
     </button>
   )
 
-  const codeInput = (
-    <div className="auth-modal__float">
-      <input
-        id="auth-code"
-        className="auth-modal__code"
-        type="text"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-        placeholder=" "
-        autoFocus
-        required
-      />
-      <label htmlFor="auth-code">인증번호 6자리</label>
-    </div>
+  const codeInput = fieldBox(
+    'code',
+    'auth-code',
+    '인증번호 6자리',
+    <input
+      id="auth-code"
+      className="auth-modal__code"
+      type="text"
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      value={code}
+      onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+      placeholder="인증번호 6자리"
+      autoFocus
+      required
+    />,
+  )
+
+  const resendButton = (
+    <button type="button" className="auth-modal__link" onClick={sendCode}>
+      인증번호 다시 받기
+    </button>
   )
 
   const termsFields = (
@@ -241,14 +363,19 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       </label>
       <label className="auth-modal__check">
         <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />
-        <span>새 소식·이벤트 알림 받기 (선택)</span>
+        <span>
+          새 소식·이벤트 알림 받기 <small>(선택)</small>
+        </span>
       </label>
     </div>
   )
 
   const nicknameField = (
     <div className="auth-modal__field">
-      <div className="auth-modal__float">
+      {fieldBox(
+        'user',
+        'auth-nickname',
+        '닉네임',
         <input
           id="auth-nickname"
           type="text"
@@ -258,13 +385,12 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
             setNickHint(null)
           }}
           onBlur={blurNickname}
-          placeholder=" "
+          placeholder="닉네임"
           maxLength={20}
           autoFocus
           required
-        />
-        <label htmlFor="auth-nickname">닉네임</label>
-      </div>
+        />,
+      )}
       {hintEl(nickHint)}
     </div>
   )
@@ -275,12 +401,11 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
     if (shown === 'social') {
       return (
         <>
-          <h2 className="auth-modal__title">거의 다 됐어요!</h2>
-          <p className="auth-modal__desc">{provider} 계정으로 인터맵을 시작해요. 친구들에게 보일 이름을 정해주세요.</p>
+          {stepHead('pin', '거의 다 됐어요!', `${provider} 계정으로 인터맵을 시작해요. 친구들에게 보일 이름을 정해주세요.`)}
           <form className="auth-modal__form" onSubmit={submitSignup}>
             {nicknameField}
             {termsFields}
-            {error && <p className="auth-modal__error">{error}</p>}
+            {errorEl}
             <button type="submit" className="auth-modal__submit" disabled={busy || !required || !nickname.trim()}>
               {submitLabel('시작하기')}
             </button>
@@ -292,24 +417,25 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
     if (shown === 'link') {
       return (
         <>
-          <h2 className="auth-modal__title">이미 가입된 이메일이에요</h2>
-          <p className="auth-modal__desc">
-            <b>{email}</b>로 가입한 계정이 있어요. 인증번호로 본인 확인을 하면 {provider} 계정과 연결되고, 다음부터는 바로
-            로그인돼요.
-          </p>
+          {stepHead(
+            'link',
+            '이미 가입된 이메일이에요',
+            <>
+              <b>{email}</b>로 가입한 계정이 있어요. 인증번호로 본인 확인을 하면 {provider} 계정과 연결되고, 다음부터는
+              바로 로그인돼요.
+            </>,
+          )}
           <form className="auth-modal__form" onSubmit={submitLink}>
             {codeSent ? (
               <div className="auth-modal__field">
                 {codeInput}
                 {hintEl(codeHint)}
-                <button type="button" className="auth-modal__link" onClick={sendCode}>
-                  인증번호 다시 받기
-                </button>
+                {resendButton}
               </div>
             ) : (
               hintEl(codeHint)
             )}
-            {error && <p className="auth-modal__error">{error}</p>}
+            {errorEl}
             {codeSent ? (
               <button type="submit" className="auth-modal__submit" disabled={busy || code.length !== 6}>
                 {submitLabel('연결하고 로그인')}
@@ -329,25 +455,26 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
         return (
           <>
             {backButton}
-            <h2 className="auth-modal__title">다시 만나서 반가워요</h2>
-            <p className="auth-modal__desc">{email}</p>
+            {stepHead('lock', '다시 만나서 반가워요', email)}
             <form className="auth-modal__form" onSubmit={submitPassword}>
               <div className="auth-modal__field">
-                <div className="auth-modal__float">
+                {fieldBox(
+                  'lock',
+                  'auth-password',
+                  '비밀번호',
                   <input
                     id="auth-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder=" "
+                    placeholder="비밀번호"
                     autoComplete="current-password"
                     autoFocus
                     required
-                  />
-                  <label htmlFor="auth-password">비밀번호</label>
-                </div>
+                  />,
+                )}
               </div>
-              {error && <p className="auth-modal__error">{error}</p>}
+              {errorEl}
               <button type="submit" className="auth-modal__submit" disabled={busy}>
                 {submitLabel('로그인')}
               </button>
@@ -369,19 +496,20 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
         return (
           <>
             {backButton}
-            <h2 className="auth-modal__title">{existing ? '인증번호로 로그인해요' : '이메일을 확인해주세요'}</h2>
-            <p className="auth-modal__desc">
-              <b>{email}</b>로 보낸 6자리 숫자를 입력해주세요.
-            </p>
+            {stepHead(
+              'mail',
+              existing ? '인증번호로 로그인해요' : '이메일을 확인해주세요',
+              <>
+                <b>{email}</b>로 보낸 6자리 숫자를 입력해주세요.
+              </>,
+            )}
             <form className="auth-modal__form" onSubmit={submitCode}>
               <div className="auth-modal__field">
                 {codeInput}
                 {hintEl(codeHint)}
-                <button type="button" className="auth-modal__link" onClick={sendCode}>
-                  인증번호 다시 받기
-                </button>
+                {resendButton}
               </div>
-              {error && <p className="auth-modal__error">{error}</p>}
+              {errorEl}
               <button type="submit" className="auth-modal__submit" disabled={busy || code.length !== 6}>
                 {submitLabel(existing ? '로그인' : '다음')}
               </button>
@@ -392,7 +520,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
         return (
           <>
             {backButton}
-            <h2 className="auth-modal__title">시작하기 전에 확인해주세요</h2>
+            {stepHead('doc', '시작하기 전에 확인해주세요')}
             <form
               className="auth-modal__form"
               onSubmit={(e) => {
@@ -411,26 +539,27 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
         return (
           <>
             {backButton}
-            <h2 className="auth-modal__title">마지막이에요!</h2>
-            <p className="auth-modal__desc">친구들에게 보일 이름과 로그인할 때 쓸 비밀번호를 정해주세요.</p>
+            {stepHead('user', '마지막이에요!', '친구들에게 보일 이름과 로그인할 때 쓸 비밀번호를 정해주세요.')}
             <form className="auth-modal__form" onSubmit={submitSignup}>
               {nicknameField}
               <div className="auth-modal__field">
-                <div className="auth-modal__float">
+                {fieldBox(
+                  'lock',
+                  'auth-new-password',
+                  '비밀번호 (8자 이상)',
                   <input
                     id="auth-new-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder=" "
+                    placeholder="비밀번호 (8자 이상)"
                     autoComplete="new-password"
                     minLength={8}
                     required
-                  />
-                  <label htmlFor="auth-new-password">비밀번호 (8자 이상)</label>
-                </div>
+                  />,
+                )}
               </div>
-              {error && <p className="auth-modal__error">{error}</p>}
+              {errorEl}
               <button
                 type="submit"
                 className="auth-modal__submit"
@@ -444,8 +573,17 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       default:
         return (
           <>
-            <h2 className="auth-modal__title auth-modal__title--brand">{brand}</h2>
-            <p className="auth-modal__desc">친구들이 다녀온 맛집, 지도에서 바로 확인해요.</p>
+            <div className="auth-modal__hero">
+              <span className="auth-modal__mark" aria-hidden="true">
+                <Icon name="pin" size={32} strokeWidth={2.2} />
+              </span>
+              <h2 className="auth-modal__brand">인터맵</h2>
+              <p className="auth-modal__tagline">
+                친구들이 다녀온 맛집,
+                <br />
+                지도에서 바로 확인해요.
+              </p>
+            </div>
             <div className="auth-modal__social">
               {SOCIAL_PROVIDERS.map((p) => (
                 <button
@@ -456,38 +594,37 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
                     window.location.href = oauthUrl(p.id)
                   }}
                 >
-                  <span className="auth-modal__social-icon" aria-hidden="true">
-                    {p.initial}
-                  </span>
-                  {p.name}로 계속하기
+                  <SocialIcon id={p.id} />
+                  {p.name}로 시작하기
                 </button>
               ))}
             </div>
             <div className="auth-modal__divider">
               <span>또는</span>
             </div>
-            <form className="auth-modal__form" onSubmit={continueWithEmail}>
-              <div className="auth-modal__field">
-                <div className="auth-modal__float">
-                  <input
-                    id="auth-email"
-                    // 관리자 아이디(admin)는 이메일 형식이 아니라 브라우저 검증을 걸지 않는다
-                    type="text"
-                    inputMode="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder=" "
-                    autoComplete="username"
-                    required
-                  />
-                  <label htmlFor="auth-email">이메일</label>
-                </div>
-              </div>
-              {error && <p className="auth-modal__error">{error}</p>}
+            <form className="auth-modal__form auth-modal__form--start" onSubmit={continueWithEmail}>
+              {fieldBox(
+                'mail',
+                'auth-email',
+                '이메일',
+                <input
+                  id="auth-email"
+                  // 관리자 아이디(admin)는 이메일 형식이 아니라 브라우저 검증을 걸지 않는다
+                  type="text"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="이메일 주소"
+                  autoComplete="username"
+                  required
+                />,
+              )}
+              {errorEl}
               <button type="submit" className="auth-modal__submit" disabled={busy || !email.trim()}>
                 {submitLabel('이메일로 계속하기')}
               </button>
             </form>
+            <p className="auth-modal__foot">로그인 또는 회원가입</p>
           </>
         )
     }
@@ -503,14 +640,16 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       >
         {done && (
           <div className="auth-modal__done" role="status">
-            <p className="auth-modal__done-icon" aria-hidden="true">🎉</p>
+            <span className="auth-modal__mark" aria-hidden="true">
+              <Icon name="check" size={32} strokeWidth={2.6} />
+            </span>
             <h2 className="auth-modal__title">가입 완료!</h2>
             <p className="auth-modal__desc">
               <b>{done.nickname}</b>님, 인터맵에 오신 걸 환영해요.
               <br />
               이제 후기를 남기고 친구들의 맛집을 볼 수 있어요.
             </p>
-            <button type="button" className="auth-modal__submit" onClick={() => onAuthed(done)}>
+            <button type="button" className="auth-modal__submit auth-modal__submit--accent" onClick={() => onAuthed(done)}>
               시작하기
             </button>
           </div>

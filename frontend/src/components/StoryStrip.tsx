@@ -12,15 +12,23 @@ export default function StoryStrip({ stories, onOpen }: StoryStripProps) {
   if (stories.length === 0) return null
 
   return (
-    <div className="story-strip" role="list" aria-label="24시간 내 올라온 이웃 후기">
-      {stories.map((story) => (
-        <button type="button" key={story.id} className="story-chip" role="listitem" onClick={() => onOpen(story)}>
-          <span className="story-chip__ring">
-            <Avatar className="story-chip__avatar" src={story.avatar} name={story.name} />
-          </span>
-          <span className="story-chip__name">{story.name}</span>
-        </button>
-      ))}
-    </div>
+    <nav className="story-strip glass" aria-label="24시간 내 올라온 이웃 후기">
+      <ul className="story-strip__list">
+        {stories.map((story) => (
+          <li key={story.id}>
+            <button type="button" className="story-chip" onClick={() => onOpen(story)}>
+              <span className="story-chip__ring">
+                <Avatar
+                  className={`story-chip__avatar tone-${Math.abs(story.id) % 4}`}
+                  src={story.avatar}
+                  name={story.name}
+                />
+              </span>
+              <span className="story-chip__name">{story.name}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
   )
 }

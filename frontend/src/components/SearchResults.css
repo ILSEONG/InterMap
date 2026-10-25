@@ -1,28 +1,29 @@
+/* 하단 검색 독 위에 붙는 결과 패널 — 글이 빽빽하니 진한 유리 */
 .search-results {
-  margin-top: 10px;
-  background: var(--surface-raised);
-  border: 3px solid var(--ink);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-float);
-  padding: 10px 12px;
-  max-height: min(52vh, 420px);
+  max-height: max(160px, min(440px, calc(100dvh - var(--kb) - 320px)));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  padding: 18px 10px 10px;
+  border-radius: var(--radius-sheet);
+  transform: translateZ(0);
 }
 
-.search-results__count {
-  margin: 2px 4px 8px;
-  font-family: var(--font-display);
+.search-results__heading {
+  margin: 0 12px 8px;
   font-size: 13px;
+  font-weight: 700;
   color: var(--ink-soft);
+}
+
+.search-results__heading--gap {
+  margin-top: 16px;
 }
 
 .search-results__empty {
-  margin: 4px;
-  font-size: 13px;
+  margin: 4px 12px 8px;
+  font-size: 14px;
   color: var(--ink-soft);
-  font-style: italic;
 }
 
 .search-results__list {
@@ -34,172 +35,69 @@
   gap: 4px;
 }
 
-/* 사람 검색 — 아직 팔로우 안 한 사용자 (여기서 바로 팔로우) */
-.search-results__people {
-  margin: 2px 0 10px;
-}
-
+/* 아직 팔로우 안 한 사용자 — 여기서 바로 팔로우 */
 .search-results__person {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 2px;
+  min-height: 64px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 26px;
 }
 
 /* 사진+이름 = 프로필 열기 버튼, 오른쪽 팔로우 버튼과 나란히 */
 .search-results__person-open {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: none;
-  font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.search-results__person-open:active {
-  opacity: 0.7;
 }
 
 .search-results__person-avatar {
-  flex: 0 0 30px;
-  width: 30px;
-  height: 30px;
-  border: 2px solid var(--ink);
-  border-radius: 50%;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
   overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: var(--surface);
-  font-family: var(--font-display);
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
 }
 
 .search-results__person-name {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .search-results__follow {
   flex: 0 0 auto;
-  min-height: 32px;
-  padding: 4px 12px;
-  background: var(--surface);
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  font-family: var(--font-display);
-  font-size: 12px;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.search-results__follow:active {
-  background: var(--surface-raised);
-}
-
-/* 사람 검색 — 그 사람의 별점 TOP 5 요약 카드 (결과 목록 위) */
-.top-picks {
-  margin: 2px 0 10px;
-  padding: 8px 10px 6px;
-  background: var(--surface);
-  border: 2px solid var(--ink);
-  border-radius: var(--radius-md);
-}
-
-.top-picks__title {
-  margin: 0 0 4px;
-  font-family: var(--font-display);
-  font-size: 14px;
-  color: var(--ink);
-}
-
-/* 카드 제목의 사람 이름 — 누르면 프로필 */
-.top-picks__title-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.top-picks__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.top-picks__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 40px;
-  padding: 4px 2px;
-  background: transparent;
-  border: 0;
-  text-align: left;
-  font-family: inherit;
-  color: var(--ink);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.top-picks__row:active,
-.top-picks__row:focus-visible {
-  background: var(--surface-raised);
-  outline: none;
-}
-
-.top-picks__rank {
-  flex: 0 0 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--ink);
-  font-family: var(--font-display);
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
-}
-
-.top-picks__body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.top-picks__name {
+  height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 22px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
   font-weight: 700;
-  font-size: 13px;
+  cursor: pointer;
 }
 
-.top-picks__meta {
-  font-size: 11px;
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.top-picks__rating {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 13px;
-  color: #f2a100;
+/* 패널 안의 별점 TOP 5 카드는 틴트 면 위에 */
+.search-results .top-picks {
+  margin: 0 0 12px;
 }

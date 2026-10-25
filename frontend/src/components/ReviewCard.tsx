@@ -4,7 +4,7 @@ import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
 import { timeAgo } from '../lib/time'
-import Stars from './Stars'
+import { STAR_SHAPE } from './Stars'
 import Avatar from './Avatar'
 
 // 시트·스토리 뷰어가 같은 카드를 쓴다. 스타일은 RestaurantSheet.css(.review-card*)
@@ -26,11 +26,10 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
     return () => document.removeEventListener('keydown', onKey)
   }, [lightbox])
 
+  const owner = review.author.owner
+
   return (
-    <article
-      className={`review-card${review.author.owner ? ' review-card--owner' : ''}`}
-      style={{ ['--group-color' as string]: '#8B6BFF' }}
-    >
+    <article className={`review-card${owner ? ' review-card--owner' : ''}`}>
       <header className="review-card__header">
         <button
           type="button"
@@ -39,23 +38,47 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
           disabled={!openProfile}
           aria-label={`${review.author.name}님 프로필`}
         >
-          <Avatar className="review-card__avatar" src={review.author.avatar} name={review.author.name} />
-          <span>
-            <span className="review-card__name">{review.author.name}</span>
+          {/* 사진이 없을 때 첫 글자 칸의 파스텔 색 — 사람마다 고정 */}
+          <Avatar
+            className={`review-card__avatar tone-${Math.abs(review.author.id) % 4}`}
+            src={review.author.avatar}
+            name={review.author.name}
+          />
+          <span className="review-card__who">
+            <span className="review-card__name">
+              {review.author.name}
+              {owner && <span className="review-card__owner-tag">주인장</span>}
+            </span>
             <span className="review-card__time">{timeAgo(review.createdAt)}</span>
           </span>
         </button>
-        <span className="review-card__rating">
-          <Stars value={review.rating} />
+        <span className="review-card__rating" role="img" aria-label={`별점 ${review.rating.toFixed(1)}`}>
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path d={STAR_SHAPE} />
+          </svg>
           <em>{review.rating.toFixed(1)}</em>
         </span>
+        {onEdit && (
+          <button type="button" className="review-card__edit" onClick={onEdit}>
+            <svg
+              aria-hidden="true"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 20h4L19 9l-4-4L4 16z" />
+            </svg>
+            수정
+          </button>
+        )}
       </header>
       <p className="review-card__text">{review.text}</p>
-      {onEdit && (
-        <button type="button" className="review-card__edit" onClick={onEdit}>
-          수정
-        </button>
-      )}
+      {/* 시트에선 CSS order로 사진이 글 위에 온다 (스토리 뷰어는 글 → 사진 순서 그대로) */}
       {review.photoIds.length > 0 && (
         <div className="review-card__photos">
           {review.photoIds.map((id, i) => (
@@ -74,6 +97,11 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
       {/* 시트가 transform으로 올라오는 요소라 그 안의 position: fixed는 시트 상자에 갇힌다 — body로 빼서 화면 전체를 덮는다 */}
       {lightbox !== null && createPortal(
         <div className="photo-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="사진">
+          <button type="button" className="photo-lightbox__close" onClick={() => setLightbox(null)} aria-label="닫기">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
           <div
             ref={trackRef}
             className="photo-lightbox__track"
