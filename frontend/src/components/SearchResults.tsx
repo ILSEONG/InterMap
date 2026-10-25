@@ -82,7 +82,7 @@ export default function SearchResults({
                   onClick={() => openProfile?.(u.id)}
                   disabled={!openProfile}
                 >
-                  <Avatar className="search-results__person-avatar" src={null} name={u.nickname} />
+                  <Avatar className={`search-results__person-avatar tone-${Math.abs(u.id) % 4}`} src={null} name={u.nickname} />
                   <span className="search-results__person-name">
                     <Highlight text={u.nickname} query={highlight} />
                   </span>

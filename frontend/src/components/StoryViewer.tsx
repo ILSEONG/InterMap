@@ -240,7 +240,11 @@ export default function StoryViewer({
 function AuthorContent({ story, review }: { story: Story; review: Review }) {
   return (
     <>
-      <Avatar className="story-viewer__avatar" src={story.avatar ?? review.author.avatar} name={story.name} />
+      <Avatar
+        className={`story-viewer__avatar tone-${Math.abs(story.id) % 4}`}
+        src={story.avatar ?? review.author.avatar}
+        name={story.name}
+      />
       <span className="story-viewer__author-text">
         <span className="story-viewer__author-name">{story.name}</span>
         <span className="story-viewer__author-time">

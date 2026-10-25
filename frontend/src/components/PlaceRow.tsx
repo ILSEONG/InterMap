@@ -22,7 +22,8 @@ function activeGroups(restaurant: Restaurant, groups: FriendGroup[]): FriendGrou
 export default function PlaceRow({ restaurant, groups, onSelect, highlight }: PlaceRowProps) {
   const reviewCount = restaurant.reviews.length
   const reviewed = reviewCount > 0 && !restaurant.closed
-  const dots = reviewed ? activeGroups(restaurant, groups).slice(0, 3) : []
+  // '그룹없음'만 있으면 점을 그리지 않는다 — 실제 그룹이 붙은 가게만 색으로 구분
+  const dots = reviewed ? activeGroups(restaurant, groups).filter((g) => g.id !== 'none').slice(0, 3) : []
   const meta = [restaurant.category, shortLocation(restaurant.address)]
   if (!restaurant.closed) meta.push(reviewCount > 0 ? `후기 ${reviewCount}` : '후기 없음')
 

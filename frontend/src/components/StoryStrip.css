@@ -61,21 +61,6 @@
   font-weight: 700;
 }
 
-.story-chip__avatar--rose {
-  background: #ffe3e7;
-  color: #b42a44;
-}
-
-.story-chip__avatar--blue {
-  background: #dde9fd;
-  color: #1f5bc4;
-}
-
-.story-chip__avatar--teal {
-  background: #d5f0ea;
-  color: #0e6e5e;
-}
-
 .story-chip__name {
   max-width: 60px;
   font-size: 12px;

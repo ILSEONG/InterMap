@@ -27,3 +27,8 @@
 .app__chrome > * {
   pointer-events: auto;
 }
+
+/* 검색 중엔 결과 패널이 오른쪽 아래를 덮으니 현재 위치 버튼은 잠시 숨긴다 */
+.app--searching .map-gps {
+  display: none;
+}

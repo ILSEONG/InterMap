@@ -26,7 +26,7 @@ interface MyPageProps {
 const MIN_SEARCH_LENGTH = 1
 
 // 아바타 바탕색 4가지 — 사람마다 id로 고정해서 목록에서 구분되게 한다
-const toneOf = (id: number) => `my-page__tone--${id % 4}`
+const toneOf = (id: number) => `tone-${Math.abs(id) % 4}`
 
 function CloseIcon() {
   return (

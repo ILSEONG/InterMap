@@ -6,6 +6,8 @@
   height: 58px;
   padding: 0 7px;
   border-radius: 29px;
+  /* 아래 스토리 카드(자체 레이어)보다 위 — 계정·친구 메뉴가 그 위로 펼쳐진다 */
+  z-index: 2;
   /* 지도 canvas와 같은 표면에 래스터되면 Android WebView에서 pan마다 같이 깜빡인다.
      자체 GPU 레이어로 분리. (조상 .app__chrome에 주면 fixed 자손 위치가 틀어짐) */
   transform: translateZ(0);

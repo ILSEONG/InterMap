@@ -93,7 +93,7 @@ export default function ProfileSheet({
 
         <div className="my-page__scroll">
           <div className="profile-sheet__hero">
-            <Avatar className={`my-page__avatar profile-sheet__avatar my-page__tone--${userId % 4}`} src={profile?.avatar} name={name} />
+            <Avatar className={`my-page__avatar profile-sheet__avatar tone-${Math.abs(userId) % 4}`} src={profile?.avatar} name={name} />
             <h2 className="profile-sheet__name">{name}</h2>
             {profile?.alias && <p className="profile-sheet__nick">@{profile.nickname}</p>}
             {profile?.followsMe && (

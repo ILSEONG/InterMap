@@ -7,9 +7,6 @@ interface StoryStripProps {
   onOpen: (story: Story) => void
 }
 
-// 사진 없는 아바타 배경 — 사람마다 고정된 색 (id 기준)
-const TINTS = ['rose', 'blue', 'teal'] as const
-
 // 최근 24시간 안에 후기를 남긴 사람들. 누르면 그 사람 후기를 StoryViewer로 본다
 export default function StoryStrip({ stories, onOpen }: StoryStripProps) {
   if (stories.length === 0) return null
@@ -22,7 +19,7 @@ export default function StoryStrip({ stories, onOpen }: StoryStripProps) {
             <button type="button" className="story-chip" onClick={() => onOpen(story)}>
               <span className="story-chip__ring">
                 <Avatar
-                  className={`story-chip__avatar story-chip__avatar--${TINTS[Math.abs(story.id) % TINTS.length]}`}
+                  className={`story-chip__avatar tone-${Math.abs(story.id) % 4}`}
                   src={story.avatar}
                   name={story.name}
                 />

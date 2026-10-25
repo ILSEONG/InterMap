@@ -191,29 +191,6 @@
   font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
-  background: #ffe3e7;
-  color: #b42a44;
-}
-
-/* 사람마다 고정되는 바탕색 4가지 (id % 4) */
-.my-page__tone--0 {
-  background: #ffe3e7;
-  color: #b42a44;
-}
-
-.my-page__tone--1 {
-  background: #dde9fd;
-  color: #1f5bc4;
-}
-
-.my-page__tone--2 {
-  background: #d5f0ea;
-  color: #0e6e5e;
-}
-
-.my-page__tone--3 {
-  background: #fce9d4;
-  color: #8a4b0f;
 }
 
 /* ── 내 프로필: 사진 + 닉네임 칸 + 사진 바꾸기 ─────────── */

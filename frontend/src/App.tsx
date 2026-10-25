@@ -761,7 +761,7 @@ export default function App() {
   return (
     <OpenProfileContext.Provider value={openProfile}>
     <div
-      className="app"
+      className={`app${searching ? ' app--searching' : ''}`}
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
     >
       <MapCanvas

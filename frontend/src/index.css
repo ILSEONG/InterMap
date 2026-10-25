@@ -136,6 +136,27 @@ button:active {
   background: var(--glass-strong);
 }
 
+/* 사진 없는 아바타의 바탕색 — 사람 id % 4로 고정해 모든 화면에서 같은 색 */
+.tone-0 {
+  background: #ffe3e7;
+  color: #b42a44;
+}
+
+.tone-1 {
+  background: #dde9fd;
+  color: #1f5bc4;
+}
+
+.tone-2 {
+  background: #d5f0ea;
+  color: #0e6e5e;
+}
+
+.tone-3 {
+  background: #fce9d4;
+  color: #8a4b0f;
+}
+
 /* 프로필 사진 — 동그란 아바타 칸(Avatar 컴포넌트)을 꽉 채운다 */
 .avatar-img {
   width: 100%;
