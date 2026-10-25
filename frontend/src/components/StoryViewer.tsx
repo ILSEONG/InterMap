@@ -143,7 +143,11 @@ export default function StoryViewer({
                     <ReviewCard review={review} />
                   </div>
 
-                  <div className="story-viewer__actions">
+                  {/* --sv-count: 댓글 버튼(아래 ReviewComments의 토글)에 CSS로 "댓글 N"을 그리기 위한 개수 */}
+                  <div
+                    className="story-viewer__actions"
+                    style={{ ['--sv-count' as string]: `"${(comments[review.id] ?? []).length || ''}"` }}
+                  >
                     <button
                       type="button"
                       className="story-viewer__action story-viewer__action--primary"
@@ -172,7 +176,8 @@ export default function StoryViewer({
                       </svg>
                       찜하기
                     </button>
-                    {/* 댓글 트레이의 "댓글 N개 보기" 버튼이 세 번째 동작 버튼 자리에 들어간다 (CSS display: contents) */}
+                    {/* 댓글 트레이를 그대로 쓴다 — CSS display: contents로 트레이의 "댓글 N개 보기" 토글이 세 번째 동작 버튼 자리에 들어가고,
+                        펼친 목록·입력칸은 버튼 줄 아래 한 줄씩 붙는다. 화면 글자는 시안대로 "댓글 N"(스크린리더는 원래 문구를 읽는다) */}
                     <ReviewComments
                       comments={comments[review.id] ?? []}
                       myUserId={myUserId}
@@ -187,8 +192,8 @@ export default function StoryViewer({
           })}
         </div>
 
-        {current && (
-          <div className="story-viewer__chrome">
+        <div className="story-viewer__chrome">
+          {current && (
             <div
               className="story-viewer__progress"
               role="progressbar"
@@ -198,12 +203,14 @@ export default function StoryViewer({
               aria-valuenow={position + 1}
             >
               {ownerSlides.map((s, i) => (
-                <span key={s.review.id} className={`story-viewer__segment${i <= position ? ' story-viewer__segment--done' : ''}`} />
+                <span key={s.review.id} className={`story-viewer__segment${i <= position ? ' story-viewer__segment--on' : ''}`} />
               ))}
             </div>
+          )}
 
-            <div className="story-viewer__header">
-              {openProfile ? (
+          <div className="story-viewer__header">
+            {current &&
+              (openProfile ? (
                 <button
                   type="button"
                   className="story-viewer__author"
@@ -216,15 +223,14 @@ export default function StoryViewer({
                 <div className="story-viewer__author">
                   <AuthorContent story={current.story} review={current.review} />
                 </div>
-              )}
-              <button type="button" className="story-viewer__close" onClick={onClose} aria-label="스토리 닫기">
-                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
+              ))}
+            <button type="button" className="story-viewer__close" onClick={onClose} aria-label="스토리 닫기">
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
