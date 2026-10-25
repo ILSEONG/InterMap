@@ -24,9 +24,6 @@ export interface FollowingPerson {
   name: string
 }
 
-// 예전 다색 로고 글자색. 새 워드마크는 한 가지 잉크색이지만 외부에서 참조할 수 있게 남겨둔다.
-export const WORDMARK_COLORS = ['#1c1c1e']
-
 // 상단 유리 캡슐 — 내 계정 · 친구 목록 · 인터맵 · 찜 모드.
 // 검색은 엄지가 닿는 하단 독(SearchDock)으로 옮겼다.
 export default function Header({
