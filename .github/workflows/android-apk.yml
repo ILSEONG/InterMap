@@ -52,8 +52,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # GitHub 우분투 러너에는 Android SDK가 미리 깔려 있다 (ANDROID_HOME). 위치만 확인해 로그에 남긴다
       - id: android
-        uses: android-actions/setup-android@v3
+        name: Check Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-없음} ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-없음}" | tee -a "$RUNNER_TEMP/build.log"
+          test -n "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
 
       - id: install
         name: Install
