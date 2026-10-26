@@ -2,16 +2,15 @@ import { LOCATION_TERMS_VERSION } from '../lib/locationConsent'
 import './LocationTerms.css'
 
 // 약관 제12조에 들어가는 사업자 정보. 위치기반서비스사업 신고서에 적은 값과 같아야 한다.
-// 사업자등록을 마치면 대괄호 자리를 실제 값으로 바꾼다 (내용이 바뀌는 게 아니라 버전은 그대로 둬도 된다).
+// CastleRPG와 같은 사업자(일성게임즈)로 운영한다 — 상호·등록번호는 CastleRPG server/src/main.ts 기본값과 같다.
+// 대괄호 자리는 아직 못 받은 값. 채워도 약관 내용이 바뀌는 게 아니라 버전은 그대로 둬도 된다.
 const OPERATOR = {
-  name: '[상호]',
+  name: '일성게임즈',
+  bizNo: '227-15-93850',
   ceo: '[대표자 성명]',
   address: '[사업장 주소]',
   phone: '[대표 전화번호]',
   email: '[문의 이메일]',
-  // 위치정보관리책임자 — 1인 사업자면 대표자 본인
-  officer: '[위치정보관리책임자 성명]',
-  officerContact: '[위치정보관리책임자 연락처]',
 }
 
 const [year, month, day] = LOCATION_TERMS_VERSION.split('-').map(Number)
@@ -155,6 +154,8 @@ export default function LocationTerms() {
         <dl className="location-terms__info">
           <dt>상호</dt>
           <dd>{OPERATOR.name}</dd>
+          <dt>사업자등록번호</dt>
+          <dd>{OPERATOR.bizNo}</dd>
           <dt>대표자</dt>
           <dd>{OPERATOR.ceo}</dd>
           <dt>주소</dt>
@@ -163,10 +164,9 @@ export default function LocationTerms() {
           <dd>{OPERATOR.phone}</dd>
           <dt>이메일</dt>
           <dd>{OPERATOR.email}</dd>
+          {/* 1인 사업자라 대표자가 위치정보관리책임자를 겸한다 */}
           <dt>위치정보관리책임자</dt>
-          <dd>
-            {OPERATOR.officer} ({OPERATOR.officerContact})
-          </dd>
+          <dd>대표자 {OPERATOR.ceo} (연락처 위와 같음)</dd>
         </dl>
       </section>
 
