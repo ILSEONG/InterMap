@@ -18,10 +18,9 @@ export interface RestaurantRecord {
   address: string
   lat: number
   lng: number
-  status: 'OPEN' | 'CLOSED'
 }
 
-// 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다
+// 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다 (폐업 가게는 건수에 없다)
 export interface ClusterCell {
   lat: number
   lng: number
@@ -273,6 +272,13 @@ export interface UserProfile {
 export async function fetchUserProfile(userId: number): Promise<UserProfile> {
   const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`프로필 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+// 다른 사람의 팔로잉·팔로워 목록 (별칭·관계는 내 기준). 내가 팔로우 중인 사람만 — 아니면 403
+export async function fetchUserSocial(userId: number): Promise<SocialData> {
+  const res = await fetch(`${API_BASE}/api/users/${userId}/social`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`팔로우 목록 조회 실패 (${res.status})`)
   return res.json()
 }
 

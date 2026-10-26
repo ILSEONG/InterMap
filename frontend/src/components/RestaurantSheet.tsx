@@ -601,10 +601,7 @@ function SheetBody({
     <>
       <div className="restaurant-sheet__head">
         <div className="restaurant-sheet__title">
-          <h2 className="restaurant-sheet__name">
-            {restaurant.name}
-            {restaurant.closed && <span className="restaurant-sheet__closed-badge">폐업</span>}
-          </h2>
+          <h2 className="restaurant-sheet__name">{restaurant.name}</h2>
           <p className="restaurant-sheet__meta">
             {restaurant.category} · {restaurant.address}
           </p>

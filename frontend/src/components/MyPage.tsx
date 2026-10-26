@@ -375,8 +375,9 @@ interface PersonListProps {
   renderAction: (person: Person, label: string) => ReactNode
 }
 
-// 사람을 누르면 프로필 개요가 열리고, 별칭(이름 바꾸기)은 거기서 한다
-function PersonList({ title, people, empty, renderAction }: PersonListProps) {
+// 사람을 누르면 프로필 개요가 열리고, 별칭(이름 바꾸기)은 거기서 한다.
+// 다른 사람 프로필의 팔로잉·팔로워 목록(ProfileSheet)도 이걸 쓴다.
+export function PersonList({ title, people, empty, renderAction }: PersonListProps) {
   const openProfile = useOpenProfile()
   return (
     <section className="my-page__column">

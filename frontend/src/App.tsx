@@ -13,6 +13,7 @@ import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MyPage from './components/MyPage'
 import ProfileSheet from './components/ProfileSheet'
+import { backProfile, pushProfile, setTopList, type ProfileList, type ProfileStep } from './lib/profileStack'
 import { OpenProfileContext } from './lib/openProfile'
 import { groups } from './data/model'
 import type { Comment, GroupId, Restaurant, Review, Story } from './data/model'
@@ -71,34 +72,29 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
     lng: record.lng,
     groupIds: [],
     reviews: [],
-    closed: record.status === 'CLOSED',
   }
 }
 
+// 서버는 영업 중인 가게만 준다 (폐업은 목록에서 빠진다)
 function mergeRecords(prev: Restaurant[], records: RestaurantRecord[]): Restaurant[] {
   // 이동(idle)마다 수천 건이 들어오므로 매 건 find로 훑지 않고 이름+주소 인덱스로 찾는다
-  const byKey = new Map<string, Restaurant>()
-  for (const r of prev) byKey.set(`${r.name}|${r.address}`, r)
+  const seen = new Set<string>()
+  for (const r of prev) seen.add(`${r.name}|${r.address}`)
   const merged = [...prev]
   let changed = false
   for (const record of records) {
-    const existing = byKey.get(`${record.name}|${record.roadAddress}`) ?? byKey.get(`${record.name}|${record.address}`)
-    if (existing) {
-      const closed = record.status === 'CLOSED'
-      if (existing.closed !== closed) {
-        existing.closed = closed
-        changed = true
-      }
-    } else {
-      const added = toRestaurant(record)
-      merged.push(added)
-      byKey.set(`${added.name}|${added.address}`, added)
-      changed = true
-    }
+    if (seen.has(`${record.name}|${record.roadAddress}`) || seen.has(`${record.name}|${record.address}`)) continue
+    const added = toRestaurant(record)
+    merged.push(added)
+    seen.add(`${added.name}|${added.address}`)
+    changed = true
   }
   // 달라진 게 없으면 이전 배열을 그대로 돌려줘서 재군집·마커 재생성을 막는다
   return changed ? merged : prev
 }
+
+// 서버 요약 셀의 격자 인덱스 (서버 summarize의 floor(lat / cell), floor(lng / cell)과 같은 식)
+const cellKey = (lat: number, lng: number, cellDeg: number) => `${Math.floor(lat / cellDeg)}:${Math.floor(lng / cellDeg)}`
 
 // bbox를 고정 격자에 스냅한다. 조금만 움직여도 URL이 통째로 바뀌면
 // 서버의 6시간 HTTP 캐시가 한 번도 안 맞는다 — 같은 타일이면 같은 URL이 되게.
@@ -115,7 +111,7 @@ export default function App() {
 
   // 낮은 줌에서 받는 서버 요약 셀. 격자 인덱스 키로 누적한다 — 통째로 갈아끼우면
   // 응답이 올 때까지 마커가 사라져서 이동할 때마다 화면이 깜빡인다.
-  const [cellStore, setCellStore] = useState<{ zoom: number; byKey: Map<string, ClusterCell> } | null>(null)
+  const [cellStore, setCellStore] = useState<{ zoom: number; cellDeg: number; byKey: Map<string, ClusterCell> } | null>(null)
   // 같은 타일을 연달아 요청하지 않기 위한 마지막 요청 키
   const lastFetchKey = useRef('')
 
@@ -129,18 +125,19 @@ export default function App() {
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
     if (cellMode) {
-      // zoom-1로 요청하면 서버 셀 한 변이 2배(52px)가 되어 셀 수가 1/4로 준다 —
-      // 밀집 지역에서 마커 수백 개가 깔리면 모바일 WebView가 깜빡인다
-      fetchRestaurantCells(snapped, zoom - 1)
+      // zoom-2로 요청하면 서버 셀 한 변이 4배(104px)가 된다 — 셀 핀(38px 원, 네 자리면 더 넓다)이
+      // 서로 겹치지 않고, 밀집 지역에서 마커 수백 개가 깔려 모바일 WebView가 깜빡이는 것도 막는다
+      const cellZoom = zoom - 2
+      fetchRestaurantCells(snapped, cellZoom)
         .then((fresh) => {
           // 서버와 같은 격자 인덱스로 키를 만들어 누적한다. 같은 셀은 최신 응답으로
           // 덮어써서 bbox 경계에 걸려 잘렸던 건수를 교정한다. 줌이 바뀌면 격자가
           // 달라지므로 처음부터 다시 쌓는다.
-          const cellDeg = (360 * 26) / (256 * 2 ** (zoom - 1))
+          const cellDeg = (360 * 26) / (256 * 2 ** cellZoom)
           setCellStore((prev) => {
             const byKey = prev && prev.zoom === zoom ? new Map(prev.byKey) : new Map<string, ClusterCell>()
-            for (const c of fresh) byKey.set(`${Math.floor(c.lat / cellDeg)}:${Math.floor(c.lng / cellDeg)}`, c)
-            return { zoom, byKey }
+            for (const c of fresh) byKey.set(cellKey(c.lat, c.lng, cellDeg), c)
+            return { zoom, cellDeg, byKey }
           })
         })
         .catch(() => {})
@@ -152,8 +149,6 @@ export default function App() {
         })
     }
   }, [])
-  // 누적된 셀을 배열로. byKey 자체가 바뀔 때만 다시 만든다.
-  const cellList = useMemo(() => (cellStore ? [...cellStore.byKey.values()] : []), [cellStore])
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
   // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
   const [groupColors] = useState<Record<GroupId, string>>({
@@ -163,8 +158,8 @@ export default function App() {
     // 후기 없는 가게(대부분)는 이 색 — 밀집해도 눈에 덜 띄는 중간 회색
     none: '#A7A7AE',
   })
-  // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만
-  const [reviewFilter, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
+  // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만. 실제 적용값은 아래 reviewFilter (로그아웃이면 '전체')
+  const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
   // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
   const [searchMode, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
@@ -186,6 +181,8 @@ export default function App() {
       return null
     }
   })
+  // 후기는 로그인해야 받으므로 로그아웃이면 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
+  const reviewFilter = session ? reviewFilterChoice : 'all'
   // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
   const [socialLink, setSocialLink] = useState<SocialTicket | null>(null)
   const handleAuthed = useCallback((next: AuthSession) => {
@@ -469,7 +466,7 @@ export default function App() {
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)
   handleBackRef.current = () => {
-    if (profileUserId !== null) return setProfileUserId(null), true
+    if (profileUserId !== null) return profileBack(), true
     if (openStory) return setOpenStory(null), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
@@ -531,6 +528,23 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
+  // 누적된 서버 요약 셀을 배열로. 서버 건수엔 후기 있는 가게도 들어 있다 —
+  // '후기 없음'이면 내가 보는 후기(팔로우 기준)가 있는 가게를 같은 격자 칸에서 빼고, 0이 된 칸은 숨긴다.
+  const cellList = useMemo(() => {
+    if (!cellStore) return []
+    if (reviewFilter !== 'without') return [...cellStore.byKey.values()]
+    const reviewedPerCell = new Map<string, number>()
+    for (const r of reviewedRestaurants) {
+      if (r.reviews.length === 0) continue
+      const key = cellKey(r.lat, r.lng, cellStore.cellDeg)
+      reviewedPerCell.set(key, (reviewedPerCell.get(key) ?? 0) + 1)
+    }
+    return [...cellStore.byKey].flatMap(([key, cell]) => {
+      const count = cell.count - (reviewedPerCell.get(key) ?? 0)
+      return count > 0 ? [{ ...cell, count }] : []
+    })
+  }, [cellStore, reviewFilter, reviewedRestaurants])
+
   // 찜 모드: 후기·검색 필터와 무관하게 찜한 가게 전부
   const favRestaurants = useMemo(
     () => reviewedRestaurants.filter((r) => favorites.has(restaurantKey(r))),
@@ -578,15 +592,23 @@ export default function App() {
   }, [session, searchMode, searchActive, deferredQuery])
 
   // 후기·댓글·검색 결과에서 누른 사람의 프로필 개요. 내 프로필이면 마이페이지로 보낸다.
-  const [profileUserId, setProfileUserId] = useState<number | null>(null)
+  // 프로필의 팔로잉·팔로워 목록에서 또 다른 사람으로 들어갈 수 있어 화면을 쌓아 둔다 (lib/profileStack).
+  const [profileStack, setProfileStack] = useState<ProfileStep[]>([])
+  const profileTop = profileStack.at(-1) ?? null
+  const profileUserId = profileTop?.userId ?? null
+  const setProfileList = useCallback((list: ProfileList | null) => setProfileStack((s) => setTopList(s, list)), [])
+  const profileBack = useCallback(() => setProfileStack(backProfile), [])
   const openProfile = useCallback(
     (userId: number) => {
       if (!session) {
         setAuthMode('start')
         return
       }
-      if (userId === session.id) setMyPageOpen(true)
-      else setProfileUserId(userId)
+      // 남의 팔로잉·팔로워 목록에서 나를 누르면 쌓인 프로필은 닫고 마이페이지로
+      if (userId === session.id) {
+        setProfileStack([])
+        setMyPageOpen(true)
+      } else setProfileStack((s) => pushProfile(s, userId))
     },
     [session],
   )
@@ -832,7 +854,7 @@ export default function App() {
           onSearchModeChange={setSearchMode}
           reviewFilter={reviewFilter}
           onReviewFilterChange={setReviewFilter}
-          showReviewFilter={!personPins}
+          showReviewFilter={!!session && !personPins}
           results={
             query.trim() && resultsOpen ? (
               <SearchResults
@@ -906,12 +928,17 @@ export default function App() {
           fallbackName={profileName}
           allReviews={rawReviews}
           restaurants={reviewedRestaurants}
+          myUserId={session.id}
+          list={profileTop?.list ?? null}
+          onListChange={setProfileList}
           onSocialChange={setSocial}
+          // 프로필은 가게 시트의 후기에서 열리기도 한다 — 지도만 옮기면 뒤에 있던 시트가 예전 가게로 남으므로 시트도 바꾼다
           onPick={(restaurant) => {
-            setProfileUserId(null)
+            setProfileStack([])
+            setSelectedId(restaurant.id)
             focusFromSearch(restaurant)
           }}
-          onClose={() => setProfileUserId(null)}
+          onClose={() => setProfileStack([])}
         />
       )}
 

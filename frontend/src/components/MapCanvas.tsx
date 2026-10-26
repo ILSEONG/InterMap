@@ -43,8 +43,8 @@ const DETAIL_ZOOM = 18
 // 화면에 그리는 마커 상한. 넘으면 군집 반경을 키워가며 다시 묶는다 — DOM 마커 수백 개를
 // 줌마다 지웠다 만드는 게 렉의 원인이라 개수 자체를 잡는다.
 const MAX_PINS = 300
-// 이보다 멀리서 보면 핀 이름 라벨을 숨긴다 (빽빽할 때 페인트 비용 절감)
-const NAME_LABEL_MIN_ZOOM = 15
+// 고른 가게 핀(이름 알약)은 이웃 핀들 위로. 현재 위치 점(10)보다는 아래.
+const FOCUSED_Z = 5
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] ?? ch)
@@ -54,11 +54,10 @@ function escapeHtml(value: string): string {
 const REVIEWED_PIN_COLOR = '#FF5D73'
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
-  if (items.every((r) => r.closed)) return '#AEAEB2'
-  if (items.some((r) => !r.closed && r.reviews.length > 0)) return REVIEWED_PIN_COLOR
+  if (items.some((r) => r.reviews.length > 0)) return REVIEWED_PIN_COLOR
   // 그룹 미지정 가게는 'none' 유사 그룹으로 취급해 필터·색을 같이 태운다
   const active = groups.filter((g) =>
-    items.some((r) => !r.closed && (r.groupIds.length > 0 ? r.groupIds.includes(g.id) : g.id === 'none')),
+    items.some((r) => (r.groupIds.length > 0 ? r.groupIds.includes(g.id) : g.id === 'none')),
   )
   return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? 'var(--gc-none)'
 }
@@ -69,37 +68,37 @@ const FAVORITE_PIN_COLOR = '#FF9F0A'
 // 헤더 찜 토글과 같은 통통한 별 (StarIcon.STAR_PATH)
 const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="display:block"><path d="${STAR_PATH}" style="fill:var(--pin-color);stroke:#fff" stroke-width="2" stroke-linejoin="round"/></svg>`
 
+// 가게 핀 모양 (CSS가 전부 가운데 정렬하므로 너비가 달라도 anchor는 0,0 하나):
+// 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양), 후기 있는 가게 = 흰 알약 "● 후기수",
+// 후기 없는 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 이름(+후기수)으로 펼친다.
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
-  // 요약 셀 핀은 items가 비어 있고 count만 있다 — 항상 군집 모양, 색은 미지정 그룹색
   const count = pin.count ?? pin.items.length
-  const cluster = count > 1
-  // 후기 없는 가게 덩어리(요약 셀) — 회색 반투명 알약에 "+N"
+  // 요약 셀은 items가 비어 있고 count만 있다
   const cell = pin.items.length === 0
-  const color = star ? FAVORITE_PIN_COLOR : pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'
-  const classes = [
-    'map-pin',
-    cell ? 'map-pin--cell' : cluster && 'map-pin--cluster',
-    !cluster && star && 'map-pin--star',
-    focused && 'map-pin--focused',
-  ]
-    .filter(Boolean)
-    .join(' ')
-  const title = cluster || pin.items.length === 0 ? `이 자리 ${count}곳` : escapeHtml(pin.items[0].name)
-  return {
-    content: `
-      <button type="button" class="${classes}" style="--pin-color:${color}" aria-label="${title}">
-        <span class="map-pin__dot">${cell ? `+${count}` : cluster ? count : star ? STAR_PIN_SVG : ''}</span>
-        ${pin.items.length === 1 ? `<span class="map-pin__name">${escapeHtml(pin.items[0].name)}</span>` : ''}
-      </button>
-    `,
-    // 크기는 MapCanvas.css와 맞춘다: 셀 48×30, 군집 32×32, 별 22×22, 점 16×16 — 모두 가운데 기준
-    anchor: cell
-      ? new window.naver.maps.Point(24, 15)
-      : cluster
-        ? new window.naver.maps.Point(16, 16)
+  const place = !cell && count === 1 ? pin.items[0] : null
+  const reviewCount = place ? place.reviews.length : 0
+  const color = star ? FAVORITE_PIN_COLOR : cell ? 'var(--gc-none)' : pinColor(pin.items, groups)
+  const variant = !place
+    ? 'cluster'
+    : focused
+        ? 'label'
         : star
-          ? new window.naver.maps.Point(11, 11)
-          : new window.naver.maps.Point(8, 8),
+          ? 'star'
+          : reviewCount > 0
+            ? 'pill'
+            : 'dot'
+  const lead = star ? STAR_PIN_SVG : '<span class="map-pin__dot"></span>'
+  const body = {
+    cluster: `${count}`,
+    label: `${lead}<span class="map-pin__name">${escapeHtml(place?.name ?? '')}</span>${reviewCount > 0 ? `<span class="map-pin__badge">${reviewCount}</span>` : ''}`,
+    star: STAR_PIN_SVG,
+    pill: `${lead}<span class="map-pin__count">${reviewCount}</span>`,
+    dot: '',
+  }[variant]
+  const title = place ? escapeHtml(place.name) : `이 자리 ${count}곳`
+  return {
+    content: `<button type="button" class="map-pin map-pin--${variant}${focused ? ' map-pin--focused' : ''}" style="--pin-color:${color}" aria-label="${title}">${body}</button>`,
+    anchor: new window.naver.maps.Point(0, 0),
   }
 }
 
@@ -112,7 +111,7 @@ function pinListContent(items: Restaurant[], groups: FriendGroup[]): string {
         <button type="button" class="pin-list__row" data-place-id="${escapeHtml(r.id)}">
           <span class="pin-list__dot" style="--pin-color:${pinColor([r], groups)}"></span>
           <span class="pin-list__body">
-            <span class="pin-list__name">${escapeHtml(r.name)}${r.closed ? ' <em>폐업</em>' : ''}</span>
+            <span class="pin-list__name">${escapeHtml(r.name)}</span>
             <span class="pin-list__meta">${escapeHtml(r.category)}</span>
           </span>
         </button>
@@ -384,20 +383,22 @@ export default function MapCanvas({
 
     visiblePins.forEach((pin) => {
       const existing = markers.get(pin.key)
-      // 색과 함께 찜 모드 여부도 키에 담는다 — 모드 토글 시 같은 자리 핀도 아이콘이 갈린다
-      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}${starPins ? '|star' : ''}`
+      // 색·후기수·찜 모드 여부를 키에 담는다 — 셋 중 하나만 바뀌어도 같은 자리 핀의 아이콘이 갈린다
+      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}|${pin.items.length === 1 ? pin.items[0].reviews.length : ''}${starPins ? '|star' : ''}`
+      const focused = pin.items.some((r) => r.id === focusedRef.current)
       if (existing) {
         // 같은 묶음이라도 후기가 새로 달리면 색이 바뀐다 — 아이콘만 갈아끼운다
         if (existing.get('pinColor') !== iconKey) {
           existing.set('pinColor', iconKey)
-          existing.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current), starPins))
+          existing.setIcon(pinIcon(pin, groups, focused, starPins))
         }
         return
       }
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(pin.lat, pin.lng),
         map: mapRef.current!,
-        icon: pinIcon(pin, groups, pin.items.some((r) => r.id === focusedRef.current), starPins),
+        icon: pinIcon(pin, groups, focused, starPins),
+        zIndex: focused ? FOCUSED_Z : 0,
       })
       marker.set('pinColor', iconKey)
       naver.maps.Event.addListener(marker, 'click', () => {
@@ -454,7 +455,10 @@ export default function MapCanvas({
       const pin = visiblePins.find((p) => p.items.some((r) => r.id === id))
       const marker = pin && markersRef.current.get(pin.key)
       if (!pin || !marker) continue
-      marker.setIcon(pinIcon(pin, groups, pin.items.some((r) => r.id === focusedId), starPins))
+      const focused = pin.items.some((r) => r.id === focusedId)
+      marker.setIcon(pinIcon(pin, groups, focused, starPins))
+      // 펼친 이름 알약이 이웃 핀 밑에 깔리지 않게
+      marker.setZIndex(focused ? FOCUSED_Z : 0)
     }
   }, [focusedId, visiblePins, groups, mapReady, starPins])
 
@@ -466,7 +470,7 @@ export default function MapCanvas({
   }, [focus, mapReady, focusRestaurant])
 
   return (
-    <div className={`map-canvas${zoom < NAME_LABEL_MIN_ZOOM ? ' map-canvas--far' : ''}`}>
+    <div className="map-canvas">
       <div ref={mapDivRef} className="map-canvas__surface" />
       <button
         type="button"

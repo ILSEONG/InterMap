@@ -21,16 +21,15 @@ function activeGroups(restaurant: Restaurant, groups: FriendGroup[]): FriendGrou
 // 검색 결과 한 줄. 이웃 후기가 있는 가게는 틴트 배경 + 그룹 점으로 먼저 눈에 띄게.
 export default function PlaceRow({ restaurant, groups, onSelect, highlight }: PlaceRowProps) {
   const reviewCount = restaurant.reviews.length
-  const reviewed = reviewCount > 0 && !restaurant.closed
+  const reviewed = reviewCount > 0
   // '그룹없음'만 있으면 점을 그리지 않는다 — 실제 그룹이 붙은 가게만 색으로 구분
   const dots = reviewed ? activeGroups(restaurant, groups).filter((g) => g.id !== 'none').slice(0, 3) : []
-  const meta = [restaurant.category, shortLocation(restaurant.address)]
-  if (!restaurant.closed) meta.push(reviewCount > 0 ? `후기 ${reviewCount}` : '후기 없음')
+  const meta = [restaurant.category, shortLocation(restaurant.address), reviewed ? `후기 ${reviewCount}` : '후기 없음']
 
   return (
     <button
       type="button"
-      className={`place-row${reviewed ? ' place-row--reviewed' : ''}${restaurant.closed ? ' place-row--closed' : ''}`}
+      className={`place-row${reviewed ? ' place-row--reviewed' : ''}`}
       onClick={() => onSelect(restaurant)}
     >
       <span className="place-row__icon" aria-hidden="true">
@@ -45,16 +44,12 @@ export default function PlaceRow({ restaurant, groups, onSelect, highlight }: Pl
         </span>
         <span className="place-row__meta">{meta.join(' · ')}</span>
       </span>
-      {restaurant.closed ? (
-        <em className="place-row__closed">폐업</em>
-      ) : (
-        dots.length > 0 && (
-          <span className="place-row__dots" aria-label={dots.map((g) => g.label).join(', ')}>
-            {dots.map((g) => (
-              <span key={g.id} className="place-row__dot" style={{ background: g.color }} />
-            ))}
-          </span>
-        )
+      {dots.length > 0 && (
+        <span className="place-row__dots" aria-label={dots.map((g) => g.label).join(', ')}>
+          {dots.map((g) => (
+            <span key={g.id} className="place-row__dot" style={{ background: g.color }} />
+          ))}
+        </span>
       )}
     </button>
   )

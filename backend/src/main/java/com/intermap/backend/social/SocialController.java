@@ -70,14 +70,20 @@ public class SocialController {
     }
 
     private SocialResponse socialOf(AppUser me) {
+        return socialOf(me, me);
+    }
+
+    // owner의 팔로잉·팔로워 목록. 각 사람의 별칭·관계(following/followsMe)는 보는 사람(viewer) 기준이다.
+    private SocialResponse socialOf(AppUser owner, AppUser viewer) {
         Map<Long, String> aliasById = new HashMap<>();
-        for (UserAlias a : aliases.findByOwner(me)) aliasById.put(a.getTarget().getId(), a.getAlias());
-        List<Follow> out = follows.findByFollowerOrderByCreatedAtDesc(me);
-        List<Follow> in = follows.findByFolloweeOrderByCreatedAtDesc(me);
+        for (UserAlias a : aliases.findByOwner(viewer)) aliasById.put(a.getTarget().getId(), a.getAlias());
+        List<Follow> out = follows.findByFollowerOrderByCreatedAtDesc(owner);
+        List<Follow> in = follows.findByFolloweeOrderByCreatedAtDesc(owner);
+        boolean self = owner.getId().equals(viewer.getId());
         Set<Long> followingIds = new HashSet<>();
-        for (Follow f : out) followingIds.add(f.getFollowee().getId());
+        for (Follow f : self ? out : follows.findByFollowerOrderByCreatedAtDesc(viewer)) followingIds.add(f.getFollowee().getId());
         Set<Long> followerIds = new HashSet<>();
-        for (Follow f : in) followerIds.add(f.getFollower().getId());
+        for (Follow f : self ? in : follows.findByFolloweeOrderByCreatedAtDesc(viewer)) followerIds.add(f.getFollower().getId());
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return new SocialResponse(
                 out.stream().map(f -> person(f.getFollowee(), aliasById, followingIds, followerIds, avatarUrls)).toList(),
@@ -175,6 +181,22 @@ public class SocialController {
                 following, followsMe,
                 following ? follows.countByFollower(target) : -1,
                 following ? follows.countByFollowee(target) : -1));
+    }
+
+    // 다른 사람의 팔로잉·팔로워 목록. 프로필의 수와 같은 기준 — 내가 팔로우 중인 사람만 볼 수 있다.
+    @GetMapping("/api/users/{userId}/social")
+    public ResponseEntity<?> socialOfUser(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                          @PathVariable Long userId) {
+        AppUser me = auth.currentUser(authorization);
+        if (me == null) return unauthorized();
+        AppUser target = users.findById(userId).orElse(null);
+        if (target == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new AuthController.ErrorResponse("없는 사용자예요."));
+        }
+        if (!me.getId().equals(userId) && follows.findByFollowerAndFollowee(me, target).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("팔로우하면 볼 수 있어요."));
+        }
+        return ResponseEntity.ok(socialOf(target, me));
     }
 
     // 팔로우할 사람 찾기 — 닉네임 부분 일치 상위 20, 본인 제외. 로그인 필요 (사용자 목록 열람 방지).

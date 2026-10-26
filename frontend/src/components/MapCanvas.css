@@ -64,22 +64,34 @@
   background: var(--map-bg);
 }
 
+/* 핀은 내용에 따라 너비가 달라서(알약·이름) 좌표(anchor 0,0)를 기준으로 CSS가 가운데 맞춘다 */
 .map-pin {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: block;
-  background: none;
-  border: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-sizing: border-box;
+  margin: 0;
   padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   /* 성능: 마커 수백 개가 지도 이동마다 다시 그려진다.
      filter·box-shadow·backdrop-filter는 마커에 쓰지 않는다 — 모바일 WebView가 pan마다 깜빡인다.
-     유리 느낌은 반투명 흰 면과 흰 테두리로만 낸다. */
+     입체감은 반투명 면과 얇은 테두리로만 낸다.
+     translateZ(0): 지도 canvas 표면과 래스터를 분리해 pan 중 재페인트로 인한 깜빡임 방지 */
+  transform: translate(-50%, -50%) translateZ(0);
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  /* 지도 canvas 표면과 래스터를 분리해 pan 중 재페인트로 인한 깜빡임 방지 */
-  transform: translateZ(0);
 }
 
 /* 터치 여유를 주되 CLUSTER_PIXEL_DISTANCE(26px)보다 크게 잡지 않는다.
@@ -94,23 +106,26 @@
   transform: translate(-50%, -50%);
 }
 
-.map-pin:hover,
 .map-pin:focus-visible {
-  transform: scale(1.1);
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
-/* 가게 하나 — 흰 테두리를 두른 그룹색 점 */
+/* 알약 안의 그룹색 점 */
 .map-pin__dot {
-  position: absolute;
-  left: 0;
-  top: 0;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pin-color);
+}
+
+/* 후기 없는 가게 — 흰 테두리를 두른 작은 점 */
+.map-pin--dot {
   width: 16px;
   height: 16px;
-  box-sizing: border-box;
   border-radius: 50%;
-  background: var(--pin-color, var(--accent));
+  background: var(--pin-color);
   border: 2px solid #fff;
-  display: block;
 }
 
 /* 찜 모드 — 점 대신 별 */
@@ -119,125 +134,76 @@
   height: 22px;
 }
 
-.map-pin--star .map-pin__dot {
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 0;
-  background: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 겹친 가게 — 흰 원에 그룹색 링, 가운데 개수 */
-.map-pin--cluster {
-  width: 32px;
-  height: 32px;
-  z-index: 1;
-}
-
-.map-pin--cluster .map-pin__dot {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.94);
-  border: 3px solid var(--pin-color, var(--accent));
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 900;
-  color: var(--ink);
-}
-
-/* 후기 없는 가게 요약 셀 — 회색 반투명 알약 "+N" */
-.map-pin--cell {
-  width: 48px;
-  height: 30px;
-}
-
-.map-pin--cell::before {
-  width: 48px;
-  height: 30px;
-}
-
-.map-pin--cell .map-pin__dot {
-  width: 48px;
-  height: 30px;
-  border: none;
-  border-radius: 15px;
-  background: rgba(118, 118, 128, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink-2);
-}
-
-.map-pin:hover,
-.map-pin:focus-visible,
-.map-pin--focused {
-  z-index: 3;
-}
-
-/* 멀리서 볼 때(핀이 빽빽할 때)는 이름 라벨을 그리지 않는다 — 페인트 비용 절감 */
-.map-canvas--far .map-pin__name {
-  display: none;
-}
-
-/* 겹치지 않은 핀은 이름을 항상 아래에 붙여둔다 (터치엔 hover가 없으므로) */
-.map-pin__name {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 108px;
-  padding: 2px 8px;
+/* 후기 있는 가게 — 흰 알약에 그룹색 점과 후기 수 */
+.map-pin--pill {
+  height: 28px;
+  padding: 0 10px 0 8px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.92);
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.45;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(60, 60, 67, 0.14);
 }
 
-/* 고른 핀 — 이름이 진한 알약으로 */
-.map-pin--focused .map-pin__name {
-  max-width: 160px;
-  padding: 4px 12px;
+/* 고른 가게 — 진한 알약에 점·이름·후기 수 배지 */
+.map-pin--label {
+  height: 32px;
+  padding: 0 12px 0 10px;
+  gap: 6px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
   color: #fff;
-  font-size: 13px;
 }
 
-/* 목록에서 방금 고른 핀은 퍼지는 링 하나로만 구분한다 */
-.map-pin--focused::after {
+.map-pin__name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.map-pin__badge {
+  min-width: 20px;
+  height: 20px;
+  /* 배지가 있으면 알약 오른쪽 여백을 6px로 줄인다 */
+  margin-right: -6px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+/* 여러 곳 (화면 군집·서버 요약 셀) — 흰 원에 옅은 그룹색 링, 가운데 개수.
+   개수가 네 자리면 옆으로 늘어난다 */
+.map-pin--cluster {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  border: 4px solid color-mix(in srgb, var(--pin-color) 35%, #fff);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+/* 목록에서 방금 고른 가게가 군집 안에 있으면 퍼지는 링으로 구분한다 */
+.map-pin--cluster.map-pin--focused::after {
   content: '';
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 34px;
-  height: 34px;
+  width: 52px;
+  height: 52px;
   /* margin으로 맞추면 크기 바뀔 때 중심이 어긋난다. transform으로 고정. */
   transform: translate(-50%, -50%) scale(0);
   border-radius: 50%;
   border: 2px solid var(--pin-color, var(--accent));
   animation: map-pin-pulse 1.6s ease-out infinite;
   pointer-events: none;
-}
-
-/* 뭉친 핀은 원 자체가 커서 링을 더 크게 잡아야 밖으로 퍼져 보인다 */
-.map-pin--cluster.map-pin--focused::after {
-  width: 52px;
-  height: 52px;
 }
 
 @keyframes map-pin-pulse {
@@ -327,17 +293,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.pin-list__name em {
-  margin-left: 6px;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: rgba(118, 118, 128, 0.16);
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-2);
 }
 
 .pin-list__meta {

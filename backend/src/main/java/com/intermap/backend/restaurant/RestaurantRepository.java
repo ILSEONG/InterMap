@@ -12,9 +12,10 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
     Optional<Restaurant> findByNameAndAddress(String name, String address);
 
-    List<Restaurant> findTop50ByNameContainingIgnoreCase(String name);
+    // 지도·검색용 조회는 status를 받는다 — 폐업 가게는 아예 내려주지 않는다 (호출부가 OPEN을 넘긴다)
+    List<Restaurant> findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status status, String name);
 
-    List<Restaurant> findByLatBetweenAndLngBetween(double minLat, double maxLat, double minLng, double maxLng);
+    List<Restaurant> findByStatusAndLatBetweenAndLngBetween(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng);
 
     // 백필 중복 판정용 키만 (엔티티 전체를 올리면 서울 10만 행에서 Render 512MB가 터진다).
     // 인터페이스 프로젝션은 행마다 프록시를 만들어 무거우니 Object[] — [id, name, roadAddress, localDataMgtNo]
@@ -25,7 +26,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // 행 = [avg(lat), avg(lng), count]. select엔 집계만 둔다 — 바인드 파라미터가 든 group by 식을 select에 또 쓰면
     // H2·Postgres 모두 "같은 식"으로 안 보고 GROUP BY 누락 오류를 낸다.
     @Query("select avg(r.lat), avg(r.lng), count(r) from Restaurant r"
-            + " where r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng"
+            + " where r.status = :status and r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng"
             + " group by floor(r.lat / :cell), floor(r.lng / :cell)")
-    List<Object[]> summarize(double minLat, double maxLat, double minLng, double maxLng, double cell);
+    List<Object[]> summarize(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng, double cell);
 }
