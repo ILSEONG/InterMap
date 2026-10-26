@@ -157,8 +157,8 @@ export default function App() {
     // 후기 없는 가게(대부분)는 이 색 — 밀집해도 눈에 덜 띄는 중간 회색
     none: '#A7A7AE',
   })
-  // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만
-  const [reviewFilter, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
+  // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만. 실제 적용값은 아래 reviewFilter (로그아웃이면 '전체')
+  const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
   // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
   const [searchMode, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
@@ -180,6 +180,8 @@ export default function App() {
       return null
     }
   })
+  // 후기는 로그인해야 받으므로 로그아웃이면 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
+  const reviewFilter = session ? reviewFilterChoice : 'all'
   // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
   const [socialLink, setSocialLink] = useState<SocialTicket | null>(null)
   const handleAuthed = useCallback((next: AuthSession) => {
@@ -843,7 +845,7 @@ export default function App() {
           onSearchModeChange={setSearchMode}
           reviewFilter={reviewFilter}
           onReviewFilterChange={setReviewFilter}
-          showReviewFilter={!personPins}
+          showReviewFilter={!!session && !personPins}
           results={
             query.trim() && resultsOpen ? (
               <SearchResults
