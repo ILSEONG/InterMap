@@ -3,14 +3,14 @@ import './LocationTerms.css'
 
 // 약관 제12조에 들어가는 사업자 정보. 위치기반서비스사업 신고서에 적은 값과 같아야 한다.
 // CastleRPG와 같은 사업자(일성게임즈)로 운영한다 — 상호·등록번호는 CastleRPG server/src/main.ts 기본값과 같다.
-// 대괄호 자리는 아직 못 받은 값. 채워도 약관 내용이 바뀌는 게 아니라 버전은 그대로 둬도 된다.
+// 연락처만 바뀌면 약관 내용이 바뀌는 게 아니라 버전은 그대로 둬도 된다.
 const OPERATOR = {
   name: '일성게임즈',
   bizNo: '227-15-93850',
-  ceo: '[대표자 성명]',
-  address: '[사업장 주소]',
-  phone: '[대표 전화번호]',
-  email: '[문의 이메일]',
+  ceo: '최일성',
+  address: '서울특별시 노원구 상계동 벽산아파트 105동 309호',
+  phone: '010-8230-7981',
+  email: 'intermap0@gmail.com',
 }
 
 const [year, month, day] = LOCATION_TERMS_VERSION.split('-').map(Number)
