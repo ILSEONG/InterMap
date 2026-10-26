@@ -12,6 +12,8 @@ import {
   linkSocial,
 } from '../lib/api'
 import type { AuthSession, SocialTicket } from '../lib/api'
+import { agreeLocation, useLocationConsent } from '../lib/locationConsent'
+import LocationTerms from './LocationTerms'
 import './AuthModal.css'
 
 // start: 소셜 버튼 + 이메일 입력. 이메일이 기존 회원이면 로그인, 아니면 가입으로 이어진다.
@@ -155,6 +157,11 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
   const [terms, setTerms] = useState(false)
   const [privacy, setPrivacy] = useState(false)
   const [marketing, setMarketing] = useState(false)
+  // 위치기반서비스 약관 (선택). 이 기기에서 이미 동의했으면 묻지 않는다 — 동의는 기기 단위라 가입이 끝나면 기기에 기록한다.
+  const locationConsent = useLocationConsent()
+  const askLocation = locationConsent === null
+  const [location, setLocation] = useState(false)
+  const [locationTermsOpen, setLocationTermsOpen] = useState(false)
   // 이메일 조회 결과. 인증번호가 맞았을 때 로그인할지 가입으로 넘어갈지 가른다.
   const [existing, setExisting] = useState(false)
   // 인증번호 발송/재발송 안내와 닉네임 중복 안내
@@ -176,6 +183,8 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
     setTerms(false)
     setPrivacy(false)
     setMarketing(false)
+    setLocation(false)
+    setLocationTermsOpen(false)
     setExisting(false)
     setCodeHint(null)
     setNickHint(null)
@@ -250,7 +259,10 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       shown === 'social'
         ? signupSocial(social?.ticket ?? '', nickname, marketing)
         : signup({ email, emailCode: code, nickname, password, termsAgreed: true, marketingAgreed: marketing })
-    run(request, setDone)
+    run(request, (authed) => {
+      if (askLocation && location) agreeLocation()
+      setDone(authed)
+    })
   }
 
   // 닉네임 칸을 떠날 때 중복 확인
@@ -272,12 +284,13 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
   }
 
   const required = terms && privacy
-  const allAgreed = required && marketing
+  const allAgreed = required && marketing && (!askLocation || location)
   function toggleAll() {
     const next = !allAgreed
     setTerms(next)
     setPrivacy(next)
     setMarketing(next)
+    setLocation(next)
   }
 
 
@@ -367,6 +380,33 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
           새 소식·이벤트 알림 받기 <small>(선택)</small>
         </span>
       </label>
+      {askLocation && (
+        <>
+          {/* 보기 버튼을 label 밖에 둬야 눌러도 체크가 토글되지 않는다 */}
+          <div className="auth-modal__check-row">
+            <label className="auth-modal__check">
+              <input type="checkbox" checked={location} onChange={(e) => setLocation(e.target.checked)} />
+              <span>
+                위치기반서비스 이용약관 동의 <small>(선택)</small>
+              </span>
+            </label>
+            <button
+              type="button"
+              className="auth-modal__view"
+              onClick={() => setLocationTermsOpen((v) => !v)}
+              aria-expanded={locationTermsOpen}
+              aria-label={`위치기반서비스 이용약관 ${locationTermsOpen ? '접기' : '보기'}`}
+            >
+              {locationTermsOpen ? '접기' : '보기'}
+            </button>
+          </div>
+          {locationTermsOpen && (
+            <div className="auth-modal__terms-doc">
+              <LocationTerms />
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 

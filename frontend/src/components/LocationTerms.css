@@ -1,0 +1,55 @@
+/* 위치기반서비스 이용약관 전문 — 동의 시트와 가입 화면 안의 스크롤 상자에 들어간다 */
+.location-terms {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.location-terms__title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.location-terms h4 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.location-terms p {
+  margin: 0;
+}
+
+.location-terms ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.location-terms ol ol {
+  list-style: lower-alpha;
+  padding-left: 18px;
+}
+
+.location-terms li + li {
+  margin-top: 2px;
+}
+
+.location-terms__info {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.location-terms__info dt {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.location-terms__info dd {
+  margin: 0;
+}

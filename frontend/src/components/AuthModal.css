@@ -463,6 +463,46 @@
   cursor: pointer;
 }
 
+/* 체크 + 오른쪽 "보기" 버튼 한 줄 (위치기반서비스 약관) */
+.auth-modal__check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-modal__check-row .auth-modal__check {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.auth-modal__view {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: rgba(60, 60, 67, 0.35);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.auth-modal__terms-doc {
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
 .auth-modal__check--all {
   font-weight: 700;
   font-size: 16px;

@@ -25,6 +25,10 @@ interface MapCanvasProps {
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
   // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
   onMyLocation?: (pos: { lat: number; lng: number }) => void
+  // 위치기반서비스 약관에 동의했는지. 동의 전에는 위치를 묻지도 추적하지도 않는다 (위치정보법 제19조).
+  locationAllowed: boolean
+  // 동의 전에 GPS 버튼을 누르면 동의를 받아 달라고 부른다. 동의하면 then으로 원래 하려던 이동을 이어간다.
+  onLocationConsentNeeded: (then: () => void) => void
 }
 
 const CENTER = { lat: 37.5605, lng: 126.92 }
@@ -132,6 +136,8 @@ export default function MapCanvas({
   focus,
   onViewportChange,
   onMyLocation,
+  locationAllowed,
+  onLocationConsentNeeded,
 }: MapCanvasProps) {
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
@@ -216,9 +222,10 @@ export default function MapCanvas({
     )
   }, [locating])
 
-  // 현재 위치 빨간 점 — 지도가 준비되면 실시간 추적을 시작하고, 위치가 올 때마다 점만 옮긴다.
+  // 현재 위치 빨간 점 — 지도가 준비되고 위치 동의가 있으면 실시간 추적을 시작하고, 위치가 올 때마다 점만 옮긴다.
+  // 동의를 철회하면 cleanup이 추적을 멈추고 점을 지운다.
   useEffect(() => {
-    if (!mapReady || !navigator.geolocation) return
+    if (!mapReady || !navigator.geolocation || !locationAllowed) return
     let marker: naver.maps.Marker | null = null
     const watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
@@ -243,7 +250,7 @@ export default function MapCanvas({
       navigator.geolocation.clearWatch(watchId)
       marker?.setMap(null)
     }
-  }, [mapReady, onMyLocation])
+  }, [mapReady, onMyLocation, locationAllowed])
 
   // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
   const focusRestaurant = useCallback((restaurant: Restaurant) => {
@@ -472,7 +479,7 @@ export default function MapCanvas({
         type="button"
         className={`map-gps glass${locating ? ' map-gps--locating' : ''}`}
         aria-label="현재 위치로 이동"
-        onClick={goToMyLocation}
+        onClick={() => (locationAllowed ? goToMyLocation() : onLocationConsentNeeded(goToMyLocation))}
       >
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M20 4L4 11l7 2 2 7z" />

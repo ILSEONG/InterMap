@@ -1,0 +1,238 @@
+/*
+  위치정보 이용 동의 시트 — 로그인 시트(AuthModal.css)와 같은 리퀴드 글래스 카드.
+  blur를 ::before에 따로 두는 이유도 같다: 오버레이 자체에 걸면 카드의 유리 blur가 지도를 못 본다.
+*/
+.loc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: max(12px, calc(env(safe-area-inset-top) + 8px)) max(12px, calc(env(safe-area-inset-right) + 12px))
+    max(28px, calc(env(safe-area-inset-bottom) + 12px)) max(12px, calc(env(safe-area-inset-left) + 12px));
+  visibility: hidden;
+  pointer-events: none;
+  /* 닫힐 때는 페이드가 끝난 뒤에 숨긴다 */
+  transition: visibility 0s linear 260ms;
+}
+
+.loc-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(242, 241, 237, 0.22);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.loc-overlay--open {
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.loc-overlay--open::before {
+  opacity: 1;
+}
+
+.loc-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 420px);
+  max-height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 28px 22px 20px;
+  border-radius: 38px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  color: var(--ink);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(28px) scale(0.98);
+  transition:
+    opacity 220ms ease,
+    transform 300ms cubic-bezier(0.32, 1.25, 0.6, 1);
+}
+
+.loc-overlay--open .loc-sheet {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loc-sheet {
+    transform: none;
+    transition: opacity 120ms linear;
+  }
+  .loc-overlay::before {
+    transition-duration: 120ms;
+  }
+}
+
+.loc-sheet__tile {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.loc-sheet__title {
+  margin: 14px 0 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.loc-sheet__desc {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+/* 핵심 세 줄 — 약관 전문을 안 펼쳐도 무엇에 동의하는지 알 수 있게 */
+.loc-sheet__points {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 16px 18px;
+  list-style: none;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.08);
+  text-align: left;
+}
+
+.loc-sheet__points li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.loc-sheet__points li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.6em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.loc-sheet__terms-toggle {
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-decoration-color: rgba(60, 60, 67, 0.35);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.loc-sheet__terms {
+  align-self: stretch;
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.08);
+  text-align: left;
+}
+
+.loc-sheet__note {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.loc-sheet__actions {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.loc-sheet__btn {
+  height: 52px;
+  border: none;
+  border-radius: 26px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+}
+
+.loc-sheet__btn--primary {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(217, 54, 90, 0.26);
+}
+
+.loc-sheet__btn--danger {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px rgba(217, 54, 90, 0.3);
+}
+
+.loc-sheet__btn--plain {
+  height: 44px;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+@media (hover: hover) {
+  .loc-sheet__btn--primary:hover {
+    background: var(--accent-ink);
+  }
+  .loc-sheet__btn--danger:hover {
+    background: #ffffff;
+  }
+  .loc-sheet__btn--plain:hover,
+  .loc-sheet__terms-toggle:hover {
+    color: var(--ink);
+  }
+}

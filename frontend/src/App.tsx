@@ -13,7 +13,10 @@ import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MyPage from './components/MyPage'
 import ProfileSheet from './components/ProfileSheet'
+import LocationConsent from './components/LocationConsent'
+import type { LocationSheetMode } from './components/LocationConsent'
 import { OpenProfileContext } from './lib/openProfile'
+import { agreeLocation, useLocationConsent, withdrawLocation } from './lib/locationConsent'
 import { groups } from './data/model'
 import type { Comment, GroupId, Restaurant, Review, Story } from './data/model'
 import {
@@ -173,6 +176,30 @@ export default function App() {
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null)
   const handleMyLocation = useCallback((pos: { lat: number; lng: number }) => {
     setMyLocation((prev) => (prev && Math.abs(prev.lat - pos.lat) < 0.0005 && Math.abs(prev.lng - pos.lng) < 0.0005 ? prev : pos))
+  }, [])
+  // 위치기반서비스 약관 동의. 동의 전에는 지도가 위치를 묻지도 추적하지도 않는다.
+  const locationConsent = useLocationConsent()
+  const [locationSheet, setLocationSheet] = useState<LocationSheetMode | null>(null)
+  // GPS 버튼에서 동의 시트를 열었을 때, 동의하면 이어서 할 일 (내 위치로 이동)
+  const afterLocationConsent = useRef<(() => void) | null>(null)
+  const requestLocationConsent = useCallback((then: () => void) => {
+    afterLocationConsent.current = then
+    setLocationSheet('gps')
+  }, [])
+  const closeLocationSheet = useCallback(() => {
+    afterLocationConsent.current = null
+    setLocationSheet(null)
+  }, [])
+  const handleLocationAgree = useCallback(() => {
+    agreeLocation()
+    const then = afterLocationConsent.current
+    closeLocationSheet()
+    then?.()
+  }, [closeLocationSheet])
+  // 철회하면 들고 있던 내 위치도 바로 버린다 (약관 제7조 — 지체 없이 파기). 추적은 MapCanvas가 멈춘다.
+  const handleLocationWithdraw = useCallback(() => {
+    withdrawLocation()
+    setMyLocation(null)
   }, [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
@@ -469,6 +496,7 @@ export default function App() {
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)
   handleBackRef.current = () => {
+    if (locationSheet) return closeLocationSheet(), true
     if (profileUserId !== null) return setProfileUserId(null), true
     if (openStory) return setOpenStory(null), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
@@ -776,6 +804,8 @@ export default function App() {
         focus={focusTarget ?? undefined}
         onViewportChange={loadViewport}
         onMyLocation={handleMyLocation}
+        locationAllowed={locationConsent !== null}
+        onLocationConsentNeeded={requestLocationConsent}
       />
 
       <div className="app__chrome">
@@ -784,6 +814,7 @@ export default function App() {
           onLogin={() => setAuthMode('start')}
           onLogout={handleLogout}
           onMyPage={() => setMyPageOpen(true)}
+          onLocationSettings={() => setLocationSheet('settings')}
           following={followingPeople}
           selectedPersonId={selectedPerson?.id ?? null}
           onSelectPerson={setPersonId}
@@ -923,6 +954,13 @@ export default function App() {
           setSocialLink(null)
         }}
         onAuthed={handleAuthed}
+      />
+
+      <LocationConsent
+        mode={locationSheet}
+        onAgree={handleLocationAgree}
+        onWithdraw={handleLocationWithdraw}
+        onClose={closeLocationSheet}
       />
     </div>
     </OpenProfileContext.Provider>

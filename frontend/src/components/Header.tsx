@@ -10,6 +10,8 @@ interface HeaderProps {
   onLogin: () => void
   onLogout: () => void
   onMyPage: () => void
+  // 위치정보 이용 동의 내역 (동의·철회). 로그인 없이도 위치를 쓰므로 로그아웃 상태에서도 보인다.
+  onLocationSettings: () => void
   // 내가 팔로잉하는 사람들. 로그인 전이거나 아직 못 받았으면 null (버튼 숨김)
   following: FollowingPerson[] | null
   selectedPersonId: number | null
@@ -31,6 +33,7 @@ export default function Header({
   onLogin,
   onLogout,
   onMyPage,
+  onLocationSettings,
   following,
   selectedPersonId,
   onSelectPerson,
@@ -52,6 +55,19 @@ export default function Header({
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
   }, [accountOpen, friendsOpen])
+
+  const locationItem = (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={() => {
+        setAccountOpen(false)
+        onLocationSettings()
+      }}
+    >
+      위치정보 이용 동의
+    </button>
+  )
 
   return (
     <header className="app-header glass">
@@ -84,6 +100,7 @@ export default function Header({
                   >
                     마이페이지
                   </button>
+                  {locationItem}
                   <button
                     type="button"
                     role="menuitem"
@@ -96,16 +113,19 @@ export default function Header({
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setAccountOpen(false)
-                    onLogin()
-                  }}
-                >
-                  로그인
-                </button>
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountOpen(false)
+                      onLogin()
+                    }}
+                  >
+                    로그인
+                  </button>
+                  {locationItem}
+                </>
               )}
             </div>
           )}
