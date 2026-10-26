@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Restaurant, Review } from '../data/model'
 import type { SocialData, UserProfile } from '../lib/api'
 import { fetchUserProfile, fetchUserSocial, followUser, unfollowUser, setAlias } from '../lib/api'
+import type { ProfileList } from '../lib/profileStack'
 import { topPicksOf } from '../lib/topPicks'
 import Avatar from './Avatar'
 import { PersonList } from './MyPage'
@@ -19,6 +20,9 @@ interface ProfileSheetProps {
   restaurants: Restaurant[]
   // 팔로잉·팔로워 목록에서 나 자신을 "나"로 표시하는 데 쓴다
   myUserId?: number
+  // 팔로잉·팔로워 수를 누르면 개요 대신 그 목록을 보여준다. App이 들고 있어 안드로이드 뒤로가기로 한 단계씩 닫힌다
+  list: ProfileList | null
+  onListChange: (list: ProfileList | null) => void
   onSocialChange: (next: SocialData) => void
   onPick: (restaurant: Restaurant) => void
   onClose: () => void
@@ -32,6 +36,8 @@ export default function ProfileSheet({
   allReviews,
   restaurants,
   myUserId,
+  list: listKind,
+  onListChange: setListKind,
   onSocialChange,
   onPick,
   onClose,
@@ -39,15 +45,12 @@ export default function ProfileSheet({
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // 팔로잉·팔로워 수를 누르면 개요 대신 그 목록을 보여준다
-  const [listKind, setListKind] = useState<'following' | 'followers' | null>(null)
   const [lists, setLists] = useState<SocialData | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setProfile(null)
     setError(null)
-    setListKind(null)
     setLists(null)
     fetchUserProfile(userId)
       .then((p) => {

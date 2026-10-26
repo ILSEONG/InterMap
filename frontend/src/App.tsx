@@ -13,6 +13,7 @@ import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MyPage from './components/MyPage'
 import ProfileSheet from './components/ProfileSheet'
+import { backProfile, pushProfile, setTopList, type ProfileList, type ProfileStep } from './lib/profileStack'
 import { OpenProfileContext } from './lib/openProfile'
 import { groups } from './data/model'
 import type { Comment, GroupId, Restaurant, Review, Story } from './data/model'
@@ -465,7 +466,7 @@ export default function App() {
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)
   handleBackRef.current = () => {
-    if (profileUserId !== null) return setProfileUserId(null), true
+    if (profileUserId !== null) return profileBack(), true
     if (openStory) return setOpenStory(null), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
@@ -591,18 +592,23 @@ export default function App() {
   }, [session, searchMode, searchActive, deferredQuery])
 
   // 후기·댓글·검색 결과에서 누른 사람의 프로필 개요. 내 프로필이면 마이페이지로 보낸다.
-  const [profileUserId, setProfileUserId] = useState<number | null>(null)
+  // 프로필의 팔로잉·팔로워 목록에서 또 다른 사람으로 들어갈 수 있어 화면을 쌓아 둔다 (lib/profileStack).
+  const [profileStack, setProfileStack] = useState<ProfileStep[]>([])
+  const profileTop = profileStack.at(-1) ?? null
+  const profileUserId = profileTop?.userId ?? null
+  const setProfileList = useCallback((list: ProfileList | null) => setProfileStack((s) => setTopList(s, list)), [])
+  const profileBack = useCallback(() => setProfileStack(backProfile), [])
   const openProfile = useCallback(
     (userId: number) => {
       if (!session) {
         setAuthMode('start')
         return
       }
-      // 남의 팔로잉·팔로워 목록에서 나를 누르면 그 프로필은 닫고 마이페이지로
+      // 남의 팔로잉·팔로워 목록에서 나를 누르면 쌓인 프로필은 닫고 마이페이지로
       if (userId === session.id) {
-        setProfileUserId(null)
+        setProfileStack([])
         setMyPageOpen(true)
-      } else setProfileUserId(userId)
+      } else setProfileStack((s) => pushProfile(s, userId))
     },
     [session],
   )
@@ -923,14 +929,16 @@ export default function App() {
           allReviews={rawReviews}
           restaurants={reviewedRestaurants}
           myUserId={session.id}
+          list={profileTop?.list ?? null}
+          onListChange={setProfileList}
           onSocialChange={setSocial}
           // 프로필은 가게 시트의 후기에서 열리기도 한다 — 지도만 옮기면 뒤에 있던 시트가 예전 가게로 남으므로 시트도 바꾼다
           onPick={(restaurant) => {
-            setProfileUserId(null)
+            setProfileStack([])
             setSelectedId(restaurant.id)
             focusFromSearch(restaurant)
           }}
-          onClose={() => setProfileUserId(null)}
+          onClose={() => setProfileStack([])}
         />
       )}
 
