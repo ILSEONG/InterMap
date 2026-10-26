@@ -54,11 +54,10 @@ function escapeHtml(value: string): string {
 const REVIEWED_PIN_COLOR = '#FF5D73'
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
-  if (items.every((r) => r.closed)) return '#AEAEB2'
-  if (items.some((r) => !r.closed && r.reviews.length > 0)) return REVIEWED_PIN_COLOR
+  if (items.some((r) => r.reviews.length > 0)) return REVIEWED_PIN_COLOR
   // 그룹 미지정 가게는 'none' 유사 그룹으로 취급해 필터·색을 같이 태운다
   const active = groups.filter((g) =>
-    items.some((r) => !r.closed && (r.groupIds.length > 0 ? r.groupIds.includes(g.id) : g.id === 'none')),
+    items.some((r) => (r.groupIds.length > 0 ? r.groupIds.includes(g.id) : g.id === 'none')),
   )
   return [...active].sort((a, b) => a.priority - b.priority)[0]?.color ?? 'var(--gc-none)'
 }
@@ -70,20 +69,18 @@ const FAVORITE_PIN_COLOR = '#FF9F0A'
 const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="display:block"><path d="${STAR_PATH}" style="fill:var(--pin-color);stroke:#fff" stroke-width="2" stroke-linejoin="round"/></svg>`
 
 // 가게 핀 모양 (CSS가 전부 가운데 정렬하므로 너비가 달라도 anchor는 0,0 하나):
-// 요약 셀 = 회색 알약 "+N", 군집 = 흰 원에 개수, 후기 있는 가게 = 흰 알약 "● 후기수",
-// 후기 없는·폐업 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 이름(+후기수)으로 펼친다.
+// 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양), 후기 있는 가게 = 흰 알약 "● 후기수",
+// 후기 없는 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 이름(+후기수)으로 펼친다.
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
   const count = pin.count ?? pin.items.length
+  // 요약 셀은 items가 비어 있고 count만 있다
   const cell = pin.items.length === 0
-  const cluster = !cell && count > 1
-  const place = !cell && !cluster ? pin.items[0] : null
-  const reviewCount = place && !place.closed ? place.reviews.length : 0
+  const place = !cell && count === 1 ? pin.items[0] : null
+  const reviewCount = place ? place.reviews.length : 0
   const color = star ? FAVORITE_PIN_COLOR : cell ? 'var(--gc-none)' : pinColor(pin.items, groups)
-  const variant = cell
-    ? 'cell'
-    : cluster
-      ? 'cluster'
-      : focused
+  const variant = !place
+    ? 'cluster'
+    : focused
         ? 'label'
         : star
           ? 'star'
@@ -92,7 +89,6 @@ function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false
             : 'dot'
   const lead = star ? STAR_PIN_SVG : '<span class="map-pin__dot"></span>'
   const body = {
-    cell: `+${count}`,
     cluster: `${count}`,
     label: `${lead}<span class="map-pin__name">${escapeHtml(place?.name ?? '')}</span>${reviewCount > 0 ? `<span class="map-pin__badge">${reviewCount}</span>` : ''}`,
     star: STAR_PIN_SVG,
@@ -115,7 +111,7 @@ function pinListContent(items: Restaurant[], groups: FriendGroup[]): string {
         <button type="button" class="pin-list__row" data-place-id="${escapeHtml(r.id)}">
           <span class="pin-list__dot" style="--pin-color:${pinColor([r], groups)}"></span>
           <span class="pin-list__body">
-            <span class="pin-list__name">${escapeHtml(r.name)}${r.closed ? ' <em>폐업</em>' : ''}</span>
+            <span class="pin-list__name">${escapeHtml(r.name)}</span>
             <span class="pin-list__meta">${escapeHtml(r.category)}</span>
           </span>
         </button>

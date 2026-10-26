@@ -20,12 +20,12 @@ public class RestaurantController {
     public record RegisterRequest(String name, String category, String roadAddress, String address, double lat, double lng) {
     }
 
-    // 목록 응답용 슬림 DTO — 지도에 안 쓰는 statusCheckedAt/localDataMgtNo를 뺀다
+    // 목록 응답용 슬림 DTO — 지도에 안 쓰는 status/statusCheckedAt/localDataMgtNo를 뺀다 (목록엔 영업 중인 가게만 온다)
     public record ListItem(Long id, String name, String category, String roadAddress, String address,
-                           double lat, double lng, Restaurant.Status status) {
+                           double lat, double lng) {
         static ListItem from(Restaurant r) {
             return new ListItem(r.getId(), r.getName(), r.getCategory(), r.getRoadAddress(), r.getAddress(),
-                    r.getLat(), r.getLng(), r.getStatus());
+                    r.getLat(), r.getLng());
         }
     }
 
@@ -43,7 +43,7 @@ public class RestaurantController {
     }
 
     // q가 오면 이름 검색(상한 50건), bbox 4개가 다 오면 그 영역만. 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
-    // 통째로 내려주지 않는다. 데이터는 주간 배치 동기화로만 바뀌므로 6시간 캐시.
+    // 통째로 내려주지 않는다. 폐업 가게는 빼고 준다. 데이터는 주간 배치 동기화로만 바뀌므로 6시간 캐시.
     @GetMapping("/api/restaurants")
     public ResponseEntity<List<ListItem>> list(
             @RequestParam(required = false) Double minLat,
@@ -53,9 +53,9 @@ public class RestaurantController {
             @RequestParam(required = false) String q) {
         boolean hasBox = minLat != null && maxLat != null && minLng != null && maxLng != null;
         List<Restaurant> rows = q != null && !q.isBlank()
-                ? repository.findTop50ByNameContainingIgnoreCase(q.trim())
+                ? repository.findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status.OPEN, q.trim())
                 : hasBox
-                ? repository.findByLatBetweenAndLngBetween(minLat, maxLat, minLng, maxLng)
+                ? repository.findByStatusAndLatBetweenAndLngBetween(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng)
                 : List.of();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
@@ -73,8 +73,8 @@ public class RestaurantController {
             @RequestParam double maxLng,
             @RequestParam int zoom) {
         double cellDeg = 360.0 * CLUSTER_PIXEL_DISTANCE / (256.0 * Math.pow(2, zoom));
-        // DB group by — 낮은 줌에서 bbox가 서울 전체를 덮어도 행을 안 올린다
-        List<Cell> body = repository.summarize(minLat, maxLat, minLng, maxLng, cellDeg).stream()
+        // DB group by — 낮은 줌에서 bbox가 서울 전체를 덮어도 행을 안 올린다. 폐업 가게는 건수에서 뺀다.
+        List<Cell> body = repository.summarize(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng, cellDeg).stream()
                 .map(a -> new Cell(((Number) a[0]).doubleValue(), ((Number) a[1]).doubleValue(), ((Number) a[2]).intValue()))
                 .toList();
         return ResponseEntity.ok()

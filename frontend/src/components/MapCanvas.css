@@ -119,7 +119,7 @@
   background: var(--pin-color);
 }
 
-/* 후기 없는·폐업 가게 — 흰 테두리를 두른 작은 점 */
+/* 후기 없는 가게 — 흰 테두리를 두른 작은 점 */
 .map-pin--dot {
   width: 16px;
   height: 16px;
@@ -177,26 +177,17 @@
   font-size: 12px;
 }
 
-/* 겹친 가게 — 흰 원에 옅은 그룹색 링, 가운데 개수 */
+/* 여러 곳 (화면 군집·서버 요약 셀) — 흰 원에 옅은 그룹색 링, 가운데 개수.
+   개수가 네 자리면 옆으로 늘어난다 */
 .map-pin--cluster {
-  width: 38px;
+  min-width: 38px;
   height: 38px;
-  border-radius: 50%;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
   background: #fff;
   border: 4px solid color-mix(in srgb, var(--pin-color) 35%, #fff);
   font-size: 14px;
   font-weight: 900;
-}
-
-/* 후기 없는 가게 요약 셀 — 회색 반투명 알약 "+N" */
-.map-pin--cell {
-  min-width: 48px;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: var(--radius-pill);
-  background: rgba(118, 118, 128, 0.2);
-  font-weight: 700;
-  color: var(--ink-2);
 }
 
 /* 목록에서 방금 고른 가게가 군집 안에 있으면 퍼지는 링으로 구분한다 */
@@ -302,17 +293,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.pin-list__name em {
-  margin-left: 6px;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: rgba(118, 118, 128, 0.16);
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-2);
 }
 
 .pin-list__meta {

@@ -85,10 +85,12 @@ public class ReviewController {
     }
 
     // 후기의 가게 스냅샷(이름+주소)으로 가게 행을 찾는다. 프론트가 도로명 우선으로 주소를 넣으므로 그 순서로 본다.
+    // 폐업한 가게는 못 찾은 것으로 친다 — 좌표가 안 실려 지도에 핀이 생기지 않는다.
     // ponytail: 후기마다 쿼리 1~2번. 후기가 수천 건 되면 Review에 restaurant_id FK를 붙일 것
     private Restaurant findPlace(String name, String address) {
         return restaurants.findByNameAndRoadAddress(name, address)
                 .or(() -> restaurants.findByNameAndAddress(name, address))
+                .filter(r -> r.getStatus() != Restaurant.Status.CLOSED)
                 .orElse(null);
     }
 

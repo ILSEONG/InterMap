@@ -48,10 +48,6 @@
   color: var(--accent-ink);
 }
 
-.place-row--closed .place-row__icon {
-  color: var(--ink-soft);
-}
-
 .place-row__body {
   flex: 1;
   min-width: 0;
@@ -68,20 +64,12 @@
   text-overflow: ellipsis;
 }
 
-.place-row--closed .place-row__name {
-  color: var(--ink-2);
-}
-
 .place-row__meta {
   font-size: 13px;
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.place-row--closed .place-row__meta {
-  color: var(--ink-soft);
 }
 
 .place-row__dots {
@@ -94,17 +82,6 @@
   width: 12px;
   height: 12px;
   border-radius: 6px;
-}
-
-.place-row__closed {
-  flex: 0 0 auto;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(118, 118, 128, 0.16);
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink-2);
 }
 
 /* 검색어 일치 부분 */

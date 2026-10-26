@@ -18,10 +18,9 @@ export interface RestaurantRecord {
   address: string
   lat: number
   lng: number
-  status: 'OPEN' | 'CLOSED'
 }
 
-// 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다
+// 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다 (폐업 가게는 건수에 없다)
 export interface ClusterCell {
   lat: number
   lng: number

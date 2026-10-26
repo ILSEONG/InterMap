@@ -64,7 +64,6 @@ export interface Restaurant {
   lng: number
   groupIds: GroupId[]
   reviews: Review[] // 이웃 후기만 (주인장 후기 제외)
-  closed?: boolean
 }
 
 // 실제 hex 값은 App의 groupColors state가 --gc-* CSS 변수로 내려준다.

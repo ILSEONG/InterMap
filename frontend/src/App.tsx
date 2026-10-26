@@ -71,30 +71,22 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
     lng: record.lng,
     groupIds: [],
     reviews: [],
-    closed: record.status === 'CLOSED',
   }
 }
 
+// 서버는 영업 중인 가게만 준다 (폐업은 목록에서 빠진다)
 function mergeRecords(prev: Restaurant[], records: RestaurantRecord[]): Restaurant[] {
   // 이동(idle)마다 수천 건이 들어오므로 매 건 find로 훑지 않고 이름+주소 인덱스로 찾는다
-  const byKey = new Map<string, Restaurant>()
-  for (const r of prev) byKey.set(`${r.name}|${r.address}`, r)
+  const seen = new Set<string>()
+  for (const r of prev) seen.add(`${r.name}|${r.address}`)
   const merged = [...prev]
   let changed = false
   for (const record of records) {
-    const existing = byKey.get(`${record.name}|${record.roadAddress}`) ?? byKey.get(`${record.name}|${record.address}`)
-    if (existing) {
-      const closed = record.status === 'CLOSED'
-      if (existing.closed !== closed) {
-        existing.closed = closed
-        changed = true
-      }
-    } else {
-      const added = toRestaurant(record)
-      merged.push(added)
-      byKey.set(`${added.name}|${added.address}`, added)
-      changed = true
-    }
+    if (seen.has(`${record.name}|${record.roadAddress}`) || seen.has(`${record.name}|${record.address}`)) continue
+    const added = toRestaurant(record)
+    merged.push(added)
+    seen.add(`${added.name}|${added.address}`)
+    changed = true
   }
   // 달라진 게 없으면 이전 배열을 그대로 돌려줘서 재군집·마커 재생성을 막는다
   return changed ? merged : prev
@@ -129,14 +121,15 @@ export default function App() {
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
     if (cellMode) {
-      // zoom-1로 요청하면 서버 셀 한 변이 2배(52px)가 되어 셀 수가 1/4로 준다 —
-      // 밀집 지역에서 마커 수백 개가 깔리면 모바일 WebView가 깜빡인다
-      fetchRestaurantCells(snapped, zoom - 1)
+      // zoom-2로 요청하면 서버 셀 한 변이 4배(104px)가 된다 — 셀 핀(38px 원, 네 자리면 더 넓다)이
+      // 서로 겹치지 않고, 밀집 지역에서 마커 수백 개가 깔려 모바일 WebView가 깜빡이는 것도 막는다
+      const cellZoom = zoom - 2
+      fetchRestaurantCells(snapped, cellZoom)
         .then((fresh) => {
           // 서버와 같은 격자 인덱스로 키를 만들어 누적한다. 같은 셀은 최신 응답으로
           // 덮어써서 bbox 경계에 걸려 잘렸던 건수를 교정한다. 줌이 바뀌면 격자가
           // 달라지므로 처음부터 다시 쌓는다.
-          const cellDeg = (360 * 26) / (256 * 2 ** (zoom - 1))
+          const cellDeg = (360 * 26) / (256 * 2 ** cellZoom)
           setCellStore((prev) => {
             const byKey = prev && prev.zoom === zoom ? new Map(prev.byKey) : new Map<string, ClusterCell>()
             for (const c of fresh) byKey.set(`${Math.floor(c.lat / cellDeg)}:${Math.floor(c.lng / cellDeg)}`, c)
