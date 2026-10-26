@@ -20,6 +20,29 @@
   margin: 0;
 }
 
+/* 팔로잉·팔로워 목록에서 개요로 돌아가기 — 닫기 버튼과 같은 높이, 왼쪽 */
+.profile-sheet__back {
+  min-height: 44px;
+  margin: -19px 56px 8px -8px;
+  padding: 0 8px 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.profile-sheet__back:active {
+  background: var(--fill);
+}
+
 .profile-sheet__hero {
   display: flex;
   flex-direction: column;
@@ -95,18 +118,33 @@
   align-items: center;
 }
 
+/* 팔로잉·팔로워 수는 눌러서 목록을 연다 */
+button.profile-sheet__stat {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.profile-sheet__stat:active {
+  opacity: 0.6;
+}
+
 .profile-sheet__stat + .profile-sheet__stat {
   box-shadow: -1px 0 0 rgba(60, 60, 67, 0.1);
 }
 
-.profile-sheet__stat dt {
+.profile-sheet__stat-label {
   font-size: 13px;
   line-height: 1.5;
   color: var(--ink-2);
 }
 
-.profile-sheet__stat dd {
-  margin: 0;
+.profile-sheet__stat-value {
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 900;

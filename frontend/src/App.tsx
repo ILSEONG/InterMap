@@ -598,8 +598,11 @@ export default function App() {
         setAuthMode('start')
         return
       }
-      if (userId === session.id) setMyPageOpen(true)
-      else setProfileUserId(userId)
+      // 남의 팔로잉·팔로워 목록에서 나를 누르면 그 프로필은 닫고 마이페이지로
+      if (userId === session.id) {
+        setProfileUserId(null)
+        setMyPageOpen(true)
+      } else setProfileUserId(userId)
     },
     [session],
   )
@@ -919,9 +922,12 @@ export default function App() {
           fallbackName={profileName}
           allReviews={rawReviews}
           restaurants={reviewedRestaurants}
+          myUserId={session.id}
           onSocialChange={setSocial}
+          // 프로필은 가게 시트의 후기에서 열리기도 한다 — 지도만 옮기면 뒤에 있던 시트가 예전 가게로 남으므로 시트도 바꾼다
           onPick={(restaurant) => {
             setProfileUserId(null)
+            setSelectedId(restaurant.id)
             focusFromSearch(restaurant)
           }}
           onClose={() => setProfileUserId(null)}
