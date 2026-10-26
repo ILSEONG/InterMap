@@ -92,6 +92,9 @@ function mergeRecords(prev: Restaurant[], records: RestaurantRecord[]): Restaura
   return changed ? merged : prev
 }
 
+// 서버 요약 셀의 격자 인덱스 (서버 summarize의 floor(lat / cell), floor(lng / cell)과 같은 식)
+const cellKey = (lat: number, lng: number, cellDeg: number) => `${Math.floor(lat / cellDeg)}:${Math.floor(lng / cellDeg)}`
+
 // bbox를 고정 격자에 스냅한다. 조금만 움직여도 URL이 통째로 바뀌면
 // 서버의 6시간 HTTP 캐시가 한 번도 안 맞는다 — 같은 타일이면 같은 URL이 되게.
 const SNAP_DEG = 0.02
@@ -107,7 +110,7 @@ export default function App() {
 
   // 낮은 줌에서 받는 서버 요약 셀. 격자 인덱스 키로 누적한다 — 통째로 갈아끼우면
   // 응답이 올 때까지 마커가 사라져서 이동할 때마다 화면이 깜빡인다.
-  const [cellStore, setCellStore] = useState<{ zoom: number; byKey: Map<string, ClusterCell> } | null>(null)
+  const [cellStore, setCellStore] = useState<{ zoom: number; cellDeg: number; byKey: Map<string, ClusterCell> } | null>(null)
   // 같은 타일을 연달아 요청하지 않기 위한 마지막 요청 키
   const lastFetchKey = useRef('')
 
@@ -132,8 +135,8 @@ export default function App() {
           const cellDeg = (360 * 26) / (256 * 2 ** cellZoom)
           setCellStore((prev) => {
             const byKey = prev && prev.zoom === zoom ? new Map(prev.byKey) : new Map<string, ClusterCell>()
-            for (const c of fresh) byKey.set(`${Math.floor(c.lat / cellDeg)}:${Math.floor(c.lng / cellDeg)}`, c)
-            return { zoom, byKey }
+            for (const c of fresh) byKey.set(cellKey(c.lat, c.lng, cellDeg), c)
+            return { zoom, cellDeg, byKey }
           })
         })
         .catch(() => {})
@@ -145,8 +148,6 @@ export default function App() {
         })
     }
   }, [])
-  // 누적된 셀을 배열로. byKey 자체가 바뀔 때만 다시 만든다.
-  const cellList = useMemo(() => (cellStore ? [...cellStore.byKey.values()] : []), [cellStore])
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
   // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
   const [groupColors] = useState<Record<GroupId, string>>({
@@ -523,6 +524,23 @@ export default function App() {
     },
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
+
+  // 누적된 서버 요약 셀을 배열로. 서버 건수엔 후기 있는 가게도 들어 있다 —
+  // '후기 없음'이면 내가 보는 후기(팔로우 기준)가 있는 가게를 같은 격자 칸에서 빼고, 0이 된 칸은 숨긴다.
+  const cellList = useMemo(() => {
+    if (!cellStore) return []
+    if (reviewFilter !== 'without') return [...cellStore.byKey.values()]
+    const reviewedPerCell = new Map<string, number>()
+    for (const r of reviewedRestaurants) {
+      if (r.reviews.length === 0) continue
+      const key = cellKey(r.lat, r.lng, cellStore.cellDeg)
+      reviewedPerCell.set(key, (reviewedPerCell.get(key) ?? 0) + 1)
+    }
+    return [...cellStore.byKey].flatMap(([key, cell]) => {
+      const count = cell.count - (reviewedPerCell.get(key) ?? 0)
+      return count > 0 ? [{ ...cell, count }] : []
+    })
+  }, [cellStore, reviewFilter, reviewedRestaurants])
 
   // 찜 모드: 후기·검색 필터와 무관하게 찜한 가게 전부
   const favRestaurants = useMemo(
