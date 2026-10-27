@@ -589,3 +589,29 @@
     font-size: 22px;
   }
 }
+
+/* 약관 줄 오른쪽 '보기' */
+.auth-modal__check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-modal__check-row .auth-modal__check {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-modal__view {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px 0 10px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

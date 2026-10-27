@@ -4,6 +4,7 @@ import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.UserAvatarRepository;
+import com.intermap.backend.moderation.Blocks;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,9 +46,9 @@ public class SocialController {
     }
 
     // 다른 사람 프로필 개요. 후기·별점은 프론트가 이미 /api/reviews 로 받아 두므로
-    // 여기선 프론트가 모르는 것(사진, 팔로잉·팔로워 수, 관계)만 준다.
+    // 여기선 프론트가 모르는 것(사진, 팔로잉·팔로워 수, 관계)만 준다. blocked = 내가 이 사람을 차단했는지
     public record Profile(Long id, String nickname, String alias, String avatar, boolean following, boolean followsMe,
-                          long followingCount, long followerCount) {
+                          long followingCount, long followerCount, boolean blocked) {
     }
 
     private final FollowRepository follows;
@@ -55,14 +56,16 @@ public class SocialController {
     private final AppUserRepository users;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
+    private final Blocks blocks;
 
     public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth,
-                            UserAvatarRepository avatars) {
+                            UserAvatarRepository avatars, Blocks blocks) {
         this.follows = follows;
         this.aliases = aliases;
         this.users = users;
         this.auth = auth;
         this.avatars = avatars;
+        this.blocks = blocks;
     }
 
     private static ResponseEntity<?> unauthorized() {
@@ -85,9 +88,13 @@ public class SocialController {
         Set<Long> followerIds = new HashSet<>();
         for (Follow f : self ? in : follows.findByFolloweeOrderByCreatedAtDesc(viewer)) followerIds.add(f.getFollower().getId());
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
+        // 남의 목록을 볼 때 나와 차단 관계인 사람은 뺀다
+        Set<Long> hidden = self ? Set.of() : blocks.hiddenFor(viewer);
         return new SocialResponse(
-                out.stream().map(f -> person(f.getFollowee(), aliasById, followingIds, followerIds, avatarUrls)).toList(),
-                in.stream().map(f -> person(f.getFollower(), aliasById, followingIds, followerIds, avatarUrls)).toList());
+                out.stream().filter(f -> !hidden.contains(f.getFollowee().getId()))
+                        .map(f -> person(f.getFollowee(), aliasById, followingIds, followerIds, avatarUrls)).toList(),
+                in.stream().filter(f -> !hidden.contains(f.getFollower().getId()))
+                        .map(f -> person(f.getFollower(), aliasById, followingIds, followerIds, avatarUrls)).toList());
     }
 
     private static Person person(AppUser u, Map<Long, String> aliasById, Set<Long> followingIds, Set<Long> followerIds,
@@ -115,6 +122,10 @@ public class SocialController {
         AppUser target = users.findById(userId).orElse(null);
         if (target == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new AuthController.ErrorResponse("없는 사용자예요."));
+        }
+        if (blocks.between(me, target)) {
+            return ResponseEntity.badRequest().body(new AuthController.ErrorResponse(blocks.blockedBy(me, target)
+                    ? "차단한 사람이에요. 차단을 풀면 팔로우할 수 있어요." : "팔로우할 수 없는 사용자예요."));
         }
         if (follows.findByFollowerAndFollowee(me, target).isEmpty()) {
             follows.save(new Follow(me, target));
@@ -171,7 +182,8 @@ public class SocialController {
         AppUser me = auth.currentUser(authorization);
         if (me == null) return unauthorized();
         AppUser target = users.findById(userId).orElse(null);
-        if (target == null) {
+        // 나를 차단한 사람은 없는 사람처럼 보인다
+        if (target == null || blocks.blockedBy(target, me)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new AuthController.ErrorResponse("없는 사용자예요."));
         }
         boolean following = follows.findByFollowerAndFollowee(me, target).isPresent();
@@ -180,7 +192,8 @@ public class SocialController {
         return ResponseEntity.ok(new Profile(target.getId(), target.getNickname(), alias, avatars.urlOf(target.getId()),
                 following, followsMe,
                 following ? follows.countByFollower(target) : -1,
-                following ? follows.countByFollowee(target) : -1));
+                following ? follows.countByFollowee(target) : -1,
+                blocks.blockedBy(me, target)));
     }
 
     // 다른 사람의 팔로잉·팔로워 목록. 프로필의 수와 같은 기준 — 내가 팔로우 중인 사람만 볼 수 있다.
@@ -207,8 +220,9 @@ public class SocialController {
         if (me == null) return unauthorized();
         String keyword = q == null ? "" : q.trim();
         if (keyword.isEmpty()) return ResponseEntity.ok(List.of());
+        Set<Long> hidden = blocks.hiddenFor(me);
         return ResponseEntity.ok(users.findTop20ByNicknameContainingIgnoreCase(keyword).stream()
-                .filter(u -> !u.getId().equals(me.getId()))
+                .filter(u -> !u.getId().equals(me.getId()) && !hidden.contains(u.getId()))
                 .map(u -> new UserItem(u.getId(), u.getNickname()))
                 .toList());
     }

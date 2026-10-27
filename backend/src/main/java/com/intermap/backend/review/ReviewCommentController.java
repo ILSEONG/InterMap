@@ -4,6 +4,9 @@ import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.UserAvatarRepository;
+import com.intermap.backend.moderation.Blocks;
+import com.intermap.backend.moderation.Report;
+import com.intermap.backend.moderation.ReportRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
@@ -41,21 +45,34 @@ public class ReviewCommentController {
     private final ReviewRepository reviews;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
+    private final ReviewCleanup cleanup;
+    private final Blocks blocks;
+    private final ReportRepository reports;
 
     public ReviewCommentController(ReviewCommentRepository repository, ReviewRepository reviews, AuthController auth,
-                                   UserAvatarRepository avatars) {
+                                   UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
+                                   ReportRepository reports) {
         this.repository = repository;
         this.reviews = reviews;
         this.auth = auth;
         this.avatars = avatars;
+        this.cleanup = cleanup;
+        this.blocks = blocks;
+        this.reports = reports;
     }
 
     // 후기 목록처럼 전부 내려준다 — 프론트가 후기별로 나눈다.
+    // 로그인했으면 차단 관계인 사람의 댓글과 내가 신고한 댓글은 뺀다.
     // ponytail: 댓글이 수천 건 넘으면 reviewId 파라미터로 잘라 받도록 바꿀 것
     @GetMapping("/api/comments")
-    public List<Item> list() {
+    public List<Item> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        AppUser viewer = auth.currentUser(authorization);
+        Set<Long> hiddenAuthors = blocks.hiddenFor(viewer);
+        Set<Long> reported = viewer == null ? Set.of()
+                : Set.copyOf(reports.targetIdsReportedBy(viewer, Report.TargetType.COMMENT));
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return repository.findAllByOrderByCreatedAtAsc().stream()
+                .filter(c -> !hiddenAuthors.contains(c.getAuthor().getId()) && !reported.contains(c.getId()))
                 .map(c -> Item.from(c, avatarUrls.get(c.getAuthor().getId())))
                 .toList();
     }
@@ -75,6 +92,10 @@ public class ReviewCommentController {
         Review review = request.reviewId() == null ? null : reviews.findById(request.reviewId()).orElse(null);
         if (review == null) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("댓글을 달 후기를 찾지 못했어요."));
+        }
+        // 후기 작성자와 차단 관계면 댓글을 달 수 없다
+        if (blocks.between(user, review.getAuthor())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("이 후기에는 댓글을 달 수 없어요."));
         }
         // 대댓글이면 부모가 같은 후기의 원댓글이어야 한다 (대댓글에 또 답글은 없다)
         if (request.parentId() != null) {
@@ -100,10 +121,7 @@ public class ReviewCommentController {
         if (comment == null || !comment.getAuthor().getId().equals(user.getId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("내가 쓴 댓글만 지울 수 있어요."));
         }
-        if (comment.getParentId() == null) {
-            repository.deleteAllByParentId(id);
-        }
-        repository.delete(comment);
+        cleanup.deleteComment(comment, Report.Status.GONE);
         return ResponseEntity.noContent().build();
     }
 }

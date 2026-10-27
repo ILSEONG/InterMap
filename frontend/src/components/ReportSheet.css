@@ -1,0 +1,179 @@
+.report-sheet__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.report-sheet__reasons {
+  margin: 0;
+  padding: 6px;
+  border: none;
+  border-radius: 28px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 한 줄 = 52px 터치 영역. 라디오는 숨기고 동그라미를 직접 그린다 */
+.report-sheet__reason {
+  position: relative;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 22px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.report-sheet__reason input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.report-sheet__reason--on {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.report-sheet__radio {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(60, 60, 67, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.report-sheet__reason--on .report-sheet__radio {
+  border-color: var(--accent);
+}
+
+.report-sheet__reason--on .report-sheet__radio::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.report-sheet__reason:has(input:focus-visible) {
+  outline: 3px solid var(--blue);
+  outline-offset: -3px;
+}
+
+.report-sheet__detail-label {
+  display: block;
+  margin: 18px 4px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.report-sheet__detail-label span {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.report-sheet__detail {
+  width: 100%;
+  min-height: 96px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-raised);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  resize: vertical;
+  outline: none;
+}
+
+.report-sheet__detail::placeholder {
+  color: var(--ink-soft);
+}
+
+.report-sheet__detail:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.report-sheet__done {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 16px;
+  padding: 16px;
+  border-radius: 26px;
+  background: var(--surface-raised);
+}
+
+.report-sheet__done-icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.report-sheet__done-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.report-sheet__blocked {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: rgba(118, 118, 128, 0.12);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+/* 후기 카드·댓글에 붙는 작은 신고 버튼 (보이는 크기는 작게, 터치 영역은 44px) */
+.report-trigger {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.report-trigger::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.report-trigger:hover,
+.report-trigger:active {
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+}

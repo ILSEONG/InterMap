@@ -1,0 +1,175 @@
+/*
+  신고하기 · 약관 보기 · 신고 관리가 같이 쓰는 아래에서 올라오는 유리 시트.
+  가게 시트(40)·스토리(40)·프로필(45)·로그인(60) 위에서도 열리므로 그보다 높게 둔다.
+*/
+.modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: max(env(safe-area-inset-top), 12px) max(6px, env(safe-area-inset-right)) calc(6px + var(--kb))
+    max(6px, env(safe-area-inset-left));
+  background: rgba(20, 20, 30, 0.28);
+  animation: modal-fade 200ms ease;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+  border-radius: 38px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 -6px 30px rgba(20, 20, 30, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  animation: modal-up 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 약관처럼 긴 내용은 화면을 거의 채운다 */
+.modal-sheet--tall {
+  height: 100%;
+}
+
+.modal-sheet__header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 18px 14px 6px 20px;
+}
+
+.modal-sheet__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.modal-sheet__icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.modal-sheet__icon-btn:active {
+  background: var(--fill-strong);
+}
+
+.modal-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 6px 20px calc(20px + env(safe-area-inset-bottom));
+}
+
+.modal-sheet__lead {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.modal-sheet__error {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 아래 고정 버튼 줄 */
+.modal-sheet__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.modal-sheet__btn {
+  flex: 1;
+  min-height: 54px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 27px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modal-sheet__btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.modal-sheet__btn--dark {
+  background: var(--ink);
+  color: #fff;
+}
+
+.modal-sheet__btn--plain {
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink);
+}
+
+.modal-sheet__btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@keyframes modal-up {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-layer,
+  .modal-sheet {
+    animation: none;
+  }
+}
+
+/* 약관 보기 — 정적 문서를 시트 안에 그대로 띄운다 */
+.policy-viewer__frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: #f2f1ed;
+}

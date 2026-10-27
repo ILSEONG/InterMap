@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="인터맵 개인정보처리방침: 인터맵이 어떤 개인정보를 왜 처리하고, 얼마나 보관하며, 어떻게 삭제하는지 안내합니다.">
+<title>개인정보처리방침 · 인터맵</title>
+<style>
+:root{
+  --ink:#1c1c1e;--ink-2:#3a3a3c;--muted:#6b6b70;--bg:#f2f1ed;--card:#ffffff;
+  --line:rgba(28,28,30,.12);--accent:#d9365a;--accent-ink:#b3204a;--accent-tint:rgba(217,54,90,.13);
+  --shadow:0 10px 30px rgba(20,20,30,.08);--glass:rgba(242,241,237,.78);--th-bg:#f7f6f3;
+  --mark-bg:#ffe58a;--mark-ink:#1c1c1e;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#f2f2f4;--ink-2:#d4d4d8;--muted:#a1a1aa;--bg:#0f0f12;--card:#1c1c20;
+    --line:rgba(255,255,255,.12);--accent:#ff5c7f;--accent-ink:#ff8aa5;--accent-tint:rgba(255,92,127,.16);
+    --shadow:0 10px 30px rgba(0,0,0,.45);--glass:rgba(15,15,18,.78);--th-bg:#25252a;
+    color-scheme:dark;
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans KR',-apple-system,system-ui,sans-serif;font-size:16px;line-height:1.7;word-break:keep-all;overflow-wrap:break-word}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.skip{position:absolute;left:12px;top:-60px;z-index:20;background:var(--card);color:var(--ink);padding:8px 14px;border-radius:999px;box-shadow:var(--shadow);font-weight:700}
+.skip:focus{top:calc(8px + env(safe-area-inset-top))}
+.top{position:sticky;top:0;z-index:10;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.top{background:var(--bg)}}
+.top-in{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;padding-top:10px;padding-bottom:10px}
+.brand{font-weight:900;font-size:21px;letter-spacing:-.02em;color:var(--ink);text-decoration:none;border-radius:8px}
+.top nav ul{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:0;padding:0}
+.top nav li+li{margin-top:0}
+.top nav a{display:inline-block;padding:5px 12px;border-radius:999px;font-size:14px;font-weight:600;line-height:1.6;color:var(--ink-2);text-decoration:none}
+.top nav a:hover{background:var(--line)}
+.top nav a[aria-current="page"]{background:var(--accent-tint);color:var(--accent-ink)}
+main{padding-top:24px;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+h1{font-size:28px;font-weight:900;line-height:1.3;letter-spacing:-.02em;margin:4px 0 6px}
+h2{font-size:19px;font-weight:700;line-height:1.45;margin:36px 0 10px;scroll-margin-top:120px}
+h3{font-size:16px;font-weight:700;line-height:1.5;margin:20px 0 6px;color:var(--ink)}
+p,ul,ol{margin:0 0 12px}
+ul,ol{padding-left:1.35em}
+li+li{margin-top:4px}
+.doc p,.doc li,.doc td{color:var(--ink-2)}
+.doc strong{color:var(--ink)}
+a{color:var(--accent-ink);text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+a:focus-visible{border-radius:6px}
+.meta{color:var(--muted);font-size:14px;margin:0 0 20px}
+.lead{color:var(--ink-2);margin:0 0 20px}
+.card{background:var(--card);border-radius:28px;box-shadow:var(--shadow);padding:24px 20px;margin:0 0 16px}
+@media (min-width:600px){.card{padding:32px}}
+.card>h2:first-child,.card section:first-child>h2{margin-top:0}
+.summary{border:1px solid var(--accent-tint)}
+.summary h2{color:var(--accent-ink);font-size:17px}
+.summary ul{margin:0;padding-left:1.2em}
+.summary li{color:var(--ink)}
+.summary li::marker{color:var(--accent)}
+.toc h2{font-size:17px}
+.toc ol{margin:0;padding-left:1.6em}
+.toc li+li{margin-top:2px}
+.toc a{text-decoration:none}
+.toc a:hover{text-decoration:underline}
+mark{background:var(--mark-bg);color:var(--mark-ink);padding:0 .25em;border-radius:4px;font-weight:600;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.note{background:var(--accent-tint);border-radius:16px;padding:12px 16px;margin:12px 0 16px}
+.note p:last-child,.note ul:last-child{margin-bottom:0}
+.doc .note p,.doc .note li{color:var(--ink)}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:12px 0 16px;border:1px solid var(--line);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:15px;line-height:1.6}
+caption{caption-side:top;text-align:left;padding:10px 12px 0;color:var(--muted);font-size:13px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+thead th{background:var(--th-bg);font-weight:700;color:var(--ink);white-space:nowrap}
+tbody th{font-weight:700;color:var(--ink)}
+tbody tr:last-child>*{border-bottom:0}
+.small{font-size:14px;color:var(--muted)}
+.to-top{display:inline-block;margin-top:8px;font-size:14px}
+footer{color:var(--muted);font-size:14px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+footer p{margin:0 0 4px}
+@counter-style circled{system:fixed;symbols:'\2460' '\2461' '\2462' '\2463' '\2464' '\2465' '\2466' '\2467' '\2468' '\2469';suffix:' '}
+ol.hang{list-style-type:circled;padding-left:1.6em}
+ol.hang>li+li{margin-top:8px}
+li>ul,li>ol{margin:6px 0 0}
+.toc ol.plain{list-style:none;padding-left:0}
+ol.steps{list-style:none;padding:0;margin:0 0 16px;counter-reset:step}
+ol.steps>li{counter-increment:step;position:relative;padding:12px 0 12px 50px;min-height:58px;margin:0}
+ol.steps>li+li{border-top:1px solid var(--line)}
+ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;width:34px;height:34px;border-radius:50%;background:var(--accent-tint);color:var(--accent-ink);font-weight:900;line-height:34px;text-align:center}
+@media print{.top{position:static;backdrop-filter:none;-webkit-backdrop-filter:none}.card{box-shadow:none;border:1px solid #ccc}.skip,.to-top{display:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">본문 바로가기</a>
+<header class="top">
+  <div class="wrap top-in">
+    <span class="brand">인터맵</span>
+    <nav aria-label="정책 문서">
+      <ul>
+        <li><a href="privacy.html" aria-current="page">개인정보처리방침</a></li>
+        <li><a href="terms.html">이용약관</a></li>
+        <li><a href="account-deletion.html">계정 삭제</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <h1 id="top">개인정보처리방침</h1>
+  <p class="meta">시행일: 2026년 10월 27일</p>
+  <p class="lead">인터맵(이하 “서비스”)을 운영하는 개인 개발자 최일성(이하 “운영자”)은 「개인정보 보호법」 등 관련 법령을 지키며, 이용자의 개인정보를 필요한 만큼만 다루고 안전하게 보호하기 위해 다음과 같이 개인정보처리방침을 정합니다.</p>
+
+  <section class="card summary" aria-labelledby="summary-title">
+    <h2 id="summary-title">한눈에 보기</h2>
+    <ul>
+      <li>서비스에 꼭 필요한 정보(이메일, 닉네임, 내가 올린 후기·사진·댓글 등)만 처리합니다.</li>
+      <li>현재 위치는 기기 안에서만 쓰고, 운영자의 서버로 보내거나 저장하지 않습니다.</li>
+      <li>개인정보를 제3자에게 제공하거나 판매하지 않습니다. 광고와 유료 기능도 없습니다.</li>
+      <li>서버와 데이터베이스는 해외(미국 등)에 서버를 둘 수 있는 클라우드 업체에 맡겨 운영합니다.</li>
+      <li>마이페이지에서 언제든 탈퇴할 수 있고, 탈퇴하면 정보가 즉시 영구 삭제됩니다. 다른 이용자가 내 게시물을 신고한 기록만 일정 기간 보관합니다.</li>
+    </ul>
+  </section>
+
+  <nav class="card toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">목차</h2>
+    <ol>
+      <li><a href="#purpose">개인정보의 처리 목적</a></li>
+      <li><a href="#items">처리하는 개인정보 항목</a></li>
+      <li><a href="#visibility">다른 이용자에게 공개되는 정보</a></li>
+      <li><a href="#retention">개인정보의 보유 및 이용 기간</a></li>
+      <li><a href="#destruction">개인정보의 파기 절차 및 방법</a></li>
+      <li><a href="#third-party">개인정보의 제3자 제공</a></li>
+      <li><a href="#outsourcing">개인정보 처리의 위탁 및 국외 이전</a></li>
+      <li><a href="#rights">정보주체의 권리와 행사 방법</a></li>
+      <li><a href="#children">만 14세 미만 아동의 개인정보</a></li>
+      <li><a href="#security">개인정보의 안전성 확보 조치</a></li>
+      <li><a href="#storage">자동 수집 장치의 설치·운영 및 거부</a></li>
+      <li><a href="#location">위치정보의 처리</a></li>
+      <li><a href="#officer">개인정보 보호책임자</a></li>
+      <li><a href="#remedy">권익침해 구제방법</a></li>
+      <li><a href="#changes">개인정보처리방침의 변경</a></li>
+    </ol>
+  </nav>
+
+  <article class="card doc" aria-label="개인정보처리방침 전문">
+    <section aria-labelledby="purpose">
+      <h2 id="purpose">1. 개인정보의 처리 목적</h2>
+      <p>운영자는 다음 목적을 위해서만 개인정보를 처리하며, 목적이 바뀌면 법령에 따라 미리 동의를 받는 등 필요한 조치를 합니다.</p>
+      <ul>
+        <li><strong>회원 가입과 관리:</strong> 가입 의사 확인, 이메일 인증, 이용자 식별과 로그인 유지, 소셜 로그인 연결, 만 14세 이상 여부와 약관 동의 확인, 회원 탈퇴 처리</li>
+        <li><strong>서비스 제공:</strong> 후기·사진·댓글 게시와 표시, 팔로우한 이용자의 후기 보여주기, 찜한 가게와 별칭(나만 보이는 이름) 관리, 지도 표시와 가게 검색</li>
+        <li><strong>안전한 커뮤니티 운영:</strong> 신고 접수와 처리, 차단 기능 제공, 이용약관 위반 게시물 삭제와 이용 제한 등 부정 이용 방지</li>
+        <li><strong>문의 응대:</strong> 이용자의 문의와 요청(계정 삭제 요청 포함) 확인 및 답변</li>
+        <li><strong>소식 안내(선택):</strong> 마케팅 정보 수신에 동의한 이용자에 한해 서비스 소식 안내</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="items">
+      <h2 id="items">2. 처리하는 개인정보 항목</h2>
+      <p>운영자가 서버에 저장하는 정보는 아래와 같습니다.</p>
+      <div class="table-wrap" role="region" aria-labelledby="items-caption" tabindex="0">
+        <table>
+          <caption id="items-caption">서버에 저장하는 개인정보 항목</caption>
+          <thead>
+            <tr><th scope="col">구분</th><th scope="col">항목</th><th scope="col">수집 방법</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">이메일로 가입(필수)</th>
+              <td>이메일, 비밀번호(BCrypt 해시 값으로만 저장), 닉네임</td>
+              <td>가입 화면에서 직접 입력</td>
+            </tr>
+            <tr>
+              <th scope="row">소셜 로그인으로 가입(필수)</th>
+              <td>소셜 로그인 제공자 이름(네이버·카카오·Google), 제공자 측 사용자 식별자, 닉네임, 이메일(제공자가 주는 경우에만)</td>
+              <td>이용자가 선택한 제공자로부터 동의를 거쳐 받음</td>
+            </tr>
+            <tr>
+              <th scope="row">가입·이용 중 생성</th>
+              <td>로그인 토큰(30일 동안 유효), 가입일, 약관 동의 시각</td>
+              <td>서비스가 자동으로 생성</td>
+            </tr>
+            <tr>
+              <th scope="row">선택</th>
+              <td>마케팅 정보 수신 동의 시각</td>
+              <td>가입 시 동의한 경우에만</td>
+            </tr>
+            <tr>
+              <th scope="row">이용자가 올리거나 만든 정보</th>
+              <td>프로필 사진, 후기(가게 이름·주소·분류, 별점, 본문, 추천 메뉴, 사진 최대 10장), 댓글과 답글, 찜한 가게, 팔로우 관계, 다른 이용자에게 붙인 별칭(나만 보이는 이름), 차단한 이용자 목록, 신고 내역(신고 사유와 신고 당시 게시물 내용의 사본)</td>
+              <td>이용자가 서비스에서 직접 등록</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>카카오 로그인은 현재 닉네임만 제공받으며 이메일은 받지 않습니다. 따라서 카카오로 가입한 계정에는 이메일이 없을 수 있습니다.</li>
+        <li>이메일 가입 시 보내는 <strong>6자리 인증번호</strong>는 확인을 위해 서버 메모리에 잠시 보관할 뿐, 데이터베이스에 영구 저장하지 않습니다.</li>
+        <li>비밀번호는 원래 값을 알아낼 수 없는 해시 값으로만 저장하므로 운영자도 이용자의 비밀번호를 알 수 없습니다.</li>
+        <li><strong>현재 위치</strong>는 기기 안에서만 쓰고 서버에 저장하지 않습니다(<a href="#location">12. 위치정보의 처리</a> 참고).</li>
+        <li>후기 사진에 다른 사람의 얼굴, 차량 번호 등 개인정보가 담기지 않도록 주의해 주세요.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="visibility">
+      <h2 id="visibility">3. 다른 이용자에게 공개되는 정보</h2>
+      <ul>
+        <li><strong>닉네임과 프로필 사진</strong>은 다른 이용자에게 보입니다.</li>
+        <li><strong>후기</strong>는 작성자를 팔로우한 이용자에게 보입니다. 팔로우는 한 방향이라, 내가 누군가를 팔로우해도 상대가 나를 팔로우하지 않으면 상대에게 내 후기가 보이지 않습니다.</li>
+        <li><strong>댓글과 답글</strong>은 해당 후기에 함께 표시됩니다.</li>
+        <li><strong>별칭(나만 보이는 이름)</strong>은 붙인 사람에게만 보입니다.</li>
+        <li>서로 차단한 이용자 사이에서는 서로의 후기와 댓글이 보이지 않습니다.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="retention">
+      <h2 id="retention">4. 개인정보의 보유 및 이용 기간</h2>
+      <p>운영자는 이용자가 <strong>회원 탈퇴할 때까지</strong> 개인정보를 보유하고 이용하며, 탈퇴하면 즉시 삭제합니다. 다만 다음은 예외입니다.</p>
+      <ul>
+        <li><strong>다른 이용자가 내 게시물을 신고한 기록:</strong> 신고 사유와 신고 당시 게시물 내용의 사본은 악용 방지와 분쟁 대응을 위해 탈퇴 후에도 신고 접수일로부터 최대 1년 동안 보관한 뒤 삭제합니다(운영자 방침).</li>
+        <li><strong>이메일 인증번호:</strong> 인증 과정 동안만 서버 메모리에 잠시 보관하며 영구 저장하지 않습니다.</li>
+        <li><strong>로그인 토큰:</strong> 발급 후 30일이 지나면 효력이 없어집니다.</li>
+        <li>관계 법령에 따라 보존해야 하는 정보가 있으면 해당 법령에서 정한 기간 동안 보관합니다.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="destruction">
+      <h2 id="destruction">5. 개인정보의 파기 절차 및 방법</h2>
+      <ul>
+        <li><strong>파기 절차:</strong> 회원 탈퇴를 확인하면 별도 대기 기간 없이 즉시 파기합니다. 보관 기간이 정해진 정보(4번의 신고 기록 등)는 기간이 끝나면 지체 없이 파기합니다.</li>
+        <li><strong>파기 방법:</strong> 전자적 파일 형태의 정보는 데이터베이스와 저장소에서 삭제하여 서비스에서 다시 조회하거나 되살릴 수 없게 합니다. 종이에 출력된 개인정보가 있다면 분쇄하거나 소각합니다.</li>
+      </ul>
+      <p>탈퇴할 때 삭제되는 항목은 <a href="account-deletion.html">계정 및 데이터 삭제 안내</a>에서 자세히 볼 수 있습니다.</p>
+    </section>
+
+    <section aria-labelledby="third-party">
+      <h2 id="third-party">6. 개인정보의 제3자 제공</h2>
+      <p>운영자는 이용자의 개인정보를 <strong>제3자에게 제공하지 않습니다</strong>. 다만 법률에 특별한 규정이 있거나, 수사기관 등이 법령에 정해진 절차에 따라 요청하는 경우에는 그 범위 안에서 제공할 수 있습니다.</p>
+      <p>이용자가 직접 올린 후기·댓글 등이 <a href="#visibility">3번</a>의 범위에서 다른 이용자에게 보이는 것은 이용자의 선택에 따른 서비스 기능입니다.</p>
+    </section>
+
+    <section aria-labelledby="outsourcing">
+      <h2 id="outsourcing">7. 개인정보 처리의 위탁 및 국외 이전</h2>
+      <p>운영자는 서비스를 운영하기 위해 아래 업체의 서비스를 이용하며, 이 과정에서 개인정보 처리 업무가 위탁됩니다.</p>
+      <div class="table-wrap" role="region" aria-labelledby="outsourcing-caption" tabindex="0">
+        <table>
+          <caption id="outsourcing-caption">처리 위탁 업체와 업무 내용</caption>
+          <thead>
+            <tr><th scope="col">업체</th><th scope="col">위탁 업무</th><th scope="col">처리되는 정보</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Render</th>
+              <td>백엔드 서버 호스팅</td>
+              <td>서비스 이용 중 서버로 전송되고 처리되는 정보(2번 항목 전체)</td>
+            </tr>
+            <tr>
+              <th scope="row">Neon</th>
+              <td>데이터베이스 호스팅</td>
+              <td>서버에 저장되는 개인정보(2번 항목 전체)</td>
+            </tr>
+            <tr>
+              <th scope="row">Vercel</th>
+              <td>웹 프론트엔드 호스팅(웹 화면 제공)</td>
+              <td>웹 화면을 불러오는 과정에서 전달되는 접속 정보</td>
+            </tr>
+            <tr>
+              <th scope="row">Brevo</th>
+              <td>인증번호 이메일 발송</td>
+              <td>이메일 주소, 인증번호</td>
+            </tr>
+            <tr>
+              <th scope="row">NAVER Cloud Platform</th>
+              <td>지도 표시, 가게 검색</td>
+              <td>지도 표시 요청, 가게 검색어</td>
+            </tr>
+            <tr>
+              <th scope="row">네이버, 카카오, Google</th>
+              <td>소셜 로그인(이용자가 해당 방법을 선택한 경우에만)</td>
+              <td>로그인 인증 정보, 제공받는 닉네임·이메일·사용자 식별자</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>국외 이전</h3>
+      <p>위 업체 중 일부는 서버를 대한민국 밖(예: 미국)에 두고 있을 수 있어, 개인정보가 국외에서 저장·처리될 수 있습니다.</p>
+      <ul>
+        <li><strong>이전받는 자와 목적:</strong> 위 표의 업체, 위 표의 위탁 업무</li>
+        <li><strong>이전 항목:</strong> 위 표의 처리되는 정보</li>
+        <li><strong>이전 국가:</strong> 각 업체의 서버가 있는 국가(미국 등)</li>
+        <li><strong>이전 시기와 방법:</strong> 서비스를 이용할 때마다 암호화된 네트워크(HTTPS 등)를 통해 전송</li>
+        <li><strong>보유·이용 기간:</strong> 회원 탈퇴 시 또는 위탁 계약이 끝날 때까지(4번의 예외 포함)</li>
+        <li><strong>거부 방법과 효과:</strong> 서버·데이터베이스 호스팅은 서비스 운영에 꼭 필요하므로, 국외 이전을 원하지 않으면 가입하지 않거나 탈퇴할 수 있습니다. 소셜 로그인은 선택 사항이므로 이메일로 가입하면 소셜 로그인 제공자를 거치지 않습니다.</li>
+      </ul>
+      <p>위탁 업체가 바뀌면 이 방침을 통해 알려 드립니다.</p>
+    </section>
+
+    <section aria-labelledby="rights">
+      <h2 id="rights">8. 정보주체의 권리와 행사 방법</h2>
+      <p>이용자는 언제든지 자신의 개인정보에 대해 다음 권리를 행사할 수 있습니다.</p>
+      <ul>
+        <li>개인정보 열람 요구</li>
+        <li>잘못된 정보의 정정 요구</li>
+        <li>삭제 요구</li>
+        <li>처리정지 요구와 동의 철회(마케팅 수신 동의 철회 포함)</li>
+      </ul>
+      <p><strong>행사 방법:</strong></p>
+      <ul>
+        <li><strong>회원 탈퇴(전체 삭제):</strong> 앱에서 상단 왼쪽 내 계정 버튼 → 마이페이지 → 맨 아래 “회원 탈퇴” → 확인. 자세한 내용은 <a href="account-deletion.html">계정 및 데이터 삭제 안내</a>를 참고해 주세요.</li>
+        <li><strong>그 밖의 요구:</strong> <a href="mailto:intermap0@gmail.com">intermap0@gmail.com</a>로 요청해 주세요. 가입한 이메일 주소로 보내 주시거나, 이메일이 없는 계정이라면 닉네임과 가입 방법을 함께 알려 주세요.</li>
+      </ul>
+      <p>운영자는 요청을 받으면 본인 여부를 확인한 뒤 지체 없이 처리하며, 열람 요구는 10일 이내에 답변합니다. 법정대리인이나 위임을 받은 사람을 통해서도 권리를 행사할 수 있습니다. 법령에 따라 요구가 제한되는 경우에는 그 이유를 알려 드립니다.</p>
+    </section>
+
+    <section aria-labelledby="children">
+      <h2 id="children">9. 만 14세 미만 아동의 개인정보</h2>
+      <p>서비스는 <strong>만 14세 이상만 가입할 수 있습니다</strong>. 만 14세 미만은 가입할 수 없으며, 가입할 때 “만 14세 이상입니다” 항목에 반드시 확인해야 합니다. 만 14세 미만 아동이 가입한 사실을 알게 되면 해당 계정과 정보를 지체 없이 삭제합니다.</p>
+    </section>
+
+    <section aria-labelledby="security">
+      <h2 id="security">10. 개인정보의 안전성 확보 조치</h2>
+      <p>운영자는 개인정보를 보호하기 위해 다음 조치를 하고 있습니다.</p>
+      <ul>
+        <li><strong>비밀번호 해시 저장:</strong> 비밀번호는 BCrypt 방식의 해시 값으로만 저장하며 원래 비밀번호는 저장하지 않습니다.</li>
+        <li><strong>전송 구간 암호화:</strong> 앱·웹과 서버 사이의 통신은 HTTPS로 암호화합니다.</li>
+        <li><strong>접근 통제:</strong> 로그인 토큰으로 이용자를 확인하여 본인 계정의 정보에만 접근할 수 있게 하고, 토큰은 30일이 지나면 만료됩니다. 관리 기능은 운영자의 관리자 계정으로만 이용할 수 있습니다.</li>
+        <li><strong>최소 보관:</strong> 이메일 인증번호처럼 잠시만 필요한 정보는 영구 저장하지 않습니다.</li>
+      </ul>
+      <p>인터넷 서비스에서 완벽한 보안을 보장할 수는 없으므로, 이용자도 비밀번호를 다른 서비스와 다르게 정하고 남에게 알려 주지 않도록 주의해 주세요.</p>
+    </section>
+
+    <section aria-labelledby="storage">
+      <h2 id="storage">11. 자동 수집 장치의 설치·운영 및 거부</h2>
+      <p>운영자는 로그인 상태를 유지하기 위해 쿠키 대신 <strong>기기(앱 또는 웹 브라우저)의 저장소</strong>에 로그인 정보(로그인 토큰)를 저장합니다. 이 정보는 이용자의 기기에 저장되며, 서비스에는 광고가 없습니다.</p>
+      <p><strong>거부·삭제 방법:</strong> 로그아웃하거나, 앱의 경우 기기 설정에서 인터맵 앱 데이터를 삭제하고, 웹의 경우 브라우저 설정에서 사이트 데이터를 삭제하면 저장된 로그인 정보가 지워집니다. 이 경우 다시 로그인해야 합니다.</p>
+    </section>
+
+    <section aria-labelledby="location">
+      <h2 id="location">12. 위치정보의 처리</h2>
+      <div class="note">
+        <p><strong>현재 위치는 이용자의 기기 안에서만 사용하며, 운영자의 서버로 전송하거나 저장하지 않습니다.</strong></p>
+      </div>
+      <ul>
+        <li><strong>사용 목적:</strong> 지도를 내 현재 위치로 옮기는 것, 가게 검색 결과를 가까운 순으로 정렬하는 것, 이 두 가지에만 사용합니다.</li>
+        <li><strong>권한 요청:</strong> 기기의 위치 권한은 이용자가 허용한 경우에만 사용합니다. 허용하지 않아도 현재 위치 이동과 거리순 정렬을 제외한 기능은 이용할 수 있습니다.</li>
+        <li><strong>권한 철회:</strong> Android 기기 설정의 앱 권한 메뉴에서 인터맵의 위치 권한을 언제든 끌 수 있으며, 웹에서는 브라우저의 사이트 권한 설정에서 끌 수 있습니다.</li>
+      </ul>
+      <p class="small">지도 화면 자체는 NAVER Cloud Platform에서 불러오므로, 화면에 표시하는 지역의 지도를 불러오는 요청은 네이버에 전달됩니다.</p>
+    </section>
+
+    <section aria-labelledby="officer">
+      <h2 id="officer">13. 개인정보 보호책임자</h2>
+      <p>개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등은 아래 보호책임자에게 연락해 주세요. 운영자는 지체 없이 답변하고 처리합니다.</p>
+      <ul>
+        <li><strong>성명:</strong> 최일성</li>
+        <li><strong>직책:</strong> 서비스 운영자(개인 개발자)</li>
+        <li><strong>연락처:</strong> <a href="mailto:intermap0@gmail.com">intermap0@gmail.com</a></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="remedy">
+      <h2 id="remedy">14. 권익침해 구제방법</h2>
+      <p>개인정보 침해에 대한 신고나 상담이 필요하면 아래 기관에 문의할 수 있습니다.</p>
+      <ul>
+        <li>개인정보침해신고센터: (국번 없이) 118, <a href="https://privacy.kisa.or.kr">privacy.kisa.or.kr</a></li>
+        <li>개인정보분쟁조정위원회: 1833-6972, <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
+        <li>대검찰청: (국번 없이) 1301, <a href="https://www.spo.go.kr">www.spo.go.kr</a></li>
+        <li>경찰청: (국번 없이) 182, <a href="https://ecrm.police.go.kr">ecrm.police.go.kr</a></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="changes">
+      <h2 id="changes">15. 개인정보처리방침의 변경</h2>
+      <p>이 방침을 바꾸는 경우 시행 7일 전부터 앱 안의 공지 또는 이 페이지를 통해 알려 드립니다. 수집 항목이나 이용 목적이 바뀌는 등 이용자 권리에 중요한 변경은 시행 30일 전부터 알려 드립니다.</p>
+      <p>이 개인정보처리방침은 2026년 10월 27일부터 적용됩니다.</p>
+      <a class="to-top" href="#top">맨 위로</a>
+    </section>
+  </article>
+</main>
+
+<footer class="wrap">
+  <p>인터맵 · 운영 최일성</p>
+  <p>문의 <a href="mailto:intermap0@gmail.com">intermap0@gmail.com</a></p>
+</footer>
+</body>
+</html>
