@@ -13,8 +13,14 @@ import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
 import MyPage from './components/MyPage'
 import ProfileSheet from './components/ProfileSheet'
+import ReportSheet from './components/ReportSheet'
+import PolicyViewer from './components/PolicyViewer'
+import type { PolicyPage } from './components/PolicyViewer'
+import AdminReports from './components/AdminReports'
 import { backProfile, pushProfile, setTopList, type ProfileList, type ProfileStep } from './lib/profileStack'
 import { OpenProfileContext } from './lib/openProfile'
+import { ModerationContext } from './lib/moderation'
+import type { Moderation, ReportTarget } from './lib/moderation'
 import { groups } from './data/model'
 import type { Comment, GroupId, Restaurant, Review, Story } from './data/model'
 import {
@@ -37,6 +43,7 @@ import {
   isAdmin,
   restaurantKey,
   logout,
+  deleteAccount,
   SUMMARY_MAX_ZOOM,
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
@@ -195,9 +202,8 @@ export default function App() {
       // 저장 실패해도 이번 실행 동안은 로그인 상태 유지
     }
   }, [])
-  const handleLogout = useCallback(() => {
-    // 서버 토큰부터 지운다 — authHeaders()가 localStorage를 읽으므로 삭제 전에 호출해야 한다
-    void logout()
+  // 로컬 세션만 지운다 (로그아웃·탈퇴 공통)
+  const clearSession = useCallback(() => {
     setSession(null)
     try {
       localStorage.removeItem('intermap.session')
@@ -205,6 +211,19 @@ export default function App() {
       // 무시
     }
   }, [])
+  const handleLogout = useCallback(() => {
+    // 서버 토큰부터 지운다 — authHeaders()가 localStorage를 읽으므로 삭제 전에 호출해야 한다
+    void logout()
+    clearSession()
+  }, [clearSession])
+
+  // 신고·차단·약관 시트, 운영자 신고 관리
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
+  const [policyPage, setPolicyPage] = useState<PolicyPage | null>(null)
+  const [adminReportsOpen, setAdminReportsOpen] = useState(false)
+  // 차단·운영자 삭제처럼 서버 쪽 목록이 바뀌었을 때 올려서 후기·댓글·팔로우를 다시 받는다
+  const [contentVersion, setContentVersion] = useState(0)
+  const refreshContent = useCallback(() => setContentVersion((v) => v + 1), [])
 
   // 서버 후기 전체 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
   // 로그인한 사람에게만 보인다 — 로그아웃하면 마커·스토리도 같이 사라져야 한다.
@@ -257,7 +276,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [session])
+  }, [session, contentVersion])
   // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
   const [social, setSocial] = useState<SocialData | null>(null)
   const [myPageOpen, setMyPageOpen] = useState(false)
@@ -288,7 +307,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [session])
+  }, [session, contentVersion])
   // 팔로우한 사람(+나, 주인장)의 후기만 남기고, 내가 붙인 이름을 작성자 이름 자리에 씌운다.
   // 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다. social을 못 받았으면 필터 없이 동작.
   const reviews = useMemo(() => {
@@ -466,6 +485,9 @@ export default function App() {
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)
   handleBackRef.current = () => {
+    if (policyPage) return setPolicyPage(null), true
+    if (reportTarget) return setReportTarget(null), true
+    if (adminReportsOpen) return setAdminReportsOpen(false), true
     if (profileUserId !== null) return profileBack(), true
     if (openStory) return setOpenStory(null), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
@@ -780,8 +802,51 @@ export default function App() {
         rawReviews.find((rv) => rv.author.id === profileUserId)?.author.name ??
         '사용자')
 
+  // 신고 접수 — 그 글을 바로 화면에서 뺀다 (서버도 다음 목록부터 나에게 안 준다)
+  const handleReported = useCallback((target: ReportTarget) => {
+    if (target.type === 'REVIEW') {
+      setRawReviews((prev) => prev.filter((rv) => rv.id !== target.id))
+      return
+    }
+    setReviewComments((prev) => {
+      const next: Record<number, Comment[]> = {}
+      for (const [reviewId, list] of Object.entries(prev)) {
+        next[Number(reviewId)] = list.filter((c) => c.id !== target.id && c.parentId !== target.id)
+      }
+      return next
+    })
+  }, [])
+  // 차단 — 그 사람 글을 바로 빼고, 팔로우 목록까지 서버에서 다시 받는다
+  const handleBlocked = useCallback(
+    (userId: number) => {
+      setRawReviews((prev) => prev.filter((rv) => rv.author.id !== userId))
+      setReviewComments((prev) => {
+        const next: Record<number, Comment[]> = {}
+        for (const [reviewId, list] of Object.entries(prev)) {
+          const hidden = new Set(list.filter((c) => c.authorId === userId).map((c) => c.id))
+          next[Number(reviewId)] = list.filter((c) => !hidden.has(c.id) && !(c.parentId && hidden.has(c.parentId)))
+        }
+        return next
+      })
+      refreshContent()
+    },
+    [refreshContent],
+  )
+  const moderation = useMemo<Moderation | null>(
+    () => (session ? { myUserId: session.id, report: setReportTarget } : null),
+    [session],
+  )
+  // 회원 탈퇴 — 서버에서 지운 뒤 로그아웃 상태로
+  const handleDeleteAccount = useCallback(async () => {
+    await deleteAccount()
+    setMyPageOpen(false)
+    clearSession()
+    window.alert('탈퇴했어요. 그동안 인터맵을 이용해 주셔서 고마워요.')
+  }, [clearSession])
+
   return (
     <OpenProfileContext.Provider value={openProfile}>
+    <ModerationContext.Provider value={moderation}>
     <div
       className={`app${searching ? ' app--searching' : ''}`}
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
@@ -904,6 +969,11 @@ export default function App() {
           onSessionChange={handleAuthed}
           myReviews={rawReviews.filter((rv) => rv.author.id === session.id)}
           onOpenReview={openMyReview}
+          onBlocksChange={refreshContent}
+          onDeleteAccount={handleDeleteAccount}
+          onOpenPolicy={setPolicyPage}
+          isAdmin={isAdmin(session)}
+          onOpenReports={() => setAdminReportsOpen(true)}
           onClose={() => setMyPageOpen(false)}
         />
       )}
@@ -932,6 +1002,7 @@ export default function App() {
           list={profileTop?.list ?? null}
           onListChange={setProfileList}
           onSocialChange={setSocial}
+          onBlockChange={refreshContent}
           // 프로필은 가게 시트의 후기에서 열리기도 한다 — 지도만 옮기면 뒤에 있던 시트가 예전 가게로 남으므로 시트도 바꾼다
           onPick={(restaurant) => {
             setProfileStack([])
@@ -950,8 +1021,23 @@ export default function App() {
           setSocialLink(null)
         }}
         onAuthed={handleAuthed}
+        onOpenPolicy={setPolicyPage}
       />
+
+      {session && adminReportsOpen && (
+        <AdminReports onChanged={refreshContent} onClose={() => setAdminReportsOpen(false)} />
+      )}
+      {reportTarget && (
+        <ReportSheet
+          target={reportTarget}
+          onReported={handleReported}
+          onBlocked={handleBlocked}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
+      {policyPage && <PolicyViewer page={policyPage} onClose={() => setPolicyPage(null)} />}
     </div>
+    </ModerationContext.Provider>
     </OpenProfileContext.Provider>
   )
 }

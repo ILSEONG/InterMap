@@ -4,6 +4,9 @@ import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.UserAvatarRepository;
+import com.intermap.backend.moderation.Blocks;
+import com.intermap.backend.moderation.Report;
+import com.intermap.backend.moderation.ReportRepository;
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
 import org.springframework.http.CacheControl;
@@ -72,16 +75,21 @@ public class ReviewController {
     private final RestaurantRepository restaurants;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
-    private final ReviewCommentRepository comments;
+    private final ReviewCleanup cleanup;
+    private final Blocks blocks;
+    private final ReportRepository reports;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
-                            AuthController auth, UserAvatarRepository avatars, ReviewCommentRepository comments) {
+                            AuthController auth, UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
+                            ReportRepository reports) {
         this.restaurants = restaurants;
         this.repository = repository;
         this.photos = photos;
         this.auth = auth;
         this.avatars = avatars;
-        this.comments = comments;
+        this.cleanup = cleanup;
+        this.blocks = blocks;
+        this.reports = reports;
     }
 
     // 후기의 가게 스냅샷(이름+주소)으로 가게 행을 찾는다. 프론트가 도로명 우선으로 주소를 넣으므로 그 순서로 본다.
@@ -95,9 +103,14 @@ public class ReviewController {
     }
 
     // 초기 규모에서는 전부 내려준다 — 프론트가 가게별/작성자별로 나눈다.
+    // 로그인했으면 차단 관계인 사람의 후기와 내가 신고한 후기는 뺀다.
     // ponytail: 후기가 수천 건 넘으면 bbox·기간 파라미터로 잘라 받도록 바꿀 것
     @GetMapping("/api/reviews")
-    public List<Item> list() {
+    public List<Item> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        AppUser viewer = auth.currentUser(authorization);
+        Set<Long> hiddenAuthors = blocks.hiddenFor(viewer);
+        Set<Long> reported = viewer == null ? Set.of()
+                : Set.copyOf(reports.targetIdsReportedBy(viewer, Report.TargetType.REVIEW));
         Map<Long, List<Long>> photoIds = new HashMap<>();
         Map<String, Restaurant> places = new HashMap<>();
         for (ReviewPhotoRepository.Ref ref : photos.findAllRefs()) {
@@ -105,6 +118,7 @@ public class ReviewController {
         }
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return repository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(r -> !hiddenAuthors.contains(r.getAuthor().getId()) && !reported.contains(r.getId()))
                 .map(r -> Item.from(r, photoIds.getOrDefault(r.getId(), List.of()),
                         places.computeIfAbsent(r.getRestaurantName() + "|" + r.getRestaurantAddress(),
                                 k -> findPlace(r.getRestaurantName(), r.getRestaurantAddress())),
@@ -193,7 +207,7 @@ public class ReviewController {
                 avatars.urlOf(review.getAuthor().getId())));
     }
 
-    // 본인 후기 삭제. 사진 먼저 지운다 (FK).
+    // 본인 후기 삭제. 사진·댓글도 같이 지운다 (ReviewCleanup).
     @DeleteMapping("/api/reviews/{id}")
     @Transactional
     public ResponseEntity<?> delete(@RequestHeader(value = "Authorization", required = false) String authorization,
@@ -206,9 +220,7 @@ public class ReviewController {
         if (review == null || !review.getAuthor().getId().equals(user.getId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("내가 쓴 후기만 지울 수 있어요."));
         }
-        photos.deleteAllByIdInBatch(photos.findRefsByReviewId(id).stream().map(ReviewPhotoRepository.Ref::getId).toList());
-        comments.deleteAllByReviewId(id);
-        repository.delete(review);
+        cleanup.deleteReview(review, Report.Status.GONE);
         return ResponseEntity.noContent().build();
     }
 

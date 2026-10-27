@@ -1,11 +1,21 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { AuthSession, Person, SocialData, UserItem } from '../lib/api'
-import { changeNickname, followUser, unfollowUser, searchUsers, uploadAvatar, deleteAvatar } from '../lib/api'
+import type { AuthSession, BlockedPerson, Person, SocialData, UserItem } from '../lib/api'
+import {
+  changeNickname,
+  followUser,
+  unfollowUser,
+  searchUsers,
+  uploadAvatar,
+  deleteAvatar,
+  fetchBlocks,
+  unblockUser,
+} from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
 import { shrinkImage } from '../lib/image'
 import type { Review } from '../data/model'
 import Avatar from './Avatar'
+import type { PolicyPage } from './PolicyViewer'
 import './MyPage.css'
 
 interface MyPageProps {
@@ -20,6 +30,14 @@ interface MyPageProps {
   myReviews: Review[]
   // 후기를 누르면 그 가게 시트를 연다
   onOpenReview: (review: Review) => void
+  // 차단을 풀면 — App이 후기·댓글을 다시 받는다
+  onBlocksChange: () => void
+  // 회원 탈퇴. 성공하면 App이 로그아웃 상태로 돌리고 이 화면을 닫는다
+  onDeleteAccount: () => Promise<void>
+  onOpenPolicy: (page: PolicyPage) => void
+  // 운영자(주인장)면 신고 관리 화면으로 가는 버튼
+  isAdmin: boolean
+  onOpenReports: () => void
   onClose: () => void
 }
 
@@ -36,7 +54,21 @@ function CloseIcon() {
   )
 }
 
-export default function MyPage({ open, session, social, onSocialChange, onSessionChange, myReviews, onOpenReview, onClose }: MyPageProps) {
+export default function MyPage({
+  open,
+  session,
+  social,
+  onSocialChange,
+  onSessionChange,
+  myReviews,
+  onOpenReview,
+  onBlocksChange,
+  onDeleteAccount,
+  onOpenPolicy,
+  isAdmin,
+  onOpenReports,
+  onClose,
+}: MyPageProps) {
   // 사람을 누르면 그 사람 프로필 개요 (App이 컨텍스트로 내려준다)
   const openProfile = useOpenProfile()
   const [nickname, setNickname] = useState(session.nickname)
@@ -50,6 +82,12 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number>(undefined)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  // 차단한 사용자 — 펼칠 때 받는다
+  const [blocksOpen, setBlocksOpen] = useState(false)
+  const [blocked, setBlocked] = useState<BlockedPerson[] | null>(null)
+  // 회원 탈퇴 확인 단계
+  const [leaving, setLeaving] = useState(false)
+  const [leaveChecked, setLeaveChecked] = useState(false)
   function showToast(text: string) {
     setToast(text)
     window.clearTimeout(toastTimer.current)
@@ -63,7 +101,26 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
     setNicknameMsg(null)
     setQuery('')
     setError(null)
+    setBlocksOpen(false)
+    setBlocked(null)
+    setLeaving(false)
+    setLeaveChecked(false)
   }, [open, session.nickname])
+
+  useEffect(() => {
+    if (!open || !blocksOpen || blocked) return
+    let cancelled = false
+    fetchBlocks()
+      .then((list) => {
+        if (!cancelled) setBlocked(list)
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, blocksOpen, blocked])
 
   // 닉네임 검색 — 팔로우할 사람 찾기
   useEffect(() => {
@@ -135,6 +192,33 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
     } catch (e) {
       setError((e as Error).message)
     } finally {
+      setBusy(false)
+    }
+  }
+
+  async function unblock(person: BlockedPerson) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      setBlocked(await unblockUser(person.id))
+      onBlocksChange()
+      showToast(`${person.nickname}님 차단을 풀었어요`)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function leave() {
+    if (!leaveChecked || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onDeleteAccount()
+    } catch (e) {
+      setError((e as Error).message)
       setBusy(false)
     }
   }
@@ -354,6 +438,116 @@ export default function MyPage({ open, session, social, onSocialChange, onSessio
               }
             />
           </div>
+
+          <section className="my-page__section" aria-label="차단한 사용자">
+            <button
+              type="button"
+              className="my-page__disclosure"
+              onClick={() => setBlocksOpen((v) => !v)}
+              aria-expanded={blocksOpen}
+            >
+              차단한 사용자
+              {blocked && <span className="my-page__count">{blocked.length}</span>}
+              <svg
+                className={`my-page__chevron${blocksOpen ? ' my-page__chevron--open' : ''}`}
+                aria-hidden="true"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            {blocksOpen &&
+              (blocked === null ? (
+                <p className="my-page__hint my-page__hint--field" role="status">
+                  불러오는 중…
+                </p>
+              ) : blocked.length === 0 ? (
+                <p className="my-page__empty">차단한 사람이 없어요. 프로필이나 신고 화면에서 차단할 수 있어요.</p>
+              ) : (
+                <ul className="my-page__card my-page__people">
+                  {blocked.map((p) => (
+                    <li key={p.id} className="my-page__person">
+                      <span className="my-page__person-open my-page__person-open--static">
+                        <Avatar className={`my-page__avatar ${toneOf(p.id)}`} src={p.avatar} name={p.nickname} />
+                        <span className="my-page__name">{p.nickname}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="my-page__action"
+                        onClick={() => unblock(p)}
+                        disabled={busy}
+                        aria-label={`${p.nickname} 차단 해제`}
+                      >
+                        차단 해제
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ))}
+          </section>
+
+          {isAdmin && (
+            <section className="my-page__section" aria-label="운영">
+              <button type="button" className="my-page__disclosure" onClick={onOpenReports}>
+                신고 관리
+                <svg className="my-page__chevron my-page__chevron--right" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
+            </section>
+          )}
+
+          <footer className="my-page__footer">
+            <nav className="my-page__links" aria-label="약관과 정책">
+              <button type="button" onClick={() => onOpenPolicy('terms')}>
+                이용약관
+              </button>
+              <button type="button" onClick={() => onOpenPolicy('privacy')}>
+                개인정보처리방침
+              </button>
+            </nav>
+            {!isAdmin &&
+              (leaving ? (
+                <div className="my-page__leave" role="group" aria-label="회원 탈퇴 확인">
+                  <h3 className="my-page__leave-title">정말 탈퇴할까요?</h3>
+                  <p className="my-page__leave-text">
+                    계정과 내가 쓴 후기·사진·댓글, 찜, 팔로우가 바로 지워지고 되돌릴 수 없어요. 같은 이메일로 다시 가입해도
+                    예전 기록은 돌아오지 않아요.
+                  </p>
+                  <label className="my-page__leave-check">
+                    <input type="checkbox" checked={leaveChecked} onChange={(e) => setLeaveChecked(e.target.checked)} />
+                    위 내용을 확인했어요
+                  </label>
+                  <div className="my-page__leave-actions">
+                    <button
+                      type="button"
+                      className="my-page__leave-cancel"
+                      onClick={() => {
+                        setLeaving(false)
+                        setLeaveChecked(false)
+                      }}
+                      disabled={busy}
+                    >
+                      취소
+                    </button>
+                    <button type="button" className="my-page__leave-confirm" onClick={leave} disabled={!leaveChecked || busy}>
+                      {busy ? '탈퇴하는 중…' : '탈퇴하기'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="my-page__leave-open" onClick={() => setLeaving(true)}>
+                  회원 탈퇴
+                </button>
+              ))}
+          </footer>
         </div>
       </div>
 

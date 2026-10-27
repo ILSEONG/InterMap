@@ -12,5 +12,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByOrderByCreatedAtDesc();
 
     // 한 사람은 한 가게에 후기를 하나만 남긴다 (가게 키 = 이름+주소 스냅샷)
+    // 회원 탈퇴 시 그 사람 후기 전부
+    List<Review> findAllByAuthor(AppUser author);
+
     boolean existsByAuthorAndRestaurantNameAndRestaurantAddress(AppUser author, String restaurantName, String restaurantAddress);
 }

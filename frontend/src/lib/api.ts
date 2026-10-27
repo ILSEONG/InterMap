@@ -197,8 +197,9 @@ export function restaurantKey(r: { name: string; address: string }): string {
 }
 
 // 후기 전체. 초기 규모라 한 번에 받는다 (서버 ReviewController 참고)
+// 로그인했으면 토큰을 같이 보낸다 — 서버가 차단한 사람·내가 신고한 후기를 빼고 준다
 export async function fetchReviews(): Promise<Review[]> {
-  const res = await fetch(`${API_BASE}/api/reviews`)
+  const res = await fetch(`${API_BASE}/api/reviews`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`후기 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -267,6 +268,8 @@ export interface UserProfile {
   followsMe: boolean
   followingCount: number
   followerCount: number
+  // 내가 이 사람을 차단했는지
+  blocked: boolean
 }
 
 export async function fetchUserProfile(userId: number): Promise<UserProfile> {
@@ -334,7 +337,7 @@ export interface CommentRecord {
 
 // 전체 댓글 (오래된 순). 후기 목록처럼 통으로 받고 프론트가 후기별로 나눈다.
 export async function fetchComments(): Promise<CommentRecord[]> {
-  const res = await fetch(`${API_BASE}/api/comments`)
+  const res = await fetch(`${API_BASE}/api/comments`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`댓글 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -407,4 +410,86 @@ export async function registerRestaurant(place: PlaceSearchResult): Promise<Rest
   })
   if (!res.ok) throw new Error(`음식점 등록 실패 (${res.status})`)
   return res.json()
+}
+
+// ---- 회원 탈퇴 · 신고 · 차단 (서버 AccountController, ModerationController) ----
+
+// 계정과 내가 남긴 후기·사진·댓글·찜·팔로우를 즉시 지운다. 되돌릴 수 없다.
+export async function deleteAccount(): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/me`, { method: 'DELETE', headers: authHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.message ?? `탈퇴 실패 (${res.status})`)
+  }
+}
+
+export type ReportTargetType = 'REVIEW' | 'COMMENT'
+export type ReportReason = 'SPAM' | 'ABUSE' | 'SEXUAL' | 'PRIVACY' | 'FALSE_INFO' | 'OTHER'
+
+export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: 'SPAM', label: '스팸·광고' },
+  { value: 'ABUSE', label: '욕설·비방·혐오' },
+  { value: 'SEXUAL', label: '음란하거나 불쾌한 내용' },
+  { value: 'PRIVACY', label: '개인정보 노출' },
+  { value: 'FALSE_INFO', label: '허위 정보' },
+  { value: 'OTHER', label: '기타' },
+]
+
+// 성공하면 서버 안내 문구. 신고한 글은 다음 목록부터 나에게 안 보인다.
+export async function reportContent(targetType: ReportTargetType, targetId: number, reason: ReportReason, detail?: string): Promise<string> {
+  const data = await postJson<{ message: string }>('/api/reports', { targetType, targetId, reason, detail: detail || null })
+  return data.message
+}
+
+export interface BlockedPerson {
+  id: number
+  nickname: string
+  avatar: string | null
+  blockedAt: string
+}
+
+export async function fetchBlocks(): Promise<BlockedPerson[]> {
+  const res = await fetch(`${API_BASE}/api/me/blocks`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`차단 목록 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+// 차단하면 서로의 후기·댓글이 안 보이고 팔로우가 양쪽 다 끊긴다
+export function blockUser(userId: number): Promise<BlockedPerson[]> {
+  return post<BlockedPerson[]>(`/api/me/blocks/${userId}`, '')
+}
+
+export function unblockUser(userId: number): Promise<BlockedPerson[]> {
+  return post<BlockedPerson[]>(`/api/me/blocks/${userId}`, '', {}, 'DELETE')
+}
+
+// 운영자(주인장) 전용 신고 처리
+export type ReportStatus = 'OPEN' | 'REMOVED' | 'DISMISSED' | 'GONE'
+
+export interface AdminReport {
+  id: number
+  targetType: ReportTargetType
+  targetId: number
+  targetAuthorId: number | null
+  targetAuthorName: string | null
+  content: string | null
+  reason: ReportReason
+  detail: string | null
+  reporterName: string
+  status: ReportStatus
+  createdAt: string
+  openCount: number
+  targetExists: boolean
+}
+
+export async function fetchAdminReports(status: ReportStatus = 'OPEN'): Promise<AdminReport[]> {
+  const res = await fetch(`${API_BASE}/api/admin/reports?status=${status}`, { headers: authHeaders() })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message ?? `신고 목록 조회 실패 (${res.status})`)
+  return data
+}
+
+// REMOVE = 글 삭제, DISMISS = 문제 없음. 같은 글에 걸린 신고가 모두 같이 닫힌다.
+export function resolveReport(id: number, action: 'REMOVE' | 'DISMISS'): Promise<{ message: string }> {
+  return postJson<{ message: string }>(`/api/admin/reports/${id}/resolve`, { action })
 }

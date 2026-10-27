@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom'
 import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
+import { canReport, useModeration } from '../lib/moderation'
 import { timeAgo } from '../lib/time'
 import { STAR_SHAPE } from './Stars'
 import Avatar from './Avatar'
+import './ReportSheet.css'
 
 // 시트·스토리 뷰어가 같은 카드를 쓴다. 스타일은 RestaurantSheet.css(.review-card*)
 // onEdit이 있으면 (내 후기) 수정 버튼이 붙는다
@@ -14,6 +16,8 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
   const [lightbox, setLightbox] = useState<number | null>(null)
   // 작성자 프로필 열기 (App이 컨텍스트로 내려준다). 없으면 이름은 눌러도 아무 일 없다.
   const openProfile = useOpenProfile()
+  // 남의 후기면 신고 버튼 (로그인했을 때만)
+  const moderation = useModeration()
   const [shown, setShown] = useState(0)
   const trackRef = useRef<HTMLDivElement>(null)
   // 열릴 때 누른 사진으로 바로 이동 (스냅 트랙이라 scrollIntoView 한 번이면 된다)
@@ -58,6 +62,24 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
           </svg>
           <em>{review.rating.toFixed(1)}</em>
         </span>
+        {canReport(moderation, review.author.id) && (
+          <button
+            type="button"
+            className="report-trigger review-card__report"
+            onClick={() =>
+              moderation.report({ type: 'REVIEW', id: review.id, authorId: review.author.id, authorName: review.author.name })
+            }
+            aria-label={`${review.author.name}님의 후기 신고`}
+          >
+            {/* 사이렌 — 반구 몸체 + 받침 + 위로 퍼지는 빛 세 줄 */}
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 18v-5a5 5 0 0 1 10 0v5" />
+              <path d="M4.5 18h15v3h-15z" />
+              <path d="M12 13v2" />
+              <path d="M12 3v2.5M4.6 6.1l1.8 1.6M19.4 6.1l-1.8 1.6" />
+            </svg>
+          </button>
+        )}
         {onEdit && (
           <button type="button" className="review-card__edit" onClick={onEdit}>
             <svg

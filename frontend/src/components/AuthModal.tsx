@@ -138,9 +138,11 @@ interface AuthModalProps {
   social?: SocialTicket | null
   onClose: () => void
   onAuthed: (session: AuthSession) => void
+  // 약관 '보기' — App이 약관 시트를 이 모달 위에 띄운다
+  onOpenPolicy?: (page: 'terms' | 'privacy') => void
 }
 
-export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModalProps) {
+export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolicy }: AuthModalProps) {
   const open = mode !== null
   // 닫히는 애니메이션 동안 내용이 유지되도록 마지막 모드를 기억한다
   const lastModeRef = useRef<AuthMode>('start')
@@ -152,6 +154,8 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [nickname, setNickname] = useState('')
+  // 만 14세 미만은 법정대리인 동의가 필요해(개인정보보호법 제22조의2) 가입을 받지 않는다
+  const [age, setAge] = useState(false)
   const [terms, setTerms] = useState(false)
   const [privacy, setPrivacy] = useState(false)
   const [marketing, setMarketing] = useState(false)
@@ -173,6 +177,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
     setStep('start')
     setPassword('')
     setCode('')
+    setAge(false)
     setTerms(false)
     setPrivacy(false)
     setMarketing(false)
@@ -271,10 +276,11 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
       .catch(() => setNickHint(null))
   }
 
-  const required = terms && privacy
+  const required = age && terms && privacy
   const allAgreed = required && marketing
   function toggleAll() {
     const next = !allAgreed
+    setAge(next)
     setTerms(next)
     setPrivacy(next)
     setMarketing(next)
@@ -350,17 +356,37 @@ export default function AuthModal({ mode, social, onClose, onAuthed }: AuthModal
         <span>전체 동의</span>
       </label>
       <label className="auth-modal__check">
-        <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} required />
+        <input type="checkbox" checked={age} onChange={(e) => setAge(e.target.checked)} required />
         <span>
-          서비스 이용약관 동의 <em>(필수)</em>
+          만 14세 이상이에요 <em>(필수)</em>
         </span>
       </label>
-      <label className="auth-modal__check">
-        <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} required />
-        <span>
-          개인정보 수집·이용 동의 <em>(필수)</em>
-        </span>
-      </label>
+      <div className="auth-modal__check-row">
+        <label className="auth-modal__check">
+          <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} required />
+          <span>
+            서비스 이용약관 동의 <em>(필수)</em>
+          </span>
+        </label>
+        {onOpenPolicy && (
+          <button type="button" className="auth-modal__view" onClick={() => onOpenPolicy('terms')} aria-label="서비스 이용약관 보기">
+            보기
+          </button>
+        )}
+      </div>
+      <div className="auth-modal__check-row">
+        <label className="auth-modal__check">
+          <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} required />
+          <span>
+            개인정보 수집·이용 동의 <em>(필수)</em>
+          </span>
+        </label>
+        {onOpenPolicy && (
+          <button type="button" className="auth-modal__view" onClick={() => onOpenPolicy('privacy')} aria-label="개인정보처리방침 보기">
+            보기
+          </button>
+        )}
+      </div>
       <label className="auth-modal__check">
         <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />
         <span>

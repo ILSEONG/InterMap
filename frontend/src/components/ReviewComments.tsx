@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Comment } from '../data/model'
 import { useOpenProfile } from '../lib/openProfile'
+import { canReport, useModeration } from '../lib/moderation'
 
 interface ReviewCommentsProps {
   comments: Comment[]
@@ -155,6 +156,10 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
   }
 
   const mine = myUserId !== undefined && comment.authorId === myUserId
+  // 남의 댓글·답글 신고 (로그인했을 때만)
+  const moderation = useModeration()
+  const report = (c: Comment) =>
+    moderation?.report({ type: 'COMMENT', id: c.id, authorId: c.authorId, authorName: c.authorName })
 
   return (
     <li>
@@ -166,6 +171,16 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
           {mine && (
             <button type="button" className="comment__reply-toggle comment__reply-toggle--danger" onClick={remove}>
               삭제
+            </button>
+          )}
+          {canReport(moderation, comment.authorId) && (
+            <button
+              type="button"
+              className="comment__reply-toggle"
+              onClick={() => report(comment)}
+              aria-label={`${comment.authorName}님의 댓글 신고`}
+            >
+              신고
             </button>
           )}
         </div>
@@ -196,7 +211,7 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
             {replies.map((reply) => (
               <li key={reply.id}>
                 <CommentRow comment={reply} small>
-                  {myUserId !== undefined && reply.authorId === myUserId && (
+                  {myUserId !== undefined && reply.authorId === myUserId ? (
                     <div className="comment__actions">
                       <button
                         type="button"
@@ -206,6 +221,19 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
                         삭제
                       </button>
                     </div>
+                  ) : (
+                    canReport(moderation, reply.authorId) && (
+                      <div className="comment__actions">
+                        <button
+                          type="button"
+                          className="comment__reply-toggle"
+                          onClick={() => report(reply)}
+                          aria-label={`${reply.authorName}님의 답글 신고`}
+                        >
+                          신고
+                        </button>
+                      </div>
+                    )
                   )}
                 </CommentRow>
               </li>
