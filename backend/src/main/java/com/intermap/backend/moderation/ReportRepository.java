@@ -26,7 +26,8 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
                                                          Report.Status status);
 
     // 탈퇴한 사람이 낸 신고는 지운다 (신고 사본은 남지 않아도 되는 쪽)
-    @Modifying
+    // 일괄 삭제는 메모리에 올라온 엔티티를 모른다 — 먼저 반영하고 끝나면 비워서 지운 행을 다시 쓰지 않게 한다
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from Report r where r.reporter = :reporter")
     void deleteAllByReporter(AppUser reporter);
 }
