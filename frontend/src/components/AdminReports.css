@@ -1,0 +1,122 @@
+.admin-reports__tabs {
+  flex: none;
+  margin: 4px 20px 8px;
+  height: 46px;
+  display: flex;
+  padding: 3px;
+  border-radius: 23px;
+  background: var(--fill);
+}
+
+.admin-reports__tab {
+  flex: 1;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.admin-reports__tab--on {
+  background: var(--surface-raised);
+  box-shadow: var(--control-shadow);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-reports__empty {
+  margin: 24px 0;
+  text-align: center;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.admin-reports__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-reports__item {
+  padding: 16px;
+  border-radius: 26px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.admin-reports__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-reports__type,
+.admin-reports__reason,
+.admin-reports__count {
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.admin-reports__type {
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink-2);
+}
+
+.admin-reports__reason {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.admin-reports__count {
+  background: var(--ink);
+  color: #fff;
+}
+
+.admin-reports__time {
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.admin-reports__author {
+  margin: 10px 0 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.admin-reports__content {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.admin-reports__detail {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.admin-reports__actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.admin-reports__actions .modal-sheet__btn {
+  min-height: 48px;
+  font-size: 15px;
+}

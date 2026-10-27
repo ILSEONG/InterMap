@@ -260,3 +260,37 @@ button.profile-sheet__stat:active {
 .profile-sheet__locked svg {
   flex: none;
 }
+
+/* 차단한 사용자 표시 */
+.profile-sheet__badge--blocked {
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink-2);
+}
+
+/* 맨 아래 차단 버튼 — 눈에 덜 띄게, 그래도 44px */
+.profile-sheet__block {
+  margin: 24px auto 4px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.profile-sheet__block:hover,
+.profile-sheet__block:active {
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+}
+
+.profile-sheet__block:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

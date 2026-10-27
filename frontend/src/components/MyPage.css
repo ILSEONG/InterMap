@@ -598,6 +598,155 @@
   }
 }
 
+/* ── 차단한 사용자 · 신고 관리: 누르면 펼쳐지는 줄 ───────── */
+.my-page__disclosure {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 0 18px;
+  border: none;
+  border-radius: 26px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-page__disclosure + * {
+  margin-top: 8px;
+}
+
+.my-page__chevron {
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform 160ms ease;
+}
+
+.my-page__chevron--open {
+  transform: rotate(180deg);
+}
+
+.my-page__person-open--static {
+  cursor: default;
+}
+
+/* ── 맨 아래: 약관 링크 · 회원 탈퇴 ───────── */
+.my-page__footer {
+  margin-top: 28px;
+  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-page__links {
+  display: flex;
+  gap: 4px;
+}
+
+.my-page__links button,
+.my-page__leave-open {
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 22px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.my-page__links button:active,
+.my-page__leave-open:active {
+  background: rgba(118, 118, 128, 0.12);
+}
+
+.my-page__leave-open {
+  color: var(--ink-soft);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.my-page__leave {
+  width: 100%;
+  padding: 18px;
+  border-radius: 26px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.my-page__leave-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.my-page__leave-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.my-page__leave-check {
+  margin-top: 12px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.my-page__leave-check input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+
+.my-page__leave-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.my-page__leave-cancel,
+.my-page__leave-confirm {
+  flex: 1;
+  min-height: 50px;
+  border: none;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.my-page__leave-cancel {
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink);
+}
+
+.my-page__leave-confirm {
+  background: var(--accent);
+  color: #fff;
+}
+
+.my-page__leave-cancel:disabled,
+.my-page__leave-confirm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .my-page {
     animation: none;
