@@ -6,7 +6,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 
 @Entity
 public class AppUser {
@@ -34,7 +38,8 @@ public class AppUser {
     // provider 쪽 사용자 고유 ID. 이메일이 바뀌거나 없어도 같은 계정으로 찾는 키.
     private String providerId;
 
-    // 로그인 세션 토큰. 재로그인 시 교체되어 이전 토큰은 무효가 된다.
+    // 로그인 세션 토큰의 SHA-256 (hex). 원문은 클라이언트만 갖는다 — DB가 새도 세션을 쓸 수 없게.
+    // 재로그인 시 교체되어 이전 토큰은 무효가 된다.
     @Column(unique = true)
     private String token;
 
@@ -76,7 +81,6 @@ public class AppUser {
     public String getPhone() { return phone; }
     public String getProvider() { return provider; }
     public String getProviderId() { return providerId; }
-    public String getToken() { return token; }
     public Instant getCreatedAt() { return createdAt; }
 
     public Instant getTokenIssuedAt() { return tokenIssuedAt; }
@@ -87,9 +91,22 @@ public class AppUser {
         this.nickname = nickname;
     }
 
-    // null이면 로그아웃 (기존 토큰 무효)
-    public void issueToken(String token) {
-        this.token = token;
-        this.tokenIssuedAt = token == null ? null : Instant.now();
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    // 원문 토큰을 받아 해시로 저장한다. null이면 로그아웃 (기존 토큰 무효)
+    public void issueToken(String rawToken) {
+        this.token = rawToken == null ? null : hashToken(rawToken);
+        this.tokenIssuedAt = rawToken == null ? null : Instant.now();
+    }
+
+    public static String hashToken(String rawToken) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

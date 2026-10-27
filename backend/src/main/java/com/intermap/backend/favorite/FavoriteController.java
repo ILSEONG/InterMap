@@ -2,6 +2,7 @@ package com.intermap.backend.favorite;
 
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.DailyLimits;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,12 +25,17 @@ public class FavoriteController {
     public record ToggleResult(boolean favored) {
     }
 
+    // 하루 찜 추가 수 — 도배 방지 (해제는 세지 않는다)
+    static final int DAILY_FAVORITES = 200;
+
     private final FavoriteRepository repository;
     private final AuthController auth;
+    private final DailyLimits limits;
 
-    public FavoriteController(FavoriteRepository repository, AuthController auth) {
+    public FavoriteController(FavoriteRepository repository, AuthController auth, DailyLimits limits) {
         this.repository = repository;
         this.auth = auth;
+        this.limits = limits;
     }
 
     // 내 찜 목록 (최근 찜한 순)
@@ -65,6 +71,10 @@ public class FavoriteController {
                     return ResponseEntity.ok((Object) new ToggleResult(false));
                 })
                 .orElseGet(() -> {
+                    if (limits.exceeded("favorite:" + user.getId(), DAILY_FAVORITES)) {
+                        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                                .body(new AuthController.ErrorResponse("오늘은 더 찜할 수 없어요. 내일 다시 해주세요."));
+                    }
                     repository.save(new Favorite(user, name, address));
                     return ResponseEntity.ok((Object) new ToggleResult(true));
                 });

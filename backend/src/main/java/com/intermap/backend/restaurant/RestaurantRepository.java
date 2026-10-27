@@ -8,9 +8,10 @@ import java.util.Optional;
 
 public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
-    Optional<Restaurant> findByNameAndRoadAddress(String name, String roadAddress);
+    // First — 같은 상호+주소 행이 둘 이상이어도 예외 없이 하나를 고른다 (후기 목록 전체가 500 나지 않게)
+    Optional<Restaurant> findFirstByNameAndRoadAddress(String name, String roadAddress);
 
-    Optional<Restaurant> findByNameAndAddress(String name, String address);
+    Optional<Restaurant> findFirstByNameAndAddress(String name, String address);
 
     // 지도·검색용 조회는 status를 받는다 — 폐업 가게는 아예 내려주지 않는다 (호출부가 OPEN을 넘긴다)
     List<Restaurant> findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status status, String name);

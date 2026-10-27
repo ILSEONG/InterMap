@@ -1,15 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import type { Review } from '../data/model'
 
-export interface PlaceSearchResult {
-  name: string
-  category: string
-  roadAddress: string
-  address: string
-  lat: number
-  lng: number
-}
-
 export interface RestaurantRecord {
   id: number
   name: string
@@ -33,12 +24,6 @@ export interface ClusterCell {
 export const SUMMARY_MAX_ZOOM = 16
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-
-export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
-  const res = await fetch(`${API_BASE}/api/places/search?query=${encodeURIComponent(query)}`)
-  if (!res.ok) throw new Error(`장소 검색 실패 (${res.status})`)
-  return res.json()
-}
 
 export interface BBox {
   minLat: number
@@ -133,18 +118,16 @@ export function login(email: string, password: string): Promise<AuthSession> {
   return postJson<AuthSession>('/api/auth/login', { email, password })
 }
 
-// 비밀번호를 잊었을 때 이메일 인증번호로 로그인
-export function loginWithCode(email: string, emailCode: string): Promise<AuthSession> {
-  return postJson<AuthSession>('/api/auth/login-code', { email, emailCode })
+// 비밀번호를 잊었을 때 이메일 인증번호로 로그인. newPassword를 주면 비밀번호도 그걸로 바뀐다.
+export function loginWithCode(email: string, emailCode: string, newPassword?: string): Promise<AuthSession> {
+  return postJson<AuthSession>('/api/auth/login-code', { email, emailCode, newPassword })
 }
 
 export type OAuthProvider = 'google' | 'naver' | 'kakao'
 
-// 전체 페이지 이동으로 provider 로그인 화면을 연다. 완료되면 서버가
-// 연결된 회원이면 ?token=&email=&nickname=,
-// 같은 이메일의 기존 계정이 있으면 ?linkTicket=&provider=&email= (인증번호로 계정 연결),
-// 처음이면 ?signupTicket=&provider=&email=&nickname= (닉네임+약관만 받는 가입),
-// 실패 시 ?authError= 를 달고 프론트로 돌려보낸다.
+// 전체 페이지 이동으로 provider 로그인 화면을 연다. 완료되면 서버가 일회용 코드만 ?oauth= 로 달아
+// 돌려보내고(앱은 intermap://auth?oauth=), 프론트가 exchangeOAuth로 결과를 받는다.
+// 실패 시 ?authError=<코드> (oauthErrorMessage 참고).
 export interface SocialTicket {
   ticket: string
   provider: OAuthProvider
@@ -161,11 +144,54 @@ export function signupSocial(ticket: string, nickname: string, marketingAgreed: 
   return postJson<AuthSession>('/api/auth/signup-social', { ticket, nickname, termsAgreed: true, marketingAgreed })
 }
 
+// 소셜 로그인을 시작한 이 기기만 결과를 받도록 묶는 난수. 시작할 때 서버에 넘기고, 결과를 받을 때 다시 보낸다.
+// 남이 보낸 콜백 링크·가로챈 딥링크로는 이 값이 없어 로그인되지 않는다.
+const OAUTH_VERIFIER_KEY = 'intermap.oauthVerifier'
+
 export function oauthUrl(provider: OAuthProvider): string {
-  // 앱(WebView)에서는 ?app=1을 붙인다 — 백엔드가 콜백을 intermap:// 딥링크로 돌려보내
+  const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('')
+  try {
+    localStorage.setItem(OAUTH_VERIFIER_KEY, verifier)
+  } catch {
+    // 저장 못 하면 결과 교환에서 실패한다 — 다시 시도하면 된다
+  }
+  // 앱(WebView)에서는 app=1을 붙인다 — 백엔드가 콜백을 intermap:// 딥링크로 돌려보내
   // 로그인 후 브라우저가 아니라 앱으로 돌아온다
-  const app = Capacitor.isNativePlatform() ? '?app=1' : ''
-  return `${API_BASE}/api/auth/oauth/${provider}${app}`
+  const app = Capacitor.isNativePlatform() ? '&app=1' : ''
+  return `${API_BASE}/api/auth/oauth/${provider}?verifier=${verifier}${app}`
+}
+
+// type: session = 연결된 회원 로그인, link = 같은 이메일 계정과 연결, signup = 닉네임+약관 가입
+export interface OAuthResult {
+  type: 'session' | 'link' | 'signup'
+  session: AuthSession | null
+  ticket: string | null
+  provider: OAuthProvider | null
+  email: string | null
+  nickname: string | null
+}
+
+export async function exchangeOAuth(code: string): Promise<OAuthResult> {
+  let verifier = ''
+  try {
+    verifier = localStorage.getItem(OAUTH_VERIFIER_KEY) ?? ''
+    localStorage.removeItem(OAUTH_VERIFIER_KEY)
+  } catch {
+    // 아래 요청이 실패로 돌아온다
+  }
+  return postJson<OAuthResult>('/api/auth/oauth/result', { code, verifier })
+}
+
+// 서버가 ?authError= 로 보내는 코드. 문구는 여기서만 정한다 (링크에 임의 문구를 실어 띄우지 못하게)
+const OAUTH_ERRORS: Record<string, string> = {
+  unavailable: '해당 간편 로그인은 아직 연결되지 않았어요.',
+  cancelled: '로그인이 취소됐어요.',
+  expired: '로그인 요청이 만료됐어요. 다시 시도해주세요.',
+  failed: '로그인 중 문제가 생겼어요. 다시 시도해주세요.',
+}
+
+export function oauthErrorMessage(code: string): string {
+  return OAUTH_ERRORS[code] ?? OAUTH_ERRORS.failed
 }
 
 // 성공 메시지를 반환하고, 형식 오류·발송 제한은 Error로 던진다
@@ -173,7 +199,7 @@ export async function requestEmailCode(email: string): Promise<string> {
   return (await postJson<{ message: string }>('/api/auth/email-code', { email })).message
 }
 
-// 인증번호 확인. 맞으면 서버가 기억해두고 가입 시 다시 검사하지 않는다.
+// 인증번호 확인. 맞으면 서버가 30분간 기억한다 — 가입 요청에도 같은 번호를 다시 실어 보낸다.
 export async function verifyEmailCode(email: string, emailCode: string): Promise<string> {
   return (await postJson<{ message: string }>('/api/auth/verify-email-code', { email, emailCode })).message
 }
@@ -399,16 +425,6 @@ export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<Cl
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom }).map(([k, v]) => [k, String(v)]))
   const res = await fetch(`${API_BASE}/api/restaurants/summary?${params}`)
   if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
-  return res.json()
-}
-
-export async function registerRestaurant(place: PlaceSearchResult): Promise<RestaurantRecord> {
-  const res = await fetch(`${API_BASE}/api/restaurants`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(place),
-  })
-  if (!res.ok) throw new Error(`음식점 등록 실패 (${res.status})`)
   return res.json()
 }
 

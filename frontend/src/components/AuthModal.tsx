@@ -238,7 +238,8 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
   function submitCode(e: React.FormEvent) {
     e.preventDefault()
     if (existing) {
-      run(loginWithCode(email, code), onAuthed)
+      // 새 비밀번호 칸을 채웠으면 로그인하면서 비밀번호도 바꾼다
+      run(loginWithCode(email, code, password || undefined), onAuthed)
     } else {
       run(verifyEmailCode(email, code), () => setStep('terms'))
     }
@@ -509,6 +510,8 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
                 className="auth-modal__link"
                 onClick={() => {
                   setError(null)
+                  // 틀린 비밀번호가 다음 단계의 새 비밀번호 칸에 남지 않게
+                  setPassword('')
                   setStep('code')
                   sendCode()
                 }}
@@ -535,6 +538,24 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
                 {hintEl(codeHint)}
                 {resendButton}
               </div>
+              {existing && (
+                <div className="auth-modal__field">
+                  {fieldBox(
+                    'lock',
+                    'auth-new-password',
+                    '새 비밀번호 (선택)',
+                    <input
+                      id="auth-new-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="새 비밀번호 (바꿀 때만, 8자 이상)"
+                      autoComplete="new-password"
+                      minLength={8}
+                    />,
+                  )}
+                </div>
+              )}
               {errorEl}
               <button type="submit" className="auth-modal__submit" disabled={busy || code.length !== 6}>
                 {submitLabel(existing ? '로그인' : '다음')}

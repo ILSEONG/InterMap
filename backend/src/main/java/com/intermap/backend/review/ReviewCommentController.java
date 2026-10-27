@@ -3,6 +3,7 @@ package com.intermap.backend.review;
 import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.moderation.Report;
@@ -41,6 +42,9 @@ public class ReviewCommentController {
         }
     }
 
+    // 계정 하나가 하루에 달 수 있는 댓글 수 — 도배 방지
+    static final int DAILY_COMMENTS = 100;
+
     private final ReviewCommentRepository repository;
     private final ReviewRepository reviews;
     private final AuthController auth;
@@ -48,10 +52,12 @@ public class ReviewCommentController {
     private final ReviewCleanup cleanup;
     private final Blocks blocks;
     private final ReportRepository reports;
+    private final DailyLimits limits;
 
     public ReviewCommentController(ReviewCommentRepository repository, ReviewRepository reviews, AuthController auth,
                                    UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                                   ReportRepository reports) {
+                                   ReportRepository reports, DailyLimits limits) {
+        this.limits = limits;
         this.repository = repository;
         this.reviews = reviews;
         this.auth = auth;
@@ -103,6 +109,14 @@ public class ReviewCommentController {
             if (parent == null || !parent.getReview().getId().equals(review.getId()) || parent.getParentId() != null) {
                 return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("답글을 달 댓글을 찾지 못했어요."));
             }
+            // 원댓글 작성자와 차단 관계여도 답글을 달 수 없다
+            if (blocks.between(user, parent.getAuthor())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("이 댓글에는 답글을 달 수 없어요."));
+            }
+        }
+        if (limits.exceeded("comment:" + user.getId(), DAILY_COMMENTS)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new AuthController.ErrorResponse("오늘은 댓글을 더 달 수 없어요. 내일 다시 해주세요."));
         }
         ReviewComment saved = repository.save(new ReviewComment(review, user, request.parentId(), text));
         return ResponseEntity.ok(Item.from(saved, avatars.urlOf(user.getId())));

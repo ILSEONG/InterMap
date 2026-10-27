@@ -4,6 +4,7 @@ import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.review.Review;
 import com.intermap.backend.review.ReviewCleanup;
@@ -35,6 +36,8 @@ import java.util.Map;
 public class ModerationController {
 
     static final int MAX_DETAIL_LENGTH = 500;
+    // 하루 신고 수 — 운영자 큐 도배 방지
+    static final int DAILY_REPORTS = 50;
 
     public record ReportRequest(String targetType, Long targetId, String reason, String detail) {
     }
@@ -63,10 +66,12 @@ public class ModerationController {
     private final ReviewCleanup cleanup;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
+    private final DailyLimits limits;
 
     public ModerationController(ReportRepository reports, UserBlockRepository blocks, AppUserRepository users,
                                 ReviewRepository reviews, ReviewCommentRepository comments, FollowRepository follows,
-                                ReviewCleanup cleanup, AuthController auth, UserAvatarRepository avatars) {
+                                ReviewCleanup cleanup, AuthController auth, UserAvatarRepository avatars, DailyLimits limits) {
+        this.limits = limits;
         this.reports = reports;
         this.blocks = blocks;
         this.users = users;
@@ -124,6 +129,9 @@ public class ModerationController {
         }
         // 같은 대상을 두 번 신고하면 그대로 접수된 것으로 본다
         if (reports.findByReporterAndTargetTypeAndTargetId(me, type, request.targetId()).isEmpty()) {
+            if (limits.exceeded("report:" + me.getId(), DAILY_REPORTS)) {
+                return error(HttpStatus.TOO_MANY_REQUESTS, "오늘은 더 신고할 수 없어요. 내일 다시 해주세요.");
+            }
             reports.save(new Report(me, type, request.targetId(), author, snapshot, reason, detail));
         }
         return ResponseEntity.ok(new MessageResponse("신고했어요. 운영자가 확인 후 조치할게요."));

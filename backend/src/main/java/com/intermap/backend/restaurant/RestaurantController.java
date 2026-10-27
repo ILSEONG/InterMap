@@ -4,8 +4,6 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,9 +14,6 @@ import java.util.List;
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
 public class RestaurantController {
-
-    public record RegisterRequest(String name, String category, String roadAddress, String address, double lat, double lng) {
-    }
 
     // 목록 응답용 슬림 DTO — 지도에 안 쓰는 status/statusCheckedAt/localDataMgtNo를 뺀다 (목록엔 영업 중인 가게만 온다)
     public record ListItem(Long id, String name, String category, String roadAddress, String address,
@@ -35,6 +30,11 @@ public class RestaurantController {
 
     // FE 군집 반경과 같은 픽셀 크기(cluster.ts CLUSTER_PIXEL_DISTANCE)
     private static final double CLUSTER_PIXEL_DISTANCE = 26;
+    // 개별 가게 bbox 한 변 상한(도). FE는 줌 17+에서만 개별 가게를 받고 0.02도 격자로 맞춰 보내 0.06도를 안 넘는다.
+    // 서울 전체를 한 번에 요청해 10만 행을 메모리에 올리는 걸 막는다.
+    private static final double MAX_BOX_DEG = 0.1;
+    // 요약 격자 칸 수 상한. FE 화면 한 장은 많아야 수천 칸 — 높은 zoom에 넓은 bbox를 줘서 가게마다 한 칸씩 받는 걸 막는다.
+    private static final double MAX_CELLS = 40_000;
 
     private final RestaurantRepository repository;
 
@@ -52,6 +52,9 @@ public class RestaurantController {
             @RequestParam(required = false) Double maxLng,
             @RequestParam(required = false) String q) {
         boolean hasBox = minLat != null && maxLat != null && minLng != null && maxLng != null;
+        if (hasBox && (maxLat - minLat > MAX_BOX_DEG || maxLng - minLng > MAX_BOX_DEG)) {
+            return ResponseEntity.badRequest().build();
+        }
         List<Restaurant> rows = q != null && !q.isBlank()
                 ? repository.findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status.OPEN, q.trim())
                 : hasBox
@@ -73,6 +76,9 @@ public class RestaurantController {
             @RequestParam double maxLng,
             @RequestParam int zoom) {
         double cellDeg = 360.0 * CLUSTER_PIXEL_DISTANCE / (256.0 * Math.pow(2, zoom));
+        if (zoom < 0 || zoom > 20 || (maxLat - minLat) / cellDeg * ((maxLng - minLng) / cellDeg) > MAX_CELLS) {
+            return ResponseEntity.badRequest().build();
+        }
         // DB group by — 낮은 줌에서 bbox가 서울 전체를 덮어도 행을 안 올린다. 폐업 가게는 건수에서 뺀다.
         List<Cell> body = repository.summarize(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng, cellDeg).stream()
                 .map(a -> new Cell(((Number) a[0]).doubleValue(), ((Number) a[1]).doubleValue(), ((Number) a[2]).intValue()))
@@ -80,15 +86,5 @@ public class RestaurantController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
                 .body(body);
-    }
-
-    @PostMapping("/api/restaurants")
-    public Restaurant register(@RequestBody RegisterRequest request) {
-        // 같은 상호+도로명주소면 기존 레코드 반환 — 중복 등록 방지
-        return repository.findByNameAndRoadAddress(request.name(), request.roadAddress())
-            .orElseGet(() -> repository.save(new Restaurant(
-                request.name(), request.category(), request.roadAddress(),
-                request.address(), request.lat(), request.lng()
-            )));
     }
 }

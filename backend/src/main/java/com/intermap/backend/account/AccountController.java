@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 
 // 회원 탈퇴 — 계정과 그 사람이 남긴 것을 즉시, 되돌릴 수 없게 지운다 (Google Play 계정 삭제 정책).
@@ -35,6 +37,8 @@ import java.util.Comparator;
 public class AccountController {
 
     private static final Logger log = LoggerFactory.getLogger(AccountController.class);
+    // 탈퇴는 로그인한 지 이 시간 안에만
+    private static final long REAUTH_MINUTES = 30;
 
     private final AppUserRepository users;
     private final AuthController auth;
@@ -74,6 +78,11 @@ public class AccountController {
         }
         if (AdminSeeder.ADMIN_EMAIL.equals(me.getEmail())) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("운영자 계정은 탈퇴할 수 없어요."));
+        }
+        // 되돌릴 수 없으니 방금 로그인한 세션만 받는다 — 새어 나간 토큰 하나로 남의 계정을 지우지 못하게
+        if (me.getTokenIssuedAt().plus(REAUTH_MINUTES, ChronoUnit.MINUTES).isBefore(Instant.now())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new AuthController.ErrorResponse("보안을 위해 로그아웃 후 다시 로그인한 다음 탈퇴해주세요."));
         }
         Long id = me.getId();
 

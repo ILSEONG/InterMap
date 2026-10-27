@@ -40,3 +40,6 @@ out/
 src/main/resources/application-local.properties
 .env
 .env.local
+
+### 로컬 H2 DB (테스트 실행마다 바뀌고, 로컬 데이터가 커밋되면 안 된다) ###
+data/

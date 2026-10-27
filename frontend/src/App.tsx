@@ -44,6 +44,8 @@ import {
   restaurantKey,
   logout,
   deleteAccount,
+  exchangeOAuth,
+  oauthErrorMessage,
   SUMMARY_MAX_ZOOM,
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
@@ -394,35 +396,32 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 소셜 로그인 완료 후 백엔드가 연결된 회원이면 ?token=&email=&nickname=,
-  // 같은 이메일 계정이 있으면 ?linkTicket=, 처음이면 ?signupTicket= (둘 다 &provider=&email=&nickname= 동반),
-  // 실패 시 ?authError= 를 달고 돌려보낸다. 웹은 리다이렉트 쿼리로, 앱은 intermap:// 딥링크로 들어온다.
+  // 소셜 로그인 완료 후 결과는 일회용 코드 ?oauth= 로만 오고, 이 기기가 로그인 시작 때 저장한 verifier로 서버에서 받아 온다
+  // (연결된 회원이면 세션, 같은 이메일 계정이 있으면 연결 티켓, 처음이면 가입 티켓).
+  // 실패 시 ?authError=<코드>. 웹은 리다이렉트 쿼리로, 앱은 intermap:// 딥링크로 들어온다.
   const applyAuthParams = useCallback(
     (params: URLSearchParams) => {
-      const token = params.get('token')
-      const linkTicket = params.get('linkTicket')
-      const signupTicket = params.get('signupTicket')
-      const provider = params.get('provider') as SocialTicket['provider'] | null
-      const email = params.get('email')
-      const nickname = params.get('nickname')
+      const code = params.get('oauth')
       const authError = params.get('authError')
-      if (!token && !linkTicket && !signupTicket && !authError) return false
-      if (token && nickname) {
-        handleAuthed({ token, email, nickname })
-        // 콜백 파라미터엔 id·avatar가 없다. 내 후기 판별이 session.id에 달려 있으니 서버 값으로 바로 채운다.
-        // (handleAuthed가 localStorage에 토큰을 먼저 써야 fetchMe의 Authorization 헤더가 붙는다)
-        fetchMe()
-          .then((me) => me && handleAuthed(me))
-          .catch(() => {
-            // 네트워크 오류면 id 없는 세션으로 두고, 다음 실행 때 마운트 fetchMe가 채운다
+      if (!code && !authError) return false
+      if (code) {
+        exchangeOAuth(code)
+          .then((result) => {
+            if (result.type === 'session' && result.session) {
+              handleAuthed(result.session)
+            } else if (result.ticket && result.provider) {
+              setSocialLink({
+                ticket: result.ticket,
+                provider: result.provider,
+                email: result.email ?? undefined,
+                nickname: result.nickname ?? undefined,
+              })
+              setAuthMode(result.type === 'link' ? 'link' : 'social')
+            }
           })
+          .catch((err: Error) => alert(err.message))
       }
-      const ticket = linkTicket ?? signupTicket
-      if (ticket && provider) {
-        setSocialLink({ ticket, provider, email: email ?? undefined, nickname: nickname ?? undefined })
-        setAuthMode(linkTicket ? 'link' : 'social')
-      }
-      if (authError) alert(authError)
+      if (authError) alert(oauthErrorMessage(authError))
       return true
     },
     [handleAuthed],

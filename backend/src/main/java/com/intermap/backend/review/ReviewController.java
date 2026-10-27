@@ -3,6 +3,8 @@ package com.intermap.backend.review;
 import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.AvatarController;
+import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.moderation.Report;
@@ -67,8 +69,11 @@ public class ReviewController {
     }
 
     static final int MAX_PHOTOS = 10;
-    static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024;
-    private static final Set<String> PHOTO_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    // 프론트가 1280px JPEG로 줄여 보내 보통 0.5MB 아래다. 사진은 DB에 들어가므로 작게 묶는다.
+    static final long MAX_PHOTO_BYTES = 1024 * 1024;
+    // 계정 하나가 하루에 올릴 수 있는 양 — 도배와 DB 저장 공간 채우기 방지
+    static final int DAILY_REVIEWS = 20;
+    static final int DAILY_PHOTOS = 30;
 
     private final ReviewRepository repository;
     private final ReviewPhotoRepository photos;
@@ -78,10 +83,12 @@ public class ReviewController {
     private final ReviewCleanup cleanup;
     private final Blocks blocks;
     private final ReportRepository reports;
+    private final DailyLimits limits;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
                             AuthController auth, UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                            ReportRepository reports) {
+                            ReportRepository reports, DailyLimits limits) {
+        this.limits = limits;
         this.restaurants = restaurants;
         this.repository = repository;
         this.photos = photos;
@@ -96,8 +103,8 @@ public class ReviewController {
     // 폐업한 가게는 못 찾은 것으로 친다 — 좌표가 안 실려 지도에 핀이 생기지 않는다.
     // ponytail: 후기마다 쿼리 1~2번. 후기가 수천 건 되면 Review에 restaurant_id FK를 붙일 것
     private Restaurant findPlace(String name, String address) {
-        return restaurants.findByNameAndRoadAddress(name, address)
-                .or(() -> restaurants.findByNameAndAddress(name, address))
+        return restaurants.findFirstByNameAndRoadAddress(name, address)
+                .or(() -> restaurants.findFirstByNameAndAddress(name, address))
                 .filter(r -> r.getStatus() != Restaurant.Status.CLOSED)
                 .orElse(null);
     }
@@ -154,11 +161,14 @@ public class ReviewController {
         if (photoError != null) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse(photoError));
         }
+        if (limits.exceeded("review:" + user.getId(), DAILY_REVIEWS) || overPhotoLimit(user, uploads.size())) {
+            return tooMany();
+        }
         Review saved = repository.save(new Review(user, name, p.category() == null ? "" : p.category().trim(), address,
                 request.rating(), text, menu));
         List<Long> photoIds = new ArrayList<>();
         for (MultipartFile f : uploads) {
-            photoIds.add(photos.save(new ReviewPhoto(saved, f.getContentType(), f.getBytes())).getId());
+            photoIds.add(savePhoto(saved, f));
         }
         return ResponseEntity.ok(Item.from(saved, photoIds, findPlace(saved.getRestaurantName(), saved.getRestaurantAddress()),
                 avatars.urlOf(saved.getAuthor().getId())));
@@ -197,11 +207,14 @@ public class ReviewController {
         if (photoError != null) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse(photoError));
         }
+        if (overPhotoLimit(user, uploads.size())) {
+            return tooMany();
+        }
         review.edit(request.rating(), text, menu);
         photos.deleteAllByIdInBatch(dropped);
         List<Long> photoIds = new ArrayList<>(kept);
         for (MultipartFile f : uploads) {
-            photoIds.add(photos.save(new ReviewPhoto(review, f.getContentType(), f.getBytes())).getId());
+            photoIds.add(savePhoto(review, f));
         }
         return ResponseEntity.ok(Item.from(review, photoIds, findPlace(review.getRestaurantName(), review.getRestaurantAddress()),
                 avatars.urlOf(review.getAuthor().getId())));
@@ -244,14 +257,31 @@ public class ReviewController {
     }
 
     // 문제 있으면 사용자에게 보여줄 메시지, 없으면 null. existing = 이미 붙어 있는 사진 수
-    private static String checkPhotos(List<MultipartFile> uploads, int existing) {
+    private static String checkPhotos(List<MultipartFile> uploads, int existing) throws IOException {
         if (existing + uploads.size() > MAX_PHOTOS) return "사진은 " + MAX_PHOTOS + "장까지 올릴 수 있어요.";
         for (MultipartFile f : uploads) {
-            if (f.getSize() > MAX_PHOTO_BYTES || f.getContentType() == null || !PHOTO_TYPES.contains(f.getContentType())) {
-                return "사진은 JPEG/PNG/WebP, 한 장 5MB 이하로 올려주세요.";
+            if (f.getSize() > MAX_PHOTO_BYTES || AvatarController.imageType(f.getBytes()) == null) {
+                return "사진은 JPEG/PNG/WebP, 한 장 1MB 이하로 올려주세요.";
             }
         }
         return null;
+    }
+
+    // 형식은 파일 바이트로 판별한 값을 저장한다 (checkPhotos를 통과한 파일만 온다)
+    private Long savePhoto(Review review, MultipartFile f) throws IOException {
+        byte[] data = f.getBytes();
+        return photos.save(new ReviewPhoto(review, AvatarController.imageType(data), data)).getId();
+    }
+
+    private boolean overPhotoLimit(AppUser user, int count) {
+        boolean over = false;
+        for (int i = 0; i < count; i++) over |= limits.exceeded("photo:" + user.getId(), DAILY_PHOTOS);
+        return over;
+    }
+
+    private static ResponseEntity<?> tooMany() {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(new AuthController.ErrorResponse("오늘은 더 올릴 수 없어요. 내일 다시 해주세요."));
     }
 
     // 사진은 한 번 올라가면 안 바뀐다 — 1년 캐시
@@ -260,6 +290,7 @@ public class ReviewController {
         return photos.findById(id)
                 .map(p -> ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(p.getContentType()))
+                        .header("X-Content-Type-Options", "nosniff")
                         .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
                         .body(p.getData()))
                 .orElse(ResponseEntity.notFound().build());

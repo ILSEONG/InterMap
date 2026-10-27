@@ -29,7 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // 신고·차단·회원 탈퇴 — 스토어 사용자 생성 콘텐츠 / 계정 삭제 정책에 맞춘 동작
-@SpringBootTest
+// admin.password: 관리자 계정은 이 값이 있어야 만들어진다 (기본값 없음)
+@SpringBootTest(properties = "admin.password=test-admin-password")
 @Transactional
 class ModerationAndAccountTest {
 
@@ -48,13 +49,15 @@ class ModerationAndAccountTest {
 
     private AppUser user(String name) {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
-        AppUser u = new AppUser(name + suffix + "@test.local", null, name + suffix, null);
-        u.issueToken(UUID.randomUUID().toString());
-        return users.save(u);
+        return users.save(new AppUser(name + suffix + "@test.local", null, name + suffix, null));
     }
 
-    private static String bearer(AppUser u) {
-        return "Bearer " + u.getToken();
+    // 부를 때마다 새 토큰을 발급한다 — DB엔 해시만 있어 원문을 다시 꺼낼 수 없다
+    private String bearer(AppUser u) {
+        String token = UUID.randomUUID().toString();
+        u.issueToken(token);
+        users.save(u);
+        return "Bearer " + token;
     }
 
     private Review review(AppUser author, String text) {
@@ -122,7 +125,6 @@ class ModerationAndAccountTest {
         assertEquals(HttpStatus.FORBIDDEN, moderation.adminReports(bearer(me), "OPEN").getStatusCode());
 
         AppUser admin = users.findByEmail(AdminSeeder.ADMIN_EMAIL).orElseThrow();
-        admin.issueToken(UUID.randomUUID().toString());
         @SuppressWarnings("unchecked")
         var open = (List<ModerationController.AdminReport>) moderation.adminReports(bearer(admin), "OPEN").getBody();
         var mineReport = open.stream().filter(r -> r.targetId().equals(target.getId())).findFirst().orElseThrow();
@@ -169,7 +171,6 @@ class ModerationAndAccountTest {
                 "남이 낸 신고 기록은 남는다");
 
         AppUser admin = users.findByEmail(AdminSeeder.ADMIN_EMAIL).orElseThrow();
-        admin.issueToken(UUID.randomUUID().toString());
         assertEquals(HttpStatus.BAD_REQUEST, account.deleteMe(bearer(admin)).getStatusCode());
         assertEquals(HttpStatus.UNAUTHORIZED, account.deleteMe(null).getStatusCode());
     }

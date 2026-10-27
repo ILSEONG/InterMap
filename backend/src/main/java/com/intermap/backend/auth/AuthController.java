@@ -16,11 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -37,7 +36,8 @@ public class AuthController {
     public record EmailRequest(String email) {
     }
 
-    public record CodeRequest(String email, String emailCode) {
+    // newPassword: 인증번호 로그인 때만, 비밀번호를 새로 정하려면 (선택)
+    public record CodeRequest(String email, String emailCode, String newPassword) {
     }
 
     public record SignupRequest(String email, String emailCode, String nickname, String password,
@@ -77,87 +77,104 @@ public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    // RFC 5321 상한. 정규식 역추적과 메모리 키 크기를 이 길이로 묶는다.
+    private static final int MAX_EMAIL_LENGTH = 254;
     private static final int MAX_NICKNAME_LENGTH = 20;
+    // 눈에 안 보이는 문자(제로폭 공백 등)로 같은 닉네임 흉내 내기 방지
+    private static final Pattern INVISIBLE = Pattern.compile("[\\p{Cf}\\p{Cc}]");
+    // 운영자 배지와 헷갈리는 이름
+    private static final Set<String> RESERVED_NICKNAMES = Set.of("주인장", "운영자", "관리자", "admin");
     private static final int MIN_PASSWORD_LENGTH = 8;
     private static final long CODE_TTL_SECONDS = 300;
+    // 인증번호를 맞힌 뒤 약관·닉네임을 채우는 시간
+    private static final long VERIFIED_TTL_SECONDS = 30 * 60;
     private static final long RESEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_VERIFY_ATTEMPTS = 5;
     private static final long TOKEN_TTL_DAYS = 30;
+    // 비밀번호 무차별 대입 방지: 계정마다 15분 안에 5번 틀리면 15분 막는다
+    private static final int MAX_LOGIN_FAILURES = 5;
+    private static final long LOGIN_LOCK_SECONDS = 15 * 60;
 
     // 인증번호 발송 일일 상한. 뚫려도 하루 손실이 Brevo 무료 한도(300) 안에서 멈춘다.
     private static final int DAILY_PER_TARGET = 5;      // 같은 이메일
     private static final int DAILY_PER_IP = 10;         // 같은 IP
     private static final int DAILY_GLOBAL_EMAIL = 250;
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     // 발급된 인증번호. 단일 인스턴스 전제라 메모리로 충분 (재시작하면 재발송하면 됨).
     private static final class Verification {
         final String code;
         final Instant issuedAt = Instant.now();
         int attempts = 0;
-        // 확인 버튼으로 이미 맞춘 상태. 약관·닉네임을 채우는 동안 만료되지 않게 TTL을 면제한다.
-        boolean verified = false;
+        // 확인 버튼으로 이미 맞춘 시각. 약관·닉네임을 채우는 동안은 짧은 TTL 대신 VERIFIED_TTL을 쓴다.
+        Instant verifiedAt;
 
         Verification(String code) {
             this.code = code;
         }
 
         boolean expired() {
-            return !verified && issuedAt.plusSeconds(CODE_TTL_SECONDS).isBefore(Instant.now());
+            Instant now = Instant.now();
+            return verifiedAt != null
+                    ? verifiedAt.plusSeconds(VERIFIED_TTL_SECONDS).isBefore(now)
+                    : issuedAt.plusSeconds(CODE_TTL_SECONDS).isBefore(now);
         }
+    }
+
+    private record LoginFailures(int count, Instant since) {
     }
 
     private final Map<String, Verification> codes = new ConcurrentHashMap<>();
+    // 키는 사용자 id — 가입된 계정 수만큼만 쌓인다
+    private final Map<Long, LoginFailures> loginFailures = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
-    // 일일 발송 카운터. 날짜가 바뀌면 통째로 비운다. 메모리라 재시작 시 초기화 — 인증번호 저장소와 같은 전제.
-    private final Map<String, Integer> dailyCounts = new ConcurrentHashMap<>();
-    private volatile LocalDate countsDay = LocalDate.now(KST);
-
-    private boolean overDailyLimit(String key, int limit) {
-        LocalDate today = LocalDate.now(KST);
-        if (!today.equals(countsDay)) {
-            dailyCounts.clear();
-            countsDay = today;
-        }
-        return dailyCounts.merge(key, 1, Integer::sum) > limit;
-    }
-
-    // Render 프록시 뒤라 실제 클라이언트 IP는 X-Forwarded-For 첫 번째 값
+    // Render 앞단(Cloudflare)이 넣는 CF-Connecting-IP를 먼저 본다 — 클라이언트가 보낸 값을 덮어써서 위조가 안 된다.
+    // 없으면 X-Forwarded-For 첫 번째 값 (Render가 덧붙이기만 해서 클라이언트가 위조할 수 있다).
+    // 카운터 키로 쓰므로 길이를 자른다 (IPv6 최대 45자)
     private static String clientIp(HttpServletRequest request) {
+        String cf = request.getHeader("CF-Connecting-IP");
         String forwarded = request.getHeader("X-Forwarded-For");
-        return forwarded == null || forwarded.isBlank() ? request.getRemoteAddr() : forwarded.split(",")[0].trim();
+        String ip = cf != null && !cf.isBlank() ? cf.trim()
+                : forwarded == null || forwarded.isBlank() ? request.getRemoteAddr() : forwarded.split(",")[0].trim();
+        return ip.length() > 45 ? ip.substring(0, 45) : ip;
     }
 
     private final AppUserRepository repository;
     private final MailService mailService;
     private final PendingSocialLinks pendingLinks;
     private final UserAvatarRepository avatars;
+    private final DailyLimits limits;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthController(AppUserRepository repository, MailService mailService, PendingSocialLinks pendingLinks,
-                          UserAvatarRepository avatars) {
+                          UserAvatarRepository avatars, DailyLimits limits) {
         this.repository = repository;
         this.mailService = mailService;
         this.pendingLinks = pendingLinks;
         this.avatars = avatars;
+        this.limits = limits;
     }
 
-    private AuthResponse authResponse(AppUser user) {
-        return new AuthResponse(user.getId(), user.getToken(), user.getEmail(), user.getNickname(), avatars.urlOf(user.getId()));
+    // DB엔 토큰 해시만 있으므로 원문 토큰은 호출부가 넘긴다
+    private AuthResponse authResponse(AppUser user, String token) {
+        return new AuthResponse(user.getId(), token, user.getEmail(), user.getNickname(), avatars.urlOf(user.getId()));
     }
 
     private static String normalizeEmail(String raw) {
         return raw == null ? "" : raw.trim().toLowerCase();
     }
 
+    private static boolean validEmail(String email) {
+        return email.length() <= MAX_EMAIL_LENGTH && EMAIL.matcher(email).matches();
+    }
+
     private ResponseEntity<?> issueCode(String email, String ip) {
         Verification existing = codes.get(email);
         // 어떤 규칙에 걸렸는지 구분해서 알려주지 않는다 — 규칙을 알면 그만큼 우회하기 쉽다
         if ((existing != null && existing.issuedAt.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now()))
-                || overDailyLimit("target:" + email, DAILY_PER_TARGET)
-                || overDailyLimit("ip:" + ip, DAILY_PER_IP)
-                || overDailyLimit("global:email", DAILY_GLOBAL_EMAIL)) {
+                || limits.exceeded("code-target:" + email, DAILY_PER_TARGET)
+                || limits.exceeded("code-ip:" + ip, DAILY_PER_IP)
+                || limits.exceeded("code-global", DAILY_GLOBAL_EMAIL)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(new ErrorResponse("잠시 후 다시 요청해주세요."));
         }
@@ -175,25 +192,26 @@ public class AuthController {
     }
 
     // null이면 통과, 아니면 그대로 응답할 에러. 통과해도 지우지 않는다 — 가입/로그인 완료 시점에 지운다.
+    // 확인 버튼으로 이미 맞춘 뒤에도 매번 같은 번호를 요구한다 — "인증됨" 상태만으로 남이 통과하지 못하게.
     private ErrorResponse verifyCode(String email, String input) {
         Verification verification = codes.get(email);
         if (verification == null || verification.expired()) {
             codes.remove(email);
             return new ErrorResponse("인증번호를 다시 받아주세요.");
         }
-        if (verification.verified) {
+        // 동시 요청으로 시도 횟수 검사를 건너뛰지 못하게
+        synchronized (verification) {
+            if (verification.attempts >= MAX_VERIFY_ATTEMPTS) {
+                codes.remove(email);
+                return new ErrorResponse("시도 횟수를 넘었어요. 인증번호를 다시 받아주세요.");
+            }
+            if (input == null || !verification.code.equals(input.trim())) {
+                verification.attempts += 1;
+                return new ErrorResponse("인증번호가 맞지 않아요.");
+            }
+            if (verification.verifiedAt == null) verification.verifiedAt = Instant.now();
             return null;
         }
-        if (verification.attempts >= MAX_VERIFY_ATTEMPTS) {
-            codes.remove(email);
-            return new ErrorResponse("시도 횟수를 넘었어요. 인증번호를 다시 받아주세요.");
-        }
-        verification.attempts += 1;
-        if (input == null || !verification.code.equals(input.trim())) {
-            return new ErrorResponse("인증번호가 맞지 않아요.");
-        }
-        verification.verified = true;
-        return null;
     }
 
     // 닉네임 규칙 위반이면 에러, 아니면 null
@@ -201,16 +219,24 @@ public class AuthController {
         if (nickname.isEmpty() || nickname.length() > MAX_NICKNAME_LENGTH) {
             return new ErrorResponse("닉네임은 1~" + MAX_NICKNAME_LENGTH + "자로 해주세요.");
         }
+        if (INVISIBLE.matcher(nickname).find()) {
+            return new ErrorResponse("닉네임에 쓸 수 없는 문자가 있어요.");
+        }
+        if (RESERVED_NICKNAMES.contains(nickname.replaceAll("\\s+", "").toLowerCase())) {
+            return new ErrorResponse("쓸 수 없는 닉네임이에요.");
+        }
         if (repository.findByNickname(nickname).isPresent()) {
             return new ErrorResponse("이미 사용 중인 닉네임이에요.");
         }
         return null;
     }
 
-    private AuthResponse signIn(AppUser user) {
-        user.issueToken(UUID.randomUUID().toString());
+    // 새 토큰을 발급해 로그인시킨다. 소셜 로그인(OAuthController)도 이걸 쓴다.
+    public AuthResponse signIn(AppUser user) {
+        String token = UUID.randomUUID().toString();
+        user.issueToken(token);
         repository.save(user);
-        return authResponse(user);
+        return authResponse(user, token);
     }
 
     // 이메일 하나로 로그인/가입을 가른다. 계정 존재 여부가 드러나지만 요즘 흔한 흐름이라 감수한다.
@@ -218,7 +244,7 @@ public class AuthController {
     public ResponseEntity<?> lookup(@RequestBody EmailRequest request) {
         String email = normalizeEmail(request.email());
         AppUser user = repository.findByEmail(email).orElse(null);
-        if (user == null && !EMAIL.matcher(email).matches()) {
+        if (user == null && !validEmail(email)) {
             return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
         }
         return ResponseEntity.ok(new LookupResponse(user != null, user != null && user.getPasswordHash() != null,
@@ -229,7 +255,7 @@ public class AuthController {
     @PostMapping("/api/auth/email-code")
     public ResponseEntity<?> sendEmailCode(@RequestBody EmailRequest request, HttpServletRequest http) {
         String email = normalizeEmail(request.email());
-        if (!EMAIL.matcher(email).matches()) {
+        if (!validEmail(email)) {
             return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
         }
         return issueCode(email, clientIp(http));
@@ -252,7 +278,7 @@ public class AuthController {
     public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
         String email = normalizeEmail(request.email());
         String nickname = request.nickname() == null ? "" : request.nickname().trim();
-        if (!EMAIL.matcher(email).matches()) {
+        if (!validEmail(email)) {
             return ResponseEntity.badRequest().body(new ErrorResponse("이메일 형식을 확인해주세요."));
         }
         if (!request.termsAgreed()) {
@@ -339,13 +365,20 @@ public class AuthController {
     // "Authorization: Bearer <token>" 헤더로 현재 사용자를 찾는다. 없거나 만료면 null.
     // 다른 컨트롤러(후기 작성 등)도 이걸로 로그인 사용자를 확인하면 된다.
     public AppUser currentUser(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) return null;
-        AppUser user = repository.findByToken(authorization.substring(7).trim()).orElse(null);
+        String token = bearer(authorization);
+        if (token == null) return null;
+        AppUser user = repository.findByToken(AppUser.hashToken(token)).orElse(null);
         if (user == null || user.getTokenIssuedAt() == null
                 || user.getTokenIssuedAt().plus(TOKEN_TTL_DAYS, ChronoUnit.DAYS).isBefore(Instant.now())) {
             return null;
         }
         return user;
+    }
+
+    private static String bearer(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) return null;
+        String token = authorization.substring(7).trim();
+        return token.isEmpty() ? null : token;
     }
 
     // 앱 시작 시 저장된 세션이 아직 유효한지 확인
@@ -355,7 +388,7 @@ public class AuthController {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
         }
-        return ResponseEntity.ok(authResponse(user));
+        return ResponseEntity.ok(authResponse(user, bearer(authorization)));
     }
 
     // 닉네임 변경. 가입 때와 같은 규칙(1~20자, 중복 불가). 같은 이름이면 그대로 200.
@@ -373,7 +406,7 @@ public class AuthController {
             user.rename(nickname);
             repository.save(user);
         }
-        return ResponseEntity.ok(authResponse(user));
+        return ResponseEntity.ok(authResponse(user, bearer(authorization)));
     }
 
     // 서버 쪽 토큰을 지워 다른 기기에 남은 사본도 무효화한다
@@ -391,14 +424,34 @@ public class AuthController {
     @PostMapping("/api/auth/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         AppUser user = repository.findByEmail(normalizeEmail(request.email())).orElse(null);
+        if (user != null && lockedOut(user.getId())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new ErrorResponse("비밀번호를 여러 번 틀렸어요. 15분 뒤에 다시 하거나 인증번호로 로그인해주세요."));
+        }
         if (user == null || user.getPasswordHash() == null
                 || request.password() == null || !encoder.matches(request.password(), user.getPasswordHash())) {
+            if (user != null) recordLoginFailure(user.getId());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("비밀번호가 맞지 않아요."));
         }
+        loginFailures.remove(user.getId());
         return ResponseEntity.ok(signIn(user));
     }
 
-    // 비밀번호를 잊었을 때 이메일 인증번호로 로그인 (비밀번호 찾기 대용).
+    private boolean lockedOut(Long userId) {
+        LoginFailures f = loginFailures.get(userId);
+        return f != null && f.count() >= MAX_LOGIN_FAILURES
+                && f.since().plusSeconds(LOGIN_LOCK_SECONDS).isAfter(Instant.now());
+    }
+
+    // 첫 실패부터 15분 창 안에서 센다. 창이 지나면 새로 센다.
+    private void recordLoginFailure(Long userId) {
+        Instant now = Instant.now();
+        loginFailures.merge(userId, new LoginFailures(1, now), (old, one) ->
+                old.since().plusSeconds(LOGIN_LOCK_SECONDS).isBefore(now) ? one : new LoginFailures(old.count() + 1, old.since()));
+    }
+
+    // 비밀번호를 잊었을 때 이메일 인증번호로 로그인 (비밀번호 찾기 대용). newPassword가 오면 비밀번호도 바꾼다 —
+    // 비밀번호가 새어도 주인이 바꿀 수 있게. 토큰이 새로 발급돼 다른 기기 세션은 끊긴다.
     @PostMapping("/api/auth/login-code")
     public ResponseEntity<?> loginWithCode(@RequestBody CodeRequest request) {
         String email = normalizeEmail(request.email());
@@ -406,9 +459,17 @@ public class AuthController {
         if (user == null) {
             return ResponseEntity.badRequest().body(new ErrorResponse("가입되지 않은 이메일이에요."));
         }
+        String newPassword = request.newPassword() == null || request.newPassword().isEmpty() ? null : request.newPassword();
+        if (newPassword != null && newPassword.length() < MIN_PASSWORD_LENGTH) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 해요."));
+        }
         ErrorResponse error = verifyCode(email, request.emailCode());
         if (error != null) {
             return ResponseEntity.badRequest().body(error);
+        }
+        if (newPassword != null) {
+            user.changePassword(encoder.encode(newPassword));
+            loginFailures.remove(user.getId());
         }
         AuthResponse session = signIn(user);
         codes.remove(email);

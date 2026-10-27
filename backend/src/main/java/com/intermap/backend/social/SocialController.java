@@ -3,6 +3,7 @@ package com.intermap.backend.social;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import org.springframework.http.HttpStatus;
@@ -51,15 +52,20 @@ public class SocialController {
                           long followingCount, long followerCount, boolean blocked) {
     }
 
+    // 하루 팔로우 수 — 모든 사용자를 한꺼번에 팔로우하는 도배 방지
+    static final int DAILY_FOLLOWS = 100;
+
     private final FollowRepository follows;
     private final UserAliasRepository aliases;
     private final AppUserRepository users;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
     private final Blocks blocks;
+    private final DailyLimits limits;
 
     public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth,
-                            UserAvatarRepository avatars, Blocks blocks) {
+                            UserAvatarRepository avatars, Blocks blocks, DailyLimits limits) {
+        this.limits = limits;
         this.follows = follows;
         this.aliases = aliases;
         this.users = users;
@@ -128,6 +134,10 @@ public class SocialController {
                     ? "차단한 사람이에요. 차단을 풀면 팔로우할 수 있어요." : "팔로우할 수 없는 사용자예요."));
         }
         if (follows.findByFollowerAndFollowee(me, target).isEmpty()) {
+            if (limits.exceeded("follow:" + me.getId(), DAILY_FOLLOWS)) {
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(new AuthController.ErrorResponse("오늘은 더 팔로우할 수 없어요. 내일 다시 해주세요."));
+            }
             follows.save(new Follow(me, target));
         }
         return ResponseEntity.ok(socialOf(me));

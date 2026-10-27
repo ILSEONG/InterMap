@@ -34,13 +34,15 @@ class SocialControllerTest {
 
     private AppUser user(String name) {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
-        AppUser u = new AppUser(name + suffix + "@test.local", null, name + suffix, null);
-        u.issueToken(UUID.randomUUID().toString());
-        return users.save(u);
+        return users.save(new AppUser(name + suffix + "@test.local", null, name + suffix, null));
     }
 
-    private static String bearer(AppUser u) {
-        return "Bearer " + u.getToken();
+    // 부를 때마다 새 토큰을 발급한다 — DB엔 해시만 있어 원문을 다시 꺼낼 수 없다
+    private String bearer(AppUser u) {
+        String token = UUID.randomUUID().toString();
+        u.issueToken(token);
+        users.save(u);
+        return "Bearer " + token;
     }
 
     private static Map<Long, SocialController.Person> byId(List<SocialController.Person> people) {
