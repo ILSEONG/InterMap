@@ -89,16 +89,16 @@ export default function StoryViewer({
             const avg = neighbors.reduce((sum, r) => sum + r.rating, 0) / (neighbors.length || 1)
             // 이웃 평가가 이 후기 하나뿐이면 위 별점과 같은 숫자라 굳이 다시 보이지 않는다
             const showNeighbors = neighbors.some((r) => r.id !== review.id)
-            const photoId = review.photoIds[0]
+            const photoPath = review.photoUrls[0]
             return (
               <article
                 key={review.id}
                 className="story-viewer__slide"
                 aria-label={`${owner.name}의 후기 · ${review.restaurant.name}`}
               >
-                {photoId !== undefined ? (
+                {photoPath !== undefined ? (
                   <div className="story-viewer__media story-viewer__media--photo">
-                    <img src={photoUrl(photoId)} alt={`${owner.name}님이 올린 사진`} />
+                    <img src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} />
                   </div>
                 ) : (
                   <div className="story-viewer__media story-viewer__media--empty" aria-hidden="true">

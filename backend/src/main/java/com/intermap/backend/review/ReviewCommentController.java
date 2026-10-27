@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 @RestController
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
@@ -53,11 +54,13 @@ public class ReviewCommentController {
     private final Blocks blocks;
     private final ReportRepository reports;
     private final DailyLimits limits;
+    private final ReviewAudience audience;
 
     public ReviewCommentController(ReviewCommentRepository repository, ReviewRepository reviews, AuthController auth,
                                    UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                                   ReportRepository reports, DailyLimits limits) {
+                                   ReportRepository reports, DailyLimits limits, ReviewAudience audience) {
         this.limits = limits;
+        this.audience = audience;
         this.repository = repository;
         this.reviews = reviews;
         this.auth = auth;
@@ -67,17 +70,19 @@ public class ReviewCommentController {
         this.reports = reports;
     }
 
-    // 후기 목록처럼 전부 내려준다 — 프론트가 후기별로 나눈다.
+    // 볼 수 있는 후기(ReviewAudience)에 달린 댓글을 전부 내려준다 — 프론트가 후기별로 나눈다.
     // 로그인했으면 차단 관계인 사람의 댓글과 내가 신고한 댓글은 뺀다.
     // ponytail: 댓글이 수천 건 넘으면 reviewId 파라미터로 잘라 받도록 바꿀 것
     @GetMapping("/api/comments")
     public List<Item> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
         AppUser viewer = auth.currentUser(authorization);
+        Predicate<AppUser> visible = audience.visibleAuthors(viewer);
         Set<Long> hiddenAuthors = blocks.hiddenFor(viewer);
         Set<Long> reported = viewer == null ? Set.of()
                 : Set.copyOf(reports.targetIdsReportedBy(viewer, Report.TargetType.COMMENT));
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return repository.findAllByOrderByCreatedAtAsc().stream()
+                .filter(c -> visible.test(c.getReview().getAuthor()))
                 .filter(c -> !hiddenAuthors.contains(c.getAuthor().getId()) && !reported.contains(c.getId()))
                 .map(c -> Item.from(c, avatarUrls.get(c.getAuthor().getId())))
                 .toList();
@@ -96,7 +101,8 @@ public class ReviewCommentController {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("댓글은 1~500자로 남겨주세요."));
         }
         Review review = request.reviewId() == null ? null : reviews.findById(request.reviewId()).orElse(null);
-        if (review == null) {
+        // 볼 수 없는 후기(팔로우하지 않은 사람 것)에는 댓글도 못 단다 — 있는지조차 알려주지 않는다
+        if (review == null || !audience.visibleAuthors(user).test(review.getAuthor())) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("댓글을 달 후기를 찾지 못했어요."));
         }
         // 후기 작성자와 차단 관계면 댓글을 달 수 없다

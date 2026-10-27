@@ -190,7 +190,7 @@ export default function App() {
       return null
     }
   })
-  // 후기는 로그인해야 받으므로 로그아웃이면 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
+  // 로그아웃이면 주인장 후기만 받아 이웃 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
   const reviewFilter = session ? reviewFilterChoice : 'all'
   // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
   const [socialLink, setSocialLink] = useState<SocialTicket | null>(null)
@@ -227,8 +227,8 @@ export default function App() {
   const [contentVersion, setContentVersion] = useState(0)
   const refreshContent = useCallback(() => setContentVersion((v) => v + 1), [])
 
-  // 서버 후기 전체 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
-  // 로그인한 사람에게만 보인다 — 로그아웃하면 마커·스토리도 같이 사라져야 한다.
+  // 서버가 내게 보여주는 후기 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
+  // 서버가 거른다 — 로그아웃이면 주인장 후기만, 로그인하면 나·팔로우한 사람·주인장 후기.
   const [rawReviews, setRawReviews] = useState<Review[]>([])
   // 후기 id → 그 후기의 댓글들 (서버 /api/comments를 후기별로 나눠 둔 것)
   const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>({})
@@ -240,11 +240,11 @@ export default function App() {
   const [searching, setSearching] = useState(false)
   useEffect(() => {
     if (!session) {
+      // 로그아웃하면 이웃 후기는 바로 지우고, 아래에서 주인장 후기만 다시 받는다
       setRawReviews([])
       setReviewComments({})
       setFavorites(new Set())
       setFavMode(false)
-      return
     }
     let cancelled = false
     fetchReviews()
@@ -267,14 +267,16 @@ export default function App() {
       .catch(() => {
         // 못 받으면 댓글 없는 상태로 동작
       })
-    // 찜 목록도 같이
-    fetchFavorites()
-      .then((places) => {
-        if (!cancelled) setFavorites(new Set(places.map(restaurantKey)))
-      })
-      .catch(() => {
-        // 못 받으면 찜 없는 상태로 동작
-      })
+    // 찜 목록도 같이 (로그인했을 때만)
+    if (session) {
+      fetchFavorites()
+        .then((places) => {
+          if (!cancelled) setFavorites(new Set(places.map(restaurantKey)))
+        })
+        .catch(() => {
+          // 못 받으면 찜 없는 상태로 동작
+        })
+    }
     return () => {
       cancelled = true
     }
@@ -995,7 +997,6 @@ export default function App() {
         <ProfileSheet
           userId={profileUserId}
           fallbackName={profileName}
-          allReviews={rawReviews}
           restaurants={reviewedRestaurants}
           myUserId={session.id}
           list={profileTop?.list ?? null}

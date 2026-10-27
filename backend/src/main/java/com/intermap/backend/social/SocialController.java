@@ -1,11 +1,13 @@
 package com.intermap.backend.social;
 
+import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
+import com.intermap.backend.review.ReviewRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,10 +48,11 @@ public class SocialController {
     public record UserItem(Long id, String nickname) {
     }
 
-    // 다른 사람 프로필 개요. 후기·별점은 프론트가 이미 /api/reviews 로 받아 두므로
-    // 여기선 프론트가 모르는 것(사진, 팔로잉·팔로워 수, 관계)만 준다. blocked = 내가 이 사람을 차단했는지
+    // 다른 사람 프로필 개요. 후기 내용은 팔로우한 사람 것만 /api/reviews 로 오므로
+    // 여기선 프론트가 모르는 것(사진, 후기·팔로잉·팔로워 수, 관계)만 준다. blocked = 내가 이 사람을 차단했는지
+    // reviewCount: 팔로우 전에도 보여준다 (주인장 후기는 가게 시트 전용이라 0)
     public record Profile(Long id, String nickname, String alias, String avatar, boolean following, boolean followsMe,
-                          long followingCount, long followerCount, boolean blocked) {
+                          long followingCount, long followerCount, boolean blocked, long reviewCount) {
     }
 
     // 하루 팔로우 수 — 모든 사용자를 한꺼번에 팔로우하는 도배 방지
@@ -62,10 +65,12 @@ public class SocialController {
     private final UserAvatarRepository avatars;
     private final Blocks blocks;
     private final DailyLimits limits;
+    private final ReviewRepository reviews;
 
     public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth,
-                            UserAvatarRepository avatars, Blocks blocks, DailyLimits limits) {
+                            UserAvatarRepository avatars, Blocks blocks, DailyLimits limits, ReviewRepository reviews) {
         this.limits = limits;
+        this.reviews = reviews;
         this.follows = follows;
         this.aliases = aliases;
         this.users = users;
@@ -184,8 +189,8 @@ public class SocialController {
         return ResponseEntity.ok(socialOf(me));
     }
 
-    // 프로필 개요. 로그인 필요. 팔로우하지 않은 사람이면 후기 내용은 프론트가 가리고
-    // 여기서도 팔로잉·팔로워 수는 -1로 감춘다 (이름·사진과 관계만 보인다).
+    // 프로필 개요. 로그인 필요. 팔로우하지 않은 사람이면 후기 내용은 서버가 안 보내고(ReviewAudience)
+    // 여기서도 팔로잉·팔로워 수는 -1로 감춘다 (이름·사진·후기 수와 관계만 보인다).
     @GetMapping("/api/users/{userId}")
     public ResponseEntity<?> profile(@RequestHeader(value = "Authorization", required = false) String authorization,
                                      @PathVariable Long userId) {
@@ -203,7 +208,8 @@ public class SocialController {
                 following, followsMe,
                 following ? follows.countByFollower(target) : -1,
                 following ? follows.countByFollowee(target) : -1,
-                blocks.blockedBy(me, target)));
+                blocks.blockedBy(me, target),
+                AdminSeeder.ADMIN_EMAIL.equals(target.getEmail()) ? 0 : reviews.countByAuthor(target)));
     }
 
     // 다른 사람의 팔로잉·팔로워 목록. 프로필의 수와 같은 기준 — 내가 팔로우 중인 사람만 볼 수 있다.

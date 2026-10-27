@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Restaurant, Review } from '../data/model'
+import type { Restaurant } from '../data/model'
 import type { SocialData, UserProfile } from '../lib/api'
 import { blockUser, fetchUserProfile, fetchUserSocial, followUser, unblockUser, unfollowUser, setAlias } from '../lib/api'
 import type { ProfileList } from '../lib/profileStack'
@@ -14,8 +14,6 @@ interface ProfileSheetProps {
   userId: number
   // 서버 응답이 오기 전에도 이름은 보여준다 (검색 결과·후기에서 이미 아는 이름)
   fallbackName: string
-  // 모든 후기 — 팔로우 전에도 "후기 N개"는 보여주므로 필터 전 목록을 받는다
-  allReviews: Review[]
   // 후기가 붙은 가게 목록 — 팔로우한 사람의 별점 TOP 5를 여기서 뽑는다
   restaurants: Restaurant[]
   // 팔로잉·팔로워 목록에서 나 자신을 "나"로 표시하는 데 쓴다
@@ -35,7 +33,6 @@ interface ProfileSheetProps {
 export default function ProfileSheet({
   userId,
   fallbackName,
-  allReviews,
   restaurants,
   myUserId,
   list: listKind,
@@ -132,8 +129,8 @@ export default function ProfileSheet({
   }
 
   const name = profile ? (profile.alias ?? profile.nickname) : fallbackName
-  // 주인장 후기는 가게 시트 전용이라 개수에서 뺀다 (지도·스토리 기준과 같게)
-  const reviewCount = allReviews.filter((rv) => rv.author.id === userId && !rv.author.owner).length
+  // 서버가 센다 — 팔로우 전엔 후기 내용이 안 오지만 개수는 보여준다 (주인장 후기는 가게 시트 전용이라 0)
+  const reviewCount = profile?.reviewCount ?? 0
   const picks = profile?.following ? topPicksOf(restaurants, userId) : []
   // 별칭은 팔로우 관계(어느 쪽이든)인 사람에게만 붙일 수 있다 — 서버 규칙과 같다.
   // 마이페이지 팔로잉·팔로워 목록은 두 칸이라 좁아서, 사람을 눌러 여기로 와서 이름을 바꾼다.

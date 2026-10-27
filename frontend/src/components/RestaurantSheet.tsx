@@ -548,7 +548,7 @@ function SheetBody({
               )}
               {keepPhotoIds.map((id) => (
                 <span key={id} className="review-form__thumb">
-                  <img src={photoUrl(id)} alt="올려둔 사진" />
+                  <img src={photoUrl(editing?.photoUrls[editing.photoIds.indexOf(id)] ?? '')} alt="올려둔 사진" />
                   <button type="button" onClick={() => setKeepPhotoIds((prev) => prev.filter((k) => k !== id))} aria-label="사진 빼기">
                     <CloseIcon />
                   </button>

@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 @RestController
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
@@ -56,15 +59,22 @@ public class ReviewController {
     public record UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds) {
     }
 
+    // 사진 하나의 id와 주소 키 (ReviewPhoto.accessKey)
+    record Photo(Long id, String key) {
+    }
+
+    // photoUrls는 photoIds와 같은 순서의 사진 주소(API 경로, 키 포함). photoIds는 수정 때 남길 사진을 고르는 데 쓴다.
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
-                       Instant createdAt, List<Long> photoIds) {
-        static Item from(Review r, List<Long> photoIds, Restaurant place, String avatar) {
+                       Instant createdAt, List<Long> photoIds, List<String> photoUrls) {
+        static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
             AppUser a = r.getAuthor();
             return new Item(r.getId(),
                     new Place(r.getRestaurantName(), r.getRestaurantCategory(), r.getRestaurantAddress(),
                             place == null ? null : place.getLat(), place == null ? null : place.getLng()),
                     new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
-                    r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(), photoIds);
+                    r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
+                    photos.stream().map(Photo::id).toList(),
+                    photos.stream().map(p -> "/api/photos/" + p.id() + "/" + p.key()).toList());
         }
     }
 
@@ -84,11 +94,13 @@ public class ReviewController {
     private final Blocks blocks;
     private final ReportRepository reports;
     private final DailyLimits limits;
+    private final ReviewAudience audience;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
                             AuthController auth, UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                            ReportRepository reports, DailyLimits limits) {
+                            ReportRepository reports, DailyLimits limits, ReviewAudience audience) {
         this.limits = limits;
+        this.audience = audience;
         this.restaurants = restaurants;
         this.repository = repository;
         this.photos = photos;
@@ -109,24 +121,26 @@ public class ReviewController {
                 .orElse(null);
     }
 
-    // 초기 규모에서는 전부 내려준다 — 프론트가 가게별/작성자별로 나눈다.
-    // 로그인했으면 차단 관계인 사람의 후기와 내가 신고한 후기는 뺀다.
-    // ponytail: 후기가 수천 건 넘으면 bbox·기간 파라미터로 잘라 받도록 바꿀 것
+    // 볼 수 있는 후기(ReviewAudience: 로그아웃이면 주인장 것만, 로그인하면 나·팔로우한 사람·주인장)를 전부 내려준다
+    // — 프론트가 가게별/작성자별로 나눈다. 로그인했으면 차단 관계인 사람의 후기와 내가 신고한 후기도 뺀다.
+    // ponytail: 후기가 수천 건 넘으면 작성자 조건을 쿼리로 내리고 bbox·기간 파라미터로 잘라 받도록 바꿀 것
     @GetMapping("/api/reviews")
     public List<Item> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
         AppUser viewer = auth.currentUser(authorization);
+        Predicate<AppUser> visible = audience.visibleAuthors(viewer);
         Set<Long> hiddenAuthors = blocks.hiddenFor(viewer);
         Set<Long> reported = viewer == null ? Set.of()
                 : Set.copyOf(reports.targetIdsReportedBy(viewer, Report.TargetType.REVIEW));
-        Map<Long, List<Long>> photoIds = new HashMap<>();
+        Map<Long, List<Photo>> photosByReview = new HashMap<>();
         Map<String, Restaurant> places = new HashMap<>();
         for (ReviewPhotoRepository.Ref ref : photos.findAllRefs()) {
-            photoIds.computeIfAbsent(ref.getReviewId(), k -> new ArrayList<>()).add(ref.getId());
+            photosByReview.computeIfAbsent(ref.getReviewId(), k -> new ArrayList<>()).add(new Photo(ref.getId(), ref.getAccessKey()));
         }
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return repository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(r -> visible.test(r.getAuthor()))
                 .filter(r -> !hiddenAuthors.contains(r.getAuthor().getId()) && !reported.contains(r.getId()))
-                .map(r -> Item.from(r, photoIds.getOrDefault(r.getId(), List.of()),
+                .map(r -> Item.from(r, photosByReview.getOrDefault(r.getId(), List.of()),
                         places.computeIfAbsent(r.getRestaurantName() + "|" + r.getRestaurantAddress(),
                                 k -> findPlace(r.getRestaurantName(), r.getRestaurantAddress())),
                         avatarUrls.get(r.getAuthor().getId())))
@@ -166,11 +180,11 @@ public class ReviewController {
         }
         Review saved = repository.save(new Review(user, name, p.category() == null ? "" : p.category().trim(), address,
                 request.rating(), text, menu));
-        List<Long> photoIds = new ArrayList<>();
+        List<Photo> savedPhotos = new ArrayList<>();
         for (MultipartFile f : uploads) {
-            photoIds.add(savePhoto(saved, f));
+            savedPhotos.add(savePhoto(saved, f));
         }
-        return ResponseEntity.ok(Item.from(saved, photoIds, findPlace(saved.getRestaurantName(), saved.getRestaurantAddress()),
+        return ResponseEntity.ok(Item.from(saved, savedPhotos, findPlace(saved.getRestaurantName(), saved.getRestaurantAddress()),
                 avatars.urlOf(saved.getAuthor().getId())));
     }
 
@@ -197,10 +211,11 @@ public class ReviewController {
         }
         // 이 후기 사진 중 남길 것만 추린다 — 남의 사진 id를 넣어도 무시된다
         Set<Long> keep = request.keepPhotoIds() == null ? Set.of() : Set.copyOf(request.keepPhotoIds());
-        List<Long> kept = new ArrayList<>();
+        List<Photo> kept = new ArrayList<>();
         List<Long> dropped = new ArrayList<>();
         for (ReviewPhotoRepository.Ref ref : photos.findRefsByReviewId(id)) {
-            (keep.contains(ref.getId()) ? kept : dropped).add(ref.getId());
+            if (keep.contains(ref.getId())) kept.add(new Photo(ref.getId(), ref.getAccessKey()));
+            else dropped.add(ref.getId());
         }
         List<MultipartFile> uploads = nonEmpty(files);
         String photoError = checkPhotos(uploads, kept.size());
@@ -212,11 +227,11 @@ public class ReviewController {
         }
         review.edit(request.rating(), text, menu);
         photos.deleteAllByIdInBatch(dropped);
-        List<Long> photoIds = new ArrayList<>(kept);
+        List<Photo> result = new ArrayList<>(kept);
         for (MultipartFile f : uploads) {
-            photoIds.add(savePhoto(review, f));
+            result.add(savePhoto(review, f));
         }
-        return ResponseEntity.ok(Item.from(review, photoIds, findPlace(review.getRestaurantName(), review.getRestaurantAddress()),
+        return ResponseEntity.ok(Item.from(review, result, findPlace(review.getRestaurantName(), review.getRestaurantAddress()),
                 avatars.urlOf(review.getAuthor().getId())));
     }
 
@@ -268,9 +283,10 @@ public class ReviewController {
     }
 
     // 형식은 파일 바이트로 판별한 값을 저장한다 (checkPhotos를 통과한 파일만 온다)
-    private Long savePhoto(Review review, MultipartFile f) throws IOException {
+    private Photo savePhoto(Review review, MultipartFile f) throws IOException {
         byte[] data = f.getBytes();
-        return photos.save(new ReviewPhoto(review, AvatarController.imageType(data), data)).getId();
+        ReviewPhoto saved = photos.save(new ReviewPhoto(review, AvatarController.imageType(data), data));
+        return new Photo(saved.getId(), saved.getAccessKey());
     }
 
     private boolean overPhotoLimit(AppUser user, int count) {
@@ -284,10 +300,12 @@ public class ReviewController {
                 .body(new AuthController.ErrorResponse("오늘은 더 올릴 수 없어요. 내일 다시 해주세요."));
     }
 
-    // 사진은 한 번 올라가면 안 바뀐다 — 1년 캐시
-    @GetMapping("/api/photos/{id}")
-    public ResponseEntity<byte[]> photo(@PathVariable Long id) {
+    // 사진은 한 번 올라가면 안 바뀐다 — 1년 캐시. 키가 맞아야 준다 (볼 수 있는 후기 응답에만 키가 실린다).
+    @GetMapping("/api/photos/{id}/{key}")
+    public ResponseEntity<byte[]> photo(@PathVariable Long id, @PathVariable String key) {
         return photos.findById(id)
+                .filter(p -> p.getAccessKey() != null && MessageDigest.isEqual(
+                        p.getAccessKey().getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8)))
                 .map(p -> ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(p.getContentType()))
                         .header("X-Content-Type-Options", "nosniff")

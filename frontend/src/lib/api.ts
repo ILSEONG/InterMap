@@ -222,8 +222,8 @@ export function restaurantKey(r: { name: string; address: string }): string {
   return `${r.name}|${r.address}`
 }
 
-// 후기 전체. 초기 규모라 한 번에 받는다 (서버 ReviewController 참고)
-// 로그인했으면 토큰을 같이 보낸다 — 서버가 차단한 사람·내가 신고한 후기를 빼고 준다
+// 내가 볼 수 있는 후기 전체. 초기 규모라 한 번에 받는다 (서버 ReviewController·ReviewAudience 참고)
+// 토큰이 없으면 주인장 후기만, 있으면 나·팔로우한 사람·주인장 후기에서 차단·신고한 것을 빼고 준다
 export async function fetchReviews(): Promise<Review[]> {
   const res = await fetch(`${API_BASE}/api/reviews`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`후기 조회 실패 (${res.status})`)
@@ -296,6 +296,8 @@ export interface UserProfile {
   followerCount: number
   // 내가 이 사람을 차단했는지
   blocked: boolean
+  // 팔로우 전에도 보이는 후기 수 (주인장은 0)
+  reviewCount: number
 }
 
 export async function fetchUserProfile(userId: number): Promise<UserProfile> {
@@ -400,8 +402,9 @@ export function toggleFavorite(name: string, address: string): Promise<{ favored
   return postJson<{ favored: boolean }>('/api/me/favorites/toggle', { name, address })
 }
 
-export function photoUrl(id: number): string {
-  return `${API_BASE}/api/photos/${id}`
+// path = 서버가 후기 응답에 실어 준 사진 경로 (/api/photos/{id}/{키}). 볼 수 있는 후기에만 키가 온다.
+export function photoUrl(path: string): string {
+  return `${API_BASE}${path}`
 }
 
 // 서버가 준 프로필 사진 경로(/api/users/{id}/avatar?v=...)를 실제 URL로

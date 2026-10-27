@@ -16,4 +16,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByAuthor(AppUser author);
 
     boolean existsByAuthorAndRestaurantNameAndRestaurantAddress(AppUser author, String restaurantName, String restaurantAddress);
+
+    // 프로필의 "후기 N개" — 팔로우 전에도 개수는 보여준다 (내용은 안 보낸다)
+    long countByAuthor(AppUser author);
 }

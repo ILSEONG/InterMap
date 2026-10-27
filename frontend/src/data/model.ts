@@ -35,7 +35,8 @@ export interface Review {
   text: string
   menu?: string | null // 추천 메뉴 (선택)
   createdAt: string // ISO
-  photoIds: number[] // api.photoUrl(id)로 이미지 URL
+  photoIds: number[] // 수정 때 남길 사진을 고르는 데 쓴다
+  photoUrls: string[] // photoIds와 같은 순서의 사진 경로(키 포함) — api.photoUrl(path)로 이미지 URL
 }
 
 // 스토리 = 최근 24시간 안에 후기를 남긴 사람 한 명과 그 후기들

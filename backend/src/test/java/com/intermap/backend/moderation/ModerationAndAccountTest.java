@@ -86,13 +86,14 @@ class ModerationAndAccountTest {
 
         assertFalse(visibleReviewIds(me).contains(theirs.getId()), "내가 차단한 사람 후기는 안 보인다");
         assertFalse(visibleReviewIds(other).contains(mine.getId()), "나를 차단한 사람 후기도 안 보인다");
-        assertTrue(visibleReviewIds(null).contains(theirs.getId()), "로그인 안 한 목록엔 그대로");
+        assertFalse(visibleReviewIds(null).contains(theirs.getId()), "로그인 안 하면 주인장 후기만 보인다");
         assertFalse(visibleCommentIds(me).contains(theirComment.getId()));
         assertTrue(follows.findByFollowerAndFollowee(me, other).isEmpty());
         assertTrue(follows.findByFollowerAndFollowee(other, me).isEmpty());
 
         assertEquals(HttpStatus.BAD_REQUEST, social.follow(bearer(other), me.getId()).getStatusCode());
-        assertEquals(HttpStatus.FORBIDDEN, commentController.create(bearer(other),
+        // 차단으로 팔로우가 끊겨 후기 자체가 안 보이므로 "찾지 못했어요"로 막힌다
+        assertEquals(HttpStatus.BAD_REQUEST, commentController.create(bearer(other),
                 new ReviewCommentController.CreateRequest(mine.getId(), "또 댓글", null)).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND, social.profile(bearer(other), me.getId()).getStatusCode(),
                 "나를 차단한 사람 프로필은 없는 사람처럼");
@@ -100,6 +101,8 @@ class ModerationAndAccountTest {
         assertTrue(profile.blocked());
 
         moderation.unblock(bearer(me), other.getId());
+        // 차단이 끊은 팔로우는 그대로라, 다시 팔로우해야 후기가 보인다
+        assertEquals(HttpStatus.OK, social.follow(bearer(me), other.getId()).getStatusCode());
         assertTrue(visibleReviewIds(me).contains(theirs.getId()));
     }
 
@@ -108,6 +111,7 @@ class ModerationAndAccountTest {
         AppUser me = user("me");
         AppUser author = user("author");
         Review target = review(author, "광고 후기");
+        follows.save(new Follow(me, author)); // 팔로우해야 후기가 보인다 — 신고로 숨는지 보려면 먼저 보여야 한다
 
         var bad = moderation.report(bearer(me), new ModerationController.ReportRequest("REVIEW", target.getId(), "NOPE", null));
         assertEquals(HttpStatus.BAD_REQUEST, bad.getStatusCode());

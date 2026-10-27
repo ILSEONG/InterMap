@@ -105,7 +105,7 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
         <div className="review-card__photos">
           {review.photoIds.map((id, i) => (
             <button type="button" key={id} className="review-card__photo" onClick={() => setLightbox(i)} aria-label="사진 크게 보기">
-              <img src={photoUrl(id)} alt="" loading="lazy" />
+              <img src={photoUrl(review.photoUrls[i])} alt="" loading="lazy" />
             </button>
           ))}
         </div>
@@ -132,9 +132,9 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
               setShown(Math.round(el.scrollLeft / el.clientWidth))
             }}
           >
-            {review.photoIds.map((id) => (
+            {review.photoIds.map((id, i) => (
               <div key={id} className="photo-lightbox__slide">
-                <img src={photoUrl(id)} alt="" />
+                <img src={photoUrl(review.photoUrls[i])} alt="" />
               </div>
             ))}
           </div>
