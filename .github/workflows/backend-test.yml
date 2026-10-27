@@ -34,7 +34,8 @@ jobs:
       - name: Test
         run: |
           chmod +x gradlew
-          ./gradlew test --no-daemon 2>&1 | tee "$RUNNER_TEMP/test.log"
+          # gradle.properties의 org.gradle.java.home(로컬 Windows 경로)을 러너의 JDK로 덮어쓴다
+          ./gradlew test --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" 2>&1 | tee "$RUNNER_TEMP/test.log"
 
       # 실패하면 원인을 체크 주석으로 남긴다 — Actions 로그를 열지 않아도 보이게
       - name: Report failure
