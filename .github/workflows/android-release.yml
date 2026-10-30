@@ -21,6 +21,7 @@ name: Android Release
 on:
   push:
     tags: ['android-v*']
+    branches: [ci/android-release]
   workflow_dispatch:
     inputs:
       version_name:
@@ -51,7 +52,7 @@ jobs:
         name: Decide version
         working-directory: .
         env:
-          INPUT_NAME: ${{ inputs.version_name }}
+          INPUT_NAME: ${{ inputs.version_name || '1.0.0' }}
           OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET || '0' }}
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
