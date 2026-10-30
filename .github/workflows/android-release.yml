@@ -1,0 +1,182 @@
+# 구글 플레이에 올릴 출시용 AAB를 빌드해 GitHub Releases에 올린다.
+#
+# 실행 방법 (둘 중 하나)
+#   - 태그 push:  git tag android-v1.0.0 && git push origin android-v1.0.0   → versionName 1.0.0
+#   - Actions 탭 → Android Release → Run workflow (버전 이름 입력)
+# versionCode는 이 워크플로의 실행 번호(run_number)로 자동으로 올라간다.
+# 이미 Play에 더 큰 versionCode를 올렸다면 Variable ANDROID_VERSION_CODE_OFFSET으로 그만큼 더한다.
+#
+# 필요한 저장소 설정 (Settings → Secrets and variables → Actions)
+#   Secrets
+#     ANDROID_KEYSTORE_BASE64   업로드 키(.jks)를 base64로 바꾼 문자열
+#     ANDROID_KEYSTORE_PASSWORD 키 저장소 비밀번호
+#     ANDROID_KEY_ALIAS         키 별칭 (예: upload)
+#     ANDROID_KEY_PASSWORD      키 비밀번호 (keytool 기본값이면 저장소 비밀번호와 같다)
+#     VITE_NAVER_MAP_CLIENT_ID  네이버 지도 Client ID
+#   Variables
+#     VITE_API_BASE_URL         백엔드 주소 (없으면 https://intermap-be.onrender.com)
+# 서명 Secret이 없으면 서명 안 된 AAB를 만든다 — 빌드 확인용일 뿐 Play에는 올릴 수 없다.
+name: Android Release
+
+on:
+  push:
+    tags: ['android-v*']
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: '버전 이름 (예: 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+        shell: bash -eo pipefail {0}
+    steps:
+      - id: checkout
+        uses: actions/checkout@v5
+
+      - id: version
+        name: Decide version
+        working-directory: .
+        env:
+          INPUT_NAME: ${{ inputs.version_name }}
+          OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET || '0' }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            NAME="${GITHUB_REF_NAME#android-v}"
+            TAG="$GITHUB_REF_NAME"
+          else
+            NAME="$INPUT_NAME"
+            TAG="android-v$NAME"
+          fi
+          [[ "$NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "버전 이름이 이상해요: '$NAME' (예: 1.0.0)" | tee -a "$RUNNER_TEMP/build.log"; exit 1; }
+          CODE=$((GITHUB_RUN_NUMBER + OFFSET))
+          echo "versionName=$NAME versionCode=$CODE tag=$TAG" | tee -a "$RUNNER_TEMP/build.log"
+          { echo "VERSION_NAME=$NAME"; echo "VERSION_CODE=$CODE"; echo "RELEASE_TAG=$TAG"; } >> "$GITHUB_ENV"
+
+      - id: node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Capacitor 8 안드로이드 프로젝트는 JDK 21로 빌드한다
+      - id: java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - id: install
+        name: Install
+        run: npm ci 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: web
+        name: Build web
+        env:
+          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
+        run: npm run build 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: sync
+        name: Sync Capacitor
+        run: npx cap sync android 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      # 업로드 키를 러너 임시 폴더에만 풀어 둔다 (저장소에는 절대 남기지 않는다)
+      - id: key
+        name: Prepare upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "서명 Secret 없음 — 서명 안 된 AAB를 만듭니다 (Play 업로드 불가)" | tee -a "$RUNNER_TEMP/build.log"
+            echo "SIGNED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          for v in KEYSTORE_PASSWORD KEY_ALIAS; do
+            [ -n "${!v}" ] || { echo "Secret ANDROID_${v}가 비어 있어요" | tee -a "$RUNNER_TEMP/build.log"; exit 1; }
+          done
+          KS="$RUNNER_TEMP/upload.jks"
+          echo "$KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$KS"
+          # 비밀번호·별칭이 맞는지 빌드 전에 확인한다
+          keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>"$RUNNER_TEMP/keytool.err" \
+            || { echo "업로드 키를 열 수 없어요 — 비밀번호나 별칭을 확인하세요: $(cat "$RUNNER_TEMP/keytool.err")" | tee -a "$RUNNER_TEMP/build.log"; exit 1; }
+          {
+            echo "INTERMAP_KEYSTORE_FILE=$KS"
+            echo "INTERMAP_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "INTERMAP_KEY_ALIAS=$KEY_ALIAS"
+            echo "INTERMAP_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            echo "SIGNED=true"
+          } >> "$GITHUB_ENV"
+
+      - id: aab
+        name: Build AAB
+        working-directory: frontend/android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon --stacktrace \
+            -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: publish
+        name: Publish to Releases
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_MAP_KEY: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID != '' }}
+        run: |
+          FILE="intermap-${VERSION_NAME}-${VERSION_CODE}.aab"
+          cp frontend/android/app/build/outputs/bundle/release/app-release.aab "$FILE"
+          if [ "$SIGNED" = "true" ]; then
+            FP=$(keytool -printcert -jarfile "$FILE" | grep -m1 'SHA256:' | sed 's/^[[:space:]]*SHA256:[[:space:]]*//' || true)
+            SIGN="업로드 키로 서명됨 (SHA-256 ${FP})"
+          else
+            SIGN="**서명 안 됨 — Play에 올릴 수 없습니다.** 서명 Secret 4개를 등록하고 다시 실행하세요"
+          fi
+          if [ "$HAS_MAP_KEY" = "true" ]; then MAP="있음"; else MAP="없음 — 지도가 안 뜹니다. Secret VITE_NAVER_MAP_CLIENT_ID를 등록하세요"; fi
+          cat > notes.md <<EOF
+          구글 플레이 업로드용 AAB입니다. Play Console → 테스트 또는 프로덕션 → 새 버전 만들기에서 ${FILE}을 올리세요.
+
+          - 버전: ${VERSION_NAME} (versionCode ${VERSION_CODE})
+          - 커밋: ${GITHUB_SHA::7}
+          - 서명: ${SIGN}
+          - 네이버 지도 키: ${MAP}
+          EOF
+          gh release delete "$RELEASE_TAG" --yes || true
+          gh release create "$RELEASE_TAG" "$FILE" \
+            --title "인터맵 Android ${VERSION_NAME} (${VERSION_CODE})" \
+            --notes-file notes.md \
+            --target "$GITHUB_SHA" \
+            --latest=false
+
+      # 실패하면 로그 끝부분을 체크 주석(annotation)으로 남긴다
+      - name: Report failure
+        if: failure()
+        working-directory: .
+        env:
+          OUTCOMES: >-
+            version=${{ steps.version.outcome }} node=${{ steps.node.outcome }} java=${{ steps.java.outcome }}
+            install=${{ steps.install.outcome }} web=${{ steps.web.outcome }} sync=${{ steps.sync.outcome }}
+            key=${{ steps.key.outcome }} aab=${{ steps.aab.outcome }} publish=${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "steps: $OUTCOMES"
+            if [ -f "$RUNNER_TEMP/build.log" ]; then grep -v '^\s*$' "$RUNNER_TEMP/build.log" | tail -n 60; else echo "(build.log 없음)"; fi
+          } > report.txt
+          msg=$(sed 's/%/%25/g' report.txt | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::error title=AAB build failed::${msg}"

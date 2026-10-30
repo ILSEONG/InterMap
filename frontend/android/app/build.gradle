@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+// 스토어 출시용 서명 — CI(android-release.yml)가 업로드 키를 임시 파일로 풀고 환경변수로 넘긴다.
+// 환경변수가 없으면(로컬·디버그 빌드) 서명 없이 빌드된다.
+def releaseKeystore = System.getenv('INTERMAP_KEYSTORE_FILE')
+
 android {
     namespace = "com.intermap.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +11,9 @@ android {
         applicationId "com.intermap.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Play에 올릴 때마다 versionCode가 커져야 한다 — CI가 -PversionCode=실행번호로 넘긴다
+        versionCode ((project.findProperty('versionCode') ?: '1').toString().toInteger())
+        versionName ((project.findProperty('versionName') ?: '1.0').toString())
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +21,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseKeystore) {
+            release {
+                storeFile file(releaseKeystore)
+                storePassword System.getenv('INTERMAP_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('INTERMAP_KEY_ALIAS')
+                keyPassword System.getenv('INTERMAP_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

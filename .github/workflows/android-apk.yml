@@ -1,0 +1,122 @@
+# main에 프론트 변경이 올라올 때마다 안드로이드 디버그 APK를 빌드해
+# GitHub Releases의 "android-latest"에 올린다. 폰에서 그 링크로 받아 설치하면 된다.
+#
+# 필요한 저장소 설정 (Settings → Secrets and variables → Actions):
+#   - Secret   VITE_NAVER_MAP_CLIENT_ID  : 네이버 지도 Client ID (없으면 지도가 안 뜬다)
+#   - Variable VITE_API_BASE_URL         : 백엔드 주소 (없으면 https://intermap-be.onrender.com)
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    # tee로 로그를 남겨도 실패가 가려지지 않게
+    shell: bash -eo pipefail {0}
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+        shell: bash -eo pipefail {0}
+    steps:
+      - id: checkout
+        uses: actions/checkout@v5
+
+      - id: node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Capacitor 8 안드로이드 프로젝트는 JDK 21로 빌드한다
+      - id: java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # GitHub 우분투 러너에는 Android SDK가 미리 깔려 있다 (ANDROID_HOME). 위치만 확인해 로그에 남긴다
+      - id: android
+        name: Check Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-없음} ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-없음}" | tee -a "$RUNNER_TEMP/build.log"
+          test -n "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+
+      - id: install
+        name: Install
+        run: npm ci 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: web
+        name: Build web
+        env:
+          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
+        run: npm run build 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: sync
+        name: Sync Capacitor
+        run: npx cap sync android 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: apk
+        name: Build APK
+        working-directory: frontend/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - id: publish
+        name: Publish to Releases
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_MAP_KEY: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID != '' }}
+        run: |
+          cp frontend/android/app/build/outputs/apk/debug/app-debug.apk intermap.apk
+          if [ "$HAS_MAP_KEY" = "true" ]; then MAP="있음"; else MAP="없음 — 지도가 안 뜹니다. Secret VITE_NAVER_MAP_CLIENT_ID를 등록하세요"; fi
+          cat > notes.md <<EOF
+          최신 안드로이드 디버그 빌드입니다. 폰에서 intermap.apk를 받아 설치하세요.
+
+          - 커밋: ${GITHUB_SHA::7} (${GITHUB_REF_NAME})
+          - 네이버 지도 키: ${MAP}
+          EOF
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest intermap.apk \
+            --title "인터맵 Android 최신 빌드" \
+            --notes-file notes.md \
+            --prerelease \
+            --target "$GITHUB_SHA"
+
+      # 실패하면 로그 끝부분을 체크 주석(annotation)으로 남긴다 — Actions 로그를 못 여는 곳에서도 원인을 볼 수 있게
+      - name: Report failure
+        if: failure()
+        working-directory: .
+        env:
+          OUTCOMES: >-
+            checkout=${{ steps.checkout.outcome }} node=${{ steps.node.outcome }}
+            java=${{ steps.java.outcome }} android=${{ steps.android.outcome }}
+            install=${{ steps.install.outcome }} web=${{ steps.web.outcome }}
+            sync=${{ steps.sync.outcome }} apk=${{ steps.apk.outcome }} publish=${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "steps: $OUTCOMES"
+            if [ -f "$RUNNER_TEMP/build.log" ]; then grep -v '^\s*$' "$RUNNER_TEMP/build.log" | tail -n 60; else echo "(build.log 없음 — 설치 전 단계에서 실패)"; fi
+          } > report.txt
+          msg=$(sed 's/%/%25/g' report.txt | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::error title=APK build failed::${msg}"
