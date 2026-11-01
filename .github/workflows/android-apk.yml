@@ -2,7 +2,7 @@
 # GitHub Releases의 "android-latest"에 올린다. 폰에서 그 링크로 받아 설치하면 된다.
 #
 # 필요한 저장소 설정 (Settings → Secrets and variables → Actions):
-#   - Secret   VITE_NAVER_MAP_CLIENT_ID  : 네이버 지도 Client ID (없으면 지도가 안 뜬다)
+#   - Secret   VITE_NAVER_MAP_CLIENT_ID  : 네이버 지도 Client ID (선택 — 없으면 워크플로 기본값)
 #   - Variable VITE_API_BASE_URL         : 백엔드 주소 (없으면 https://intermap-be.onrender.com)
 name: Android APK
 
@@ -66,7 +66,8 @@ jobs:
       - id: web
         name: Build web
         env:
-          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID }}
+          # 지도 Client ID는 웹 번들에도 그대로 실리는 공개 값이라 기본값을 둔다 (Secret이 있으면 그 값이 우선)
+          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID || 'yrvo8lm3er' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
         run: npm run build 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
@@ -86,10 +87,10 @@ jobs:
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
-          HAS_MAP_KEY: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID != '' }}
+          MAP_KEY_SOURCE: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID != '' && 'Secret' || '기본값' }}
         run: |
           cp frontend/android/app/build/outputs/apk/debug/app-debug.apk intermap.apk
-          if [ "$HAS_MAP_KEY" = "true" ]; then MAP="있음"; else MAP="없음 — 지도가 안 뜹니다. Secret VITE_NAVER_MAP_CLIENT_ID를 등록하세요"; fi
+          MAP="있음 (${MAP_KEY_SOURCE})"
           cat > notes.md <<EOF
           최신 안드로이드 디버그 빌드입니다. 폰에서 intermap.apk를 받아 설치하세요.
 
