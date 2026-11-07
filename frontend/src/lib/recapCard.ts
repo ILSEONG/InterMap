@@ -66,17 +66,33 @@ const BG = '#f3f2ee'
 const INK = '#111111'
 const SOFT = '#6f6e69'
 const LINE = 'rgba(17, 17, 17, 0.1)'
-type Shape = 'scallop' | 'zigzag' | 'arches' | 'stack' | 'wave'
-const LOOKS: { shape: Shape; color: string }[] = [
-  { shape: 'scallop', color: '#e8e35a' },
-  { shape: 'zigzag', color: '#ecbd5f' },
-  { shape: 'arches', color: '#4f6ee8' },
-  { shape: 'stack', color: '#e05a4e' },
-  { shape: 'wave', color: '#9dd655' },
-]
+// 인터맵만의 모양 — 이 달의 기록에서 고른다
+//  route  : 다녀온 곳 수만큼 정류장이 찍힌 이번 달 동선 (사람·달마다 다르게 굽는다)
+//  noodles: 면 요리가 최애면 젓가락에 걸린 면발
+//  bowl   : 국·탕·한식이 최애면 김 오르는 그릇
+//  pin    : 한 동네를 자주 갔으면 커다란 지도 핀
+type Shape = 'route' | 'noodles' | 'bowl' | 'pin'
+// 독자 팔레트 — 토마토, 버터, 민트, 라일락, 인터맵 로즈, 코발트
+const COLORS = ['#ff6a4d', '#ffd23f', '#35c89a', '#b7a3ff', '#e5486e', '#3e63f2']
 
-export function lookOf(month: string) {
-  return LOOKS[Number(month.slice(5, 7)) % LOOKS.length]
+export function lookOf(r: Recap): { shape: Shape; color: string } {
+  const color = COLORS[Number(r.month.slice(5, 7)) % COLORS.length]
+  const cat = r.topCategory?.name ?? ''
+  if (/면|라멘|라면|국수|우동|소바|파스타|짬뽕|짜장|쌀국수|냉면/.test(cat)) return { shape: 'noodles', color }
+  if (/국밥|국|탕|찌개|한식|순대|설렁|해장/.test(cat)) return { shape: 'bowl', color }
+  if (r.topArea && r.places > 0 && r.topArea.count / r.places >= 0.5) return { shape: 'pin', color }
+  return { shape: 'route', color }
+}
+
+// 같은 달·같은 기록이면 늘 같은 동선이 나오도록 씨앗 있는 난수
+function seeded(seed: number) {
+  let t = seed >>> 0
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0
+    let x = Math.imul(t ^ (t >>> 15), 1 | t)
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296
+  }
 }
 
 // 카드에 들어가는 글자 — 폰트 하위 집합을 미리 받아 두려고 모은다
@@ -119,83 +135,120 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, weight: number, ma
   return cut === text ? text : `${cut}…`
 }
 
-// 두툼한 선 하나로 그리는 모양 — 끝과 꺾임을 둥글게
-function stroke(ctx: CanvasRenderingContext2D, points: [number, number][], width: number) {
-  ctx.lineWidth = width
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.beginPath()
-  points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
-  ctx.stroke()
-}
-
 function circle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fill()
 }
 
-// 위쪽 큰 모양 (x0~x1, y0~y1 상자 안)
-function drawShape(ctx: CanvasRenderingContext2D, shape: Shape, color: string, x0: number, y0: number, x1: number, y1: number) {
+// 위쪽 큰 모양 (x0~x1, y0~y1 상자 안). 아래 30%쯤은 칭호 글자가 올라앉는 자리
+function drawShape(ctx: CanvasRenderingContext2D, r: Recap, x0: number, y0: number, x1: number, y1: number) {
+  const { shape, color } = lookOf(r)
   ctx.fillStyle = color
   ctx.strokeStyle = color
   const w = x1 - x0
   const h = y1 - y0
   switch (shape) {
-    // 윗변이 물결인 덩어리 (Tickets)
-    case 'scallop': {
-      const bumps = 4
-      const r = w / bumps / 2
-      for (let i = 0; i < bumps; i++) circle(ctx, x0 + r + i * 2 * r, y0 + r, r)
-      // 위 모서리는 반원들 아래로 각지게, 아래 모서리만 둥글게
-      ctx.fillRect(x0, y0 + r, w, 120)
-      roundRect(ctx, x0, y0 + r, w, h - r, 60)
-      ctx.fill()
-      break
-    }
-    // 두툼한 Z (Secret crypto)
-    case 'zigzag': {
-      const t = 210
-      stroke(ctx, [[x0 + t / 2, y0 + t / 2], [x1 - t / 2, y0 + t / 2], [x0 + t / 2, y1 - t / 2], [x1 - t / 2, y1 - t / 2]], t)
-      break
-    }
-    // 아치 셋이 이어진 M (Yoga)
-    case 'arches': {
-      const t = 230
-      stroke(ctx, [[x0 + t / 2, y1 - t / 2], [x0 + t / 2, y0 + t / 2], [x0 + w / 2, y0 + h * 0.62], [x1 - t / 2, y0 + t / 2], [x1 - t / 2, y1 - t / 2]], t)
-      break
-    }
-    // 알약을 겹겹이 쌓은 기둥 (social media)
-    case 'stack': {
-      const pill = 200
-      const step = 150
-      const n = Math.floor((h - pill) / step) + 1
-      for (let i = 0; i < n; i++) {
-        roundRect(ctx, x0, y0 + i * step, w, pill, pill / 2)
-        ctx.fill()
+    case 'route': {
+      // 정류장 3~8개를 지그재그 세 줄에 흩어 놓고 두툼한 길로 잇는다
+      const rand = seeded(Number(r.month.replace('-', '')) * 31 + r.places)
+      const stops = Math.min(Math.max(r.places, 3), 8)
+      const pts: [number, number][] = []
+      for (let i = 0; i < stops; i++) {
+        const row = Math.floor((i / stops) * 3)
+        const t = ((i / stops) * 3) % 1
+        const along = row % 2 === 0 ? t : 1 - t
+        pts.push([x0 + 110 + along * (w - 220) + (rand() - 0.5) * 80, y0 + 120 + row * (h * 0.27) + (rand() - 0.5) * 90])
       }
-      break
-    }
-    // 세 번 접힌 물결 (Fintech) — 가로줄을 반원으로 이어 끊김 없는 리본
-    case 'wave': {
-      const t = 190
-      const rows = 4
-      const gap = (h - t) / (rows - 1)
-      const R = gap / 2
-      const left = x0 + t / 2 + R
-      const right = x1 - t / 2 - R
-      ctx.lineWidth = t
+      ctx.lineWidth = 120
       ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
       ctx.beginPath()
-      ctx.moveTo(x0 + t / 2, y0 + t / 2)
-      for (let i = 0; i < rows; i++) {
-        const y = y0 + t / 2 + gap * i
-        const goingRight = i % 2 === 0
-        const last = i === rows - 1
-        ctx.lineTo(goingRight ? (last ? x1 - t / 2 : right) : last ? x0 + t / 2 : left, y)
-        if (!last) ctx.arc(goingRight ? right : left, y + R, R, -Math.PI / 2, Math.PI / 2, !goingRight)
+      ctx.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2
+        const my = (pts[i][1] + pts[i + 1][1]) / 2
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my)
       }
+      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1])
       ctx.stroke()
+      // 정류장 — 흰 점에 검은 테, 마지막 곳은 검은 점
+      pts.forEach(([x, y], i) => {
+        ctx.fillStyle = i === pts.length - 1 ? INK : '#fff'
+        circle(ctx, x, y, 34)
+        ctx.lineWidth = 10
+        ctx.strokeStyle = INK
+        ctx.beginPath()
+        ctx.arc(x, y, 34, 0, Math.PI * 2)
+        ctx.stroke()
+      })
+      break
+    }
+    case 'noodles': {
+      // 나란한 젓가락 두 짝에 걸려 아래로 늘어진 면발 다섯 가닥
+      const stickY = y0 + h * 0.14
+      const tilt = h * 0.06
+      const nx0 = x0 + w * 0.26
+      ctx.lineCap = 'round'
+      ctx.lineWidth = 62
+      for (let k = 0; k < 5; k++) {
+        const x = nx0 + k * 92
+        const top = stickY + 40 + (tilt * (x - x0)) / w
+        ctx.beginPath()
+        ctx.moveTo(x, top)
+        for (let y = top; y <= y0 + h * 0.62; y += 8) ctx.lineTo(x + Math.sin((y - top) / 44 + k * 0.9) * 24, y)
+        ctx.stroke()
+      }
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 40
+      for (const dy of [0, 64]) {
+        ctx.beginPath()
+        ctx.moveTo(x0 + w * 0.1, stickY + dy)
+        ctx.lineTo(x1 - w * 0.08, stickY + dy + tilt)
+        ctx.stroke()
+      }
+      break
+    }
+    case 'bowl': {
+      // 그릇(반원 + 굽) 위로 김 세 줄
+      const cx = x0 + w / 2
+      const rimY = y0 + h * 0.4
+      const R = w * 0.32
+      ctx.beginPath()
+      ctx.moveTo(cx - R, rimY)
+      ctx.arc(cx, rimY, R, 0, Math.PI, false)
+      ctx.closePath()
+      ctx.fill()
+      roundRect(ctx, cx - R - 30, rimY - 44, 2 * R + 60, 70, 35)
+      ctx.fill()
+      roundRect(ctx, cx - R * 0.35, rimY + R - 20, R * 0.7, 70, 30)
+      ctx.fill()
+      ctx.lineCap = 'round'
+      ctx.lineWidth = 46
+      for (let k = -1; k <= 1; k++) {
+        const sx = cx + k * 150
+        ctx.beginPath()
+        ctx.moveTo(sx, rimY - 90)
+        ctx.bezierCurveTo(sx - 70, rimY - 170, sx + 70, rimY - 250, sx, rimY - 330)
+        ctx.stroke()
+      }
+      break
+    }
+    case 'pin': {
+      // 오른쪽에 크게 기운 지도 핀 하나 + 가운데 구멍
+      const cx = x0 + w * 0.6
+      const cy = y0 + h * 0.3
+      const R = w * 0.25
+      const tipY = y0 + h * 0.7
+      // 끝점에서 원에 접하는 두 점 — 아래 방향에서 acos(R/d)만큼 벌어진 곳
+      const a = Math.acos(R / (tipY - cy))
+      ctx.beginPath()
+      ctx.moveTo(cx, tipY)
+      ctx.arc(cx, cy, R, Math.PI / 2 + a, Math.PI / 2 - a, false)
+      ctx.closePath()
+      ctx.fill()
+      ctx.fillStyle = '#fff'
+      circle(ctx, cx, cy, R * 0.38)
       break
     }
   }
@@ -236,7 +289,6 @@ export async function drawRecapCard(r: Recap): Promise<Blob> {
   await loadFonts(cardText(r))
   ctx.textBaseline = 'alphabetic'
   const inner = CARD_WIDTH - PAD * 2
-  const look = lookOf(r.month)
   const [year, monthNum] = r.month.split('-')
 
   ctx.fillStyle = BG
@@ -264,7 +316,7 @@ export async function drawRecapCard(r: Recap): Promise<Blob> {
   roundRect(ctx, cardX, cardY, cardW, cardH, 44)
   ctx.fillStyle = '#ffffff'
   ctx.fill()
-  drawShape(ctx, look.shape, look.color, cardX + 22, cardY + 22, cardX + cardW - 22, cardY + cardH - 22)
+  drawShape(ctx, r, cardX + 22, cardY + 22, cardX + cardW - 22, cardY + cardH - 22)
 
   // 모양 위 왼쪽 아래에 칭호와 숫자
   ctx.fillStyle = INK
@@ -277,7 +329,7 @@ export async function drawRecapCard(r: Recap): Promise<Blob> {
   const rows = rowsOf(r)
   const rowH = 104
   const top = 1260
-  const dots = [LOOKS[0].color, LOOKS[2].color, LOOKS[3].color, LOOKS[4].color, LOOKS[1].color]
+  const dots = COLORS
   rows.forEach((row, i) => {
     const y = top + i * rowH
     if (i > 0) {
