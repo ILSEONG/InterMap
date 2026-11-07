@@ -64,13 +64,190 @@ function ratingWord(avg: number | null): string {
 }
 
 const INK = '#141414'
-const YELLOW = '#ffe81f'
-const ORANGE = '#ff5a1f'
-const CREAM = '#fff4d6'
-const OLIVE = '#5f5a2a'
 const ROUND = 'Jua, "Noto Sans KR", sans-serif'
 // 친구 동그라미 색 (앱 아바타 파스텔 톤과 같은 계열을 진하게)
 const FRIEND_COLORS = ['#3e63f2', '#e5486e', '#35c89a']
+
+// 테마 — 앞면 바탕·모양·글자색과 뒷면 테두리·순위 숫자색. 레이아웃은 모두 같다
+type Ctx = CanvasRenderingContext2D
+export interface RecapTheme {
+  id: string
+  name: string
+  bg: string
+  shape: string
+  ink: string
+  sub: string
+  badge: string
+  badgeInk: string
+  // 뒷면 흰 바탕 위 순위 숫자 — 흰 바탕에서 읽히는 진한 색
+  accent: string
+  draw: (ctx: Ctx, t: RecapTheme) => void
+}
+
+function thickPath(ctx: Ctx, pts: [number, number][], width: number, cap: CanvasLineCap = 'round') {
+  ctx.lineWidth = width
+  ctx.lineCap = cap
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
+  ctx.stroke()
+}
+
+export const RECAP_THEMES: RecapTheme[] = [
+  {
+    // 노랑 바탕을 가로지르는 주황 지그재그 리본
+    id: 'lemon',
+    name: '레몬',
+    bg: '#ffe81f',
+    shape: '#ff5a1f',
+    ink: INK,
+    sub: '#5f5a2a',
+    badge: '#fff4d6',
+    badgeInk: INK,
+    accent: '#ff5a1f',
+    draw: (ctx, t) => {
+      ctx.strokeStyle = t.shape
+      thickPath(ctx, [[175, 520], [905, 270], [205, 1060], [905, 840], [500, 1360], [1300, 1180]], 270)
+    },
+  },
+  {
+    // 민트 바탕에 초코색 S자 리본 — 화면 밖에서 들어와 두 번 휘고 밖으로
+    id: 'mintchoco',
+    name: '민트초코',
+    bg: '#bff2de',
+    shape: '#3d2b22',
+    ink: '#1b1714',
+    sub: '#3c5f52',
+    badge: '#fffaf0',
+    badgeInk: '#1b1714',
+    accent: '#16936c',
+    draw: (ctx, t) => {
+      const w = 230
+      const R = 230
+      const ys = [360, 360 + 2 * R, 360 + 4 * R]
+      ctx.strokeStyle = t.shape
+      ctx.lineWidth = w
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(-200, ys[0])
+      ctx.lineTo(730, ys[0])
+      ctx.arc(730, ys[0] + R, R, -Math.PI / 2, Math.PI / 2, false)
+      ctx.lineTo(350, ys[1])
+      ctx.arc(350, ys[1] + R, R, -Math.PI / 2, Math.PI / 2, true)
+      ctx.lineTo(1300, ys[2])
+      ctx.stroke()
+    },
+  },
+  {
+    // 파랑 바탕에 라임 무지개 아치 두 겹 + 가운데 해
+    id: 'blueberry',
+    name: '블루베리',
+    bg: '#3550f2',
+    shape: '#c6f24e',
+    ink: '#ffffff',
+    sub: 'rgba(255, 255, 255, 0.78)',
+    badge: '#c6f24e',
+    badgeInk: INK,
+    accent: '#3550f2',
+    draw: (ctx, t) => {
+      const cx = 540
+      const cy = 1200
+      ctx.strokeStyle = t.shape
+      for (const r of [520, 300]) {
+        ctx.lineWidth = 170
+        ctx.lineCap = 'butt'
+        ctx.beginPath()
+        ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI)
+        ctx.stroke()
+      }
+      ctx.fillStyle = t.shape
+      ctx.beginPath()
+      ctx.arc(cx, cy, 110, Math.PI, 2 * Math.PI)
+      ctx.fill()
+    },
+  },
+  {
+    // 연분홍 바탕에 빨간 체리 두 알 — 꼭지는 진한 글자색
+    id: 'cherry',
+    name: '체리',
+    bg: '#ffd5de',
+    shape: '#e5233f',
+    ink: '#2a0d14',
+    sub: '#8a4b5a',
+    badge: '#ffffff',
+    badgeInk: '#2a0d14',
+    accent: '#e5233f',
+    draw: (ctx, t) => {
+      const cherries: [number, number, number][] = [
+        [330, 1010, 230],
+        [740, 1100, 215],
+      ]
+      ctx.strokeStyle = t.ink
+      ctx.lineWidth = 40
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(330, 790)
+      ctx.quadraticCurveTo(380, 500, 660, 360)
+      ctx.moveTo(740, 890)
+      ctx.quadraticCurveTo(700, 560, 660, 360)
+      ctx.stroke()
+      // 잎
+      ctx.fillStyle = t.ink
+      ctx.save()
+      ctx.translate(760, 330)
+      ctx.rotate(-0.5)
+      ctx.beginPath()
+      ctx.ellipse(0, 0, 130, 56, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      for (const [x, y, r] of cherries) {
+        ctx.fillStyle = t.shape
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
+        ctx.beginPath()
+        ctx.ellipse(x - r * 0.42, y - r * 0.42, r * 0.16, r * 0.1, -0.8, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    },
+  },
+  {
+    // 검정 바탕에 형광 라임 꽃 — 꽃잎 여섯 장, 가운데는 바탕색 구멍
+    id: 'nightlime',
+    name: '나이트 라임',
+    bg: '#161616',
+    shape: '#d4ff3a',
+    ink: '#ffffff',
+    sub: '#a9a9a9',
+    badge: '#d4ff3a',
+    badgeInk: INK,
+    accent: '#161616',
+    draw: (ctx, t) => {
+      const cx = 540
+      const cy = 790
+      ctx.fillStyle = t.shape
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i + Math.PI / 6
+        ctx.beginPath()
+        ctx.arc(cx + Math.cos(a) * 250, cy + Math.sin(a) * 250, 200, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.beginPath()
+      ctx.arc(cx, cy, 260, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = t.bg
+      ctx.beginPath()
+      ctx.arc(cx, cy, 120, 0, Math.PI * 2)
+      ctx.fill()
+    },
+  },
+]
+
+// 달마다 기본 테마가 바뀐다 (화면에서 직접 고를 수도 있다)
+export function defaultThemeId(month: string): string {
+  return RECAP_THEMES[Number(month.slice(5, 7)) % RECAP_THEMES.length].id
+}
 
 // 카드에 들어가는 글자 — 폰트 하위 집합을 미리 받아 두려고 모은다
 function cardText(r: Recap): string {
@@ -142,46 +319,29 @@ function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   )
 }
 
-// 리본(동선) 꺾임점 — 왼쪽 위에서 시작해 지그재그로 내려와 오른쪽 밖으로 빠진다
-const RIBBON: [number, number][] = [
-  [175, 520],
-  [905, 270],
-  [205, 1060],
-  [905, 840],
-  [500, 1360],
-  [1300, 1180],
-]
-async function drawFront(r: Recap): Promise<Blob> {
+async function drawFront(r: Recap, t: RecapTheme): Promise<Blob> {
   const { canvas, ctx } = newCanvas()
   const [, monthNum] = r.month.split('-')
 
-  ctx.fillStyle = YELLOW
+  ctx.fillStyle = t.bg
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
-
-  // 리본 — 두툼한 선, 바깥 꺾임은 둥글게
-  ctx.strokeStyle = ORANGE
-  ctx.lineWidth = 270
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.beginPath()
-  RIBBON.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
-  ctx.stroke()
+  t.draw(ctx, t)
 
   // 오른쪽 위 크림색 동그라미 — 달
-  ctx.fillStyle = CREAM
+  ctx.fillStyle = t.badge
   circle(ctx, 890, 290, 84)
-  ctx.fillStyle = INK
+  ctx.fillStyle = t.badgeInk
   ctx.font = `900 46px ${FONT}`
   const m = `${Number(monthNum)}월`
   ctx.fillText(m, 890 - ctx.measureText(m).width / 2, 306)
 
   // 작은 머리말 + 칭호 + 한 줄
-  ctx.fillStyle = INK
+  ctx.fillStyle = t.ink
   ctx.font = `700 34px ${FONT}`
   ctx.fillText(`나의 ${Number(monthNum)}월 칭호`, PAD, 1520)
   const persona = fitText(ctx, personaOf(r), (s) => `900 ${s}px ${FONT}`, 104, 64, CARD_WIDTH - PAD * 2)
   ctx.fillText(persona, PAD - 3, 1630)
-  ctx.fillStyle = OLIVE
+  ctx.fillStyle = t.sub
   ctx.font = `500 38px ${FONT}`
   ctx.fillText(`${r.places}곳 다녀왔어요`, PAD, 1712)
 
@@ -189,11 +349,11 @@ async function drawFront(r: Recap): Promise<Blob> {
   const bubbles = r.fans.slice(0, 2)
   const extra = r.fanTotal - bubbles.length
   const items = bubbles.map((f, i) => ({ text: f.name.slice(0, 1), color: FRIEND_COLORS[i % FRIEND_COLORS.length], ink: '#fff' }))
-  if (extra > 0) items.push({ text: `+${extra}`, color: CREAM, ink: INK })
+  if (extra > 0) items.push({ text: `+${extra}`, color: t.badge, ink: t.badgeInk })
   const R = 50
   let x = CARD_WIDTH - PAD - R - (items.length - 1) * (R * 1.5)
   for (const it of items) {
-    ctx.fillStyle = YELLOW
+    ctx.fillStyle = t.bg
     circle(ctx, x, 1698, R + 6)
     ctx.fillStyle = it.color
     circle(ctx, x, 1698, R)
@@ -203,7 +363,7 @@ async function drawFront(r: Recap): Promise<Blob> {
     x += R * 1.5
   }
 
-  ctx.fillStyle = INK
+  ctx.fillStyle = t.ink
   ctx.font = `900 26px ${FONT}`
   if ('letterSpacing' in ctx) ctx.letterSpacing = '4px'
   ctx.fillText('INTERMAP', PAD, 1830)
@@ -212,12 +372,12 @@ async function drawFront(r: Recap): Promise<Blob> {
 }
 
 // 뒷면 — 음악 앱 연말 결산처럼: 큰 숫자 하나, 순위 목록 두 칸, 맛집 Top 3, 아래 두 숫자. 줄 대신 여백으로 나눈다
-async function drawBack(r: Recap): Promise<Blob> {
+async function drawBack(r: Recap, t: RecapTheme): Promise<Blob> {
   const { canvas, ctx } = newCanvas()
   const [year, monthNum] = r.month.split('-')
 
-  // 노란 테두리 + 안쪽 흰 면
-  ctx.fillStyle = YELLOW
+  // 테마색 테두리 + 안쪽 흰 면
+  ctx.fillStyle = t.bg
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
   const F = 48
   roundRect(ctx, F, F, CARD_WIDTH - F * 2, CARD_HEIGHT - F * 2, 60)
@@ -259,7 +419,7 @@ async function drawBack(r: Recap): Promise<Blob> {
     }
     items.slice(0, 3).forEach((it, i) => {
       const y = ly + 76 + i * 72
-      ctx.fillStyle = ORANGE
+      ctx.fillStyle = t.accent
       ctx.font = `400 40px ${ROUND}`
       ctx.fillText(String(i + 1), lx, y)
       const tail = it.rating !== undefined ? `★ ${it.rating.toFixed(1)}` : it.count !== undefined ? `${it.count}곳` : ''
@@ -312,9 +472,10 @@ async function drawBack(r: Recap): Promise<Blob> {
 }
 
 // 앞·뒤 두 장
-export async function drawRecapCards(r: Recap): Promise<{ front: Blob; back: Blob }> {
+export async function drawRecapCards(r: Recap, themeId = defaultThemeId(r.month)): Promise<{ front: Blob; back: Blob }> {
+  const theme = RECAP_THEMES.find((t) => t.id === themeId) ?? RECAP_THEMES[0]
   await loadFonts(cardText(r))
-  const [front, back] = await Promise.all([drawFront(r), drawBack(r)])
+  const [front, back] = await Promise.all([drawFront(r, theme), drawBack(r, theme)])
   return { front, back }
 }
 
