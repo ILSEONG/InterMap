@@ -89,6 +89,8 @@ class RecapTest {
         assertEquals(2, recap.commentsReceived());
         assertEquals(fan.getId(), recap.topFan().id());
         assertEquals(1, recap.fanTotal());
+        assertEquals(List.of(new RecapController.Stat("라멘", 2), new RecapController.Stat("한식", 1)), recap.categories());
+        assertEquals(List.of(new RecapController.Stat("망원동", 2), new RecapController.Stat("성동구", 1)), recap.areas());
         assertEquals(List.of(fan.getId()), recap.fans().stream().map(RecapController.Fan::id).toList());
         assertEquals(List.of("2026-11", "2026-10"), recap.months());
 

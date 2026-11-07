@@ -78,6 +78,10 @@ function cardText(r: Recap): string {
     'INTERMAP 인터맵 월간 결산 친구가 고른 맛집 지도 다녀왔어요 곳 의 나 기록 년 월 에 명 ★·.+0123456789',
     personaOf(r),
     ...r.fans.map((f) => f.name),
+    ...r.categories.map((c) => c.name),
+    ...r.areas.map((a) => a.name),
+    ...r.list.map((p) => p.name),
+    '이번 달 다녀온 곳 많이 간 장르 동네 이달의 맛집 Top 3 평균 별점 단골 손님 나의 칭호 댓글 개 장',
     ...rowsOf(r).flatMap((row) => [row.label, row.value, row.sub ?? '']),
   ].join('')
 }
@@ -147,28 +151,6 @@ const RIBBON: [number, number][] = [
   [500, 1360],
   [1300, 1180],
 ]
-// 리본 위에 정류장 n개를 고르게 — 화면 안쪽 구간에만
-function stopsAlong(n: number): [number, number][] {
-  const segs = RIBBON.slice(1).map((p, i) => {
-    const q = RIBBON[i]
-    return { from: q, to: p, len: Math.hypot(p[0] - q[0], p[1] - q[1]) }
-  })
-  const visible = segs.slice(0, -1).reduce((a, s) => a + s.len, 0) + segs[segs.length - 1].len * 0.45
-  const out: [number, number][] = []
-  for (let k = 0; k < n; k++) {
-    let d = (visible * (k + 0.5)) / n
-    for (const s of segs) {
-      if (d <= s.len) {
-        const t = d / s.len
-        out.push([s.from[0] + (s.to[0] - s.from[0]) * t, s.from[1] + (s.to[1] - s.from[1]) * t])
-        break
-      }
-      d -= s.len
-    }
-  }
-  return out
-}
-
 async function drawFront(r: Recap): Promise<Blob> {
   const { canvas, ctx } = newCanvas()
   const [, monthNum] = r.month.split('-')
@@ -185,51 +167,51 @@ async function drawFront(r: Recap): Promise<Blob> {
   RIBBON.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
   ctx.stroke()
 
-  // 정류장 — 다녀온 곳 수만큼 (많으면 12개까지)
-  ctx.fillStyle = CREAM
-  for (const [x, y] of stopsAlong(Math.min(Math.max(r.places, 1), 12))) circle(ctx, x, y, 22)
-
   // 오른쪽 위 크림색 동그라미 — 달
-  circle(ctx, 890, 290, 92)
+  ctx.fillStyle = CREAM
+  circle(ctx, 890, 290, 84)
   ctx.fillStyle = INK
-  ctx.font = `900 54px ${FONT}`
+  ctx.font = `900 46px ${FONT}`
   const m = `${Number(monthNum)}월`
-  ctx.fillText(m, 890 - ctx.measureText(m).width / 2, 310)
+  ctx.fillText(m, 890 - ctx.measureText(m).width / 2, 306)
 
-  // 칭호 + 한 줄
+  // 작은 머리말 + 칭호 + 한 줄
   ctx.fillStyle = INK
-  const persona = fitText(ctx, personaOf(r), (s) => `900 ${s}px ${FONT}`, 132, 72, CARD_WIDTH - PAD * 2)
-  ctx.fillText(persona, PAD - 4, 1600)
+  ctx.font = `700 34px ${FONT}`
+  ctx.fillText(`나의 ${Number(monthNum)}월 칭호`, PAD, 1520)
+  const persona = fitText(ctx, personaOf(r), (s) => `900 ${s}px ${FONT}`, 104, 64, CARD_WIDTH - PAD * 2)
+  ctx.fillText(persona, PAD - 3, 1630)
   ctx.fillStyle = OLIVE
-  ctx.font = `500 48px ${FONT}`
+  ctx.font = `500 38px ${FONT}`
   ctx.fillText(`${r.places}곳 다녀왔어요`, PAD, 1712)
 
   // 오른쪽 아래 — 내 후기에 댓글 단 친구들 (이니셜 동그라미 + 나머지 인원)
   const bubbles = r.fans.slice(0, 2)
   const extra = r.fanTotal - bubbles.length
-  const items = [...bubbles.map((f, i) => ({ text: f.name.slice(0, 1), color: FRIEND_COLORS[i % FRIEND_COLORS.length], ink: '#fff' }))]
+  const items = bubbles.map((f, i) => ({ text: f.name.slice(0, 1), color: FRIEND_COLORS[i % FRIEND_COLORS.length], ink: '#fff' }))
   if (extra > 0) items.push({ text: `+${extra}`, color: CREAM, ink: INK })
-  const R = 62
-  let x = CARD_WIDTH - PAD - R - (items.length - 1) * (R * 1.45)
+  const R = 50
+  let x = CARD_WIDTH - PAD - R - (items.length - 1) * (R * 1.5)
   for (const it of items) {
-    ctx.fillStyle = '#fff'
-    circle(ctx, x, 1684, R + 7)
+    ctx.fillStyle = YELLOW
+    circle(ctx, x, 1698, R + 6)
     ctx.fillStyle = it.color
-    circle(ctx, x, 1684, R)
+    circle(ctx, x, 1698, R)
     ctx.fillStyle = it.ink
-    ctx.font = `700 ${it.text.length > 2 ? 40 : 50}px ${FONT}`
-    ctx.fillText(it.text, x - ctx.measureText(it.text).width / 2, 1702)
-    x += R * 1.45
+    ctx.font = `700 ${it.text.length > 2 ? 32 : 40}px ${FONT}`
+    ctx.fillText(it.text, x - ctx.measureText(it.text).width / 2, 1712)
+    x += R * 1.5
   }
 
   ctx.fillStyle = INK
-  ctx.font = `900 30px ${FONT}`
+  ctx.font = `900 26px ${FONT}`
   if ('letterSpacing' in ctx) ctx.letterSpacing = '4px'
   ctx.fillText('INTERMAP', PAD, 1830)
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
   return toBlob(canvas)
 }
 
+// 뒷면 — 음악 앱 연말 결산처럼: 큰 숫자 하나, 순위 목록 두 칸, 맛집 Top 3, 아래 두 숫자. 줄 대신 여백으로 나눈다
 async function drawBack(r: Recap): Promise<Blob> {
   const { canvas, ctx } = newCanvas()
   const [year, monthNum] = r.month.split('-')
@@ -237,50 +219,95 @@ async function drawBack(r: Recap): Promise<Blob> {
   // 노란 테두리 + 안쪽 흰 면
   ctx.fillStyle = YELLOW
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
-  const F = 54
-  roundRect(ctx, F, F, CARD_WIDTH - F * 2, CARD_HEIGHT - F * 2, 64)
+  const F = 48
+  roundRect(ctx, F, F, CARD_WIDTH - F * 2, CARD_HEIGHT - F * 2, 60)
   ctx.fillStyle = '#fff'
   ctx.fill()
 
-  const x = PAD + 30
-  const inner = CARD_WIDTH - x * 2
-  ctx.fillStyle = INK
-  ctx.font = `400 40px ${ROUND}`
-  ctx.fillText(`${year}년 ${Number(monthNum)}월`, x, 230)
-  ctx.font = `400 96px ${ROUND}`
-  ctx.fillText(fitText(ctx, `${personaOf(r)}의 기록`, (s) => `400 ${s}px ${ROUND}`, 96, 56, inner), x, 350)
+  const x = 130
+  const right = CARD_WIDTH - 130
+  const inner = right - x
+  const GRAY = '#8b8778'
+  const label = (text: string, lx: number, ly: number) => {
+    ctx.fillStyle = GRAY
+    ctx.font = `400 30px ${ROUND}`
+    ctx.fillText(text, lx, ly)
+  }
 
-  // 줄마다: 위에 이름표(작게, 흐리게), 아래 값(크게) + 덧말. 사이는 노란 점선
-  const rows = rowsOf(r)
-  const rowH = 238
-  const top = 470
-  rows.forEach((row, i) => {
-    const y = top + i * rowH
-    if (i > 0) {
-      ctx.fillStyle = YELLOW
-      for (let dx = 0; dx < inner; dx += 34) circle(ctx, x + dx + 8, y - 30, 8)
+  // 머리
+  label(`${year}년 ${Number(monthNum)}월 · 인터맵 결산`, x, 190)
+
+  // 큰 숫자
+  label('이번 달 다녀온 곳', x, 300)
+  ctx.fillStyle = INK
+  ctx.font = `400 200px ${ROUND}`
+  const num = String(r.places)
+  ctx.fillText(num, x - 6, 480)
+  const numW = ctx.measureText(num).width
+  ctx.font = `400 64px ${ROUND}`
+  ctx.fillText('곳', x + numW + 10, 480)
+
+  // 순위 목록 — 왼쪽 장르, 오른쪽 동네
+  const colW = inner / 2 - 20
+  const rankList = (title: string, items: { name: string; count?: number; rating?: number }[], lx: number, ly: number, w: number, empty: string) => {
+    label(title, lx, ly)
+    if (items.length === 0) {
+      ctx.fillStyle = INK
+      ctx.font = `400 40px ${ROUND}`
+      ctx.fillText(empty, lx, ly + 76)
+      return
     }
-    ctx.fillStyle = '#8a8676'
-    ctx.font = `400 40px ${ROUND}`
-    ctx.fillText(row.label, x, y + 40)
-    const sub = row.sub ?? ''
-    ctx.font = `400 44px ${ROUND}`
-    const subW = sub ? ctx.measureText(sub).width + 24 : 0
-    ctx.fillStyle = INK
-    const value = fitText(ctx, (row.star ? '★ ' : '') + row.value, (s) => `400 ${s}px ${ROUND}`, 88, 50, inner - subW)
-    ctx.fillText(value, x, y + 140)
-    if (sub) {
-      const vw = ctx.measureText(value).width
+    items.slice(0, 3).forEach((it, i) => {
+      const y = ly + 76 + i * 72
       ctx.fillStyle = ORANGE
-      ctx.font = `400 44px ${ROUND}`
-      ctx.fillText(sub, x + vw + 24, y + 140)
-    }
-  })
+      ctx.font = `400 40px ${ROUND}`
+      ctx.fillText(String(i + 1), lx, y)
+      const tail = it.rating !== undefined ? `★ ${it.rating.toFixed(1)}` : it.count !== undefined ? `${it.count}곳` : ''
+      ctx.font = `400 30px ${ROUND}`
+      const tailW = tail ? ctx.measureText(tail).width + 16 : 0
+      ctx.fillStyle = INK
+      const name = fitText(ctx, it.name, (s) => `400 ${s}px ${ROUND}`, 40, 28, w - 48 - tailW)
+      ctx.fillText(name, lx + 48, y)
+      if (tail) {
+        const nw = ctx.measureText(name).width
+        ctx.fillStyle = GRAY
+        ctx.font = `400 30px ${ROUND}`
+        ctx.fillText(tail, lx + 48 + nw + 16, y)
+      }
+    })
+  }
+  rankList('많이 간 장르', r.categories, x, 660, colW, '골고루')
+  rankList('많이 간 동네', r.areas, x + inner / 2 + 20, 660, colW, '여기저기')
 
+  // 이달의 맛집 Top 3 — 별점 높은 순 (같으면 먼저 간 곳)
+  const best = [...r.list].sort((a, b) => b.rating - a.rating).slice(0, 3)
+  rankList('이달의 맛집 Top 3', best, x, 1050, inner, '-')
+
+  // 아래 두 숫자
+  const statY = 1450
+  label('평균 별점', x, statY)
   ctx.fillStyle = INK
-  ctx.font = `400 40px ${ROUND}`
-  const foot = '친구가 고른 맛집 지도, 인터맵'
-  ctx.fillText(foot, (CARD_WIDTH - ctx.measureText(foot).width) / 2, CARD_HEIGHT - F - 80)
+  ctx.font = `400 88px ${ROUND}`
+  ctx.fillText(r.avgRating === null ? '-' : `★ ${r.avgRating.toFixed(1)}`, x - 4, statY + 110)
+  const sx = x + inner / 2 + 20
+  if (r.topFan) {
+    label('단골 손님', sx, statY)
+    ctx.fillStyle = INK
+    ctx.fillText(fitText(ctx, r.topFan.name, (s) => `400 ${s}px ${ROUND}`, 88, 48, colW), sx - 4, statY + 110)
+    label(`댓글 ${r.topFan.count}개`, sx, statY + 170)
+  } else {
+    const photo = r.photos > 0
+    label(photo ? '남긴 사진' : '새 이웃', sx, statY)
+    ctx.fillStyle = INK
+    ctx.font = `400 88px ${ROUND}`
+    ctx.fillText(photo ? `${r.photos}장` : `${r.newFollowing}명`, sx - 4, statY + 110)
+  }
+
+  // 꼬리
+  ctx.fillStyle = INK
+  ctx.font = `400 30px ${ROUND}`
+  ctx.fillText('INTERMAP', x, CARD_HEIGHT - F - 96)
+  label('친구가 고른 맛집 지도', right - (ctx.measureText('친구가 고른 맛집 지도').width), CARD_HEIGHT - F - 96)
   return toBlob(canvas)
 }
 
