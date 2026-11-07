@@ -3,6 +3,10 @@ package com.intermap.backend.poll;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.DailyLimits;
+import com.intermap.backend.moderation.Blocks;
+import com.intermap.backend.review.Review;
+import com.intermap.backend.review.ReviewAudience;
+import com.intermap.backend.review.ReviewRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 // "어디 갈래?" 투표. 만들기·마감·삭제는 회원(만든 사람)만, 보기·고르기는 링크만 있으면 누구나.
@@ -57,7 +62,10 @@ public class PollController {
     }
 
     // voters: 이 후보를 고른 사람 이름 (먼저 고른 순)
-    public record Option(Long id, String name, String category, String address, String note, int votes, List<String> voters) {
+    // rating·reviewCount: 보는 사람이 회원이면, 그 사람이 볼 수 있는 후기(나·팔로우한 사람)의 평균 별점과 개수.
+    // 비회원이나 볼 수 있는 후기가 없으면 null·0 — 후기 공개 범위(팔로우한 사람에게만)를 투표 링크로 넘지 않는다
+    public record Option(Long id, String name, String category, String address, String note, int votes, List<String> voters,
+                         Double rating, int reviewCount) {
     }
 
     // mine: 내가 만든 투표 / myChoices·myName: 내가 이미 골랐으면 그 선택과 그때 쓴 이름
@@ -90,15 +98,22 @@ public class PollController {
     private final PollStore store;
     private final AuthController auth;
     private final DailyLimits limits;
+    private final ReviewRepository reviews;
+    private final ReviewAudience audience;
+    private final Blocks blocks;
 
     public PollController(PollRepository polls, PollOptionRepository options, PollVoteRepository votes, PollStore store,
-                          AuthController auth, DailyLimits limits) {
+                          AuthController auth, DailyLimits limits, ReviewRepository reviews, ReviewAudience audience,
+                          Blocks blocks) {
         this.polls = polls;
         this.options = options;
         this.votes = votes;
         this.store = store;
         this.auth = auth;
         this.limits = limits;
+        this.reviews = reviews;
+        this.audience = audience;
+        this.blocks = blocks;
     }
 
     @PostMapping("/api/polls")
@@ -139,7 +154,7 @@ public class PollController {
         for (OptionRequest o : unique.values()) {
             options.save(new PollOption(poll, position++, o.name(), o.category(), o.address(), o.note().isEmpty() ? null : o.note()));
         }
-        return ResponseEntity.ok(view(poll, "u:" + user.getId(), user.getId()));
+        return ResponseEntity.ok(view(poll, "u:" + user.getId(), user));
     }
 
     // 링크로 들어온 누구나. voter = 비회원 브라우저 난수 (내가 이미 골랐는지 표시용)
@@ -150,7 +165,7 @@ public class PollController {
         Poll poll = polls.findByToken(token).orElse(null);
         if (poll == null) return notFound();
         AppUser user = auth.currentUser(authorization);
-        return ResponseEntity.ok(view(poll, voterKeyOf(user, guestKey), user == null ? null : user.getId()));
+        return ResponseEntity.ok(view(poll, voterKeyOf(user, guestKey), user));
     }
 
     @PostMapping("/api/polls/{token}/votes")
@@ -192,7 +207,7 @@ public class PollController {
         votes.deleteAllByPollAndVoterKey(poll, key);
         Long userId = user == null ? null : user.getId();
         for (Long optionId : picked) votes.save(new PollVote(poll, optionId, key, name, userId));
-        return ResponseEntity.ok(view(poll, key, userId));
+        return ResponseEntity.ok(view(poll, key, user));
     }
 
     @PostMapping("/api/polls/{token}/close")
@@ -206,7 +221,7 @@ public class PollController {
             return error(HttpStatus.FORBIDDEN, "투표를 만든 사람만 마감할 수 있어요.");
         }
         poll.close();
-        return ResponseEntity.ok(view(poll, "u:" + user.getId(), user.getId()));
+        return ResponseEntity.ok(view(poll, "u:" + user.getId(), user));
     }
 
     @DeleteMapping("/api/polls/{token}")
@@ -261,8 +276,10 @@ public class PollController {
         return ResponseEntity.ok(list);
     }
 
-    private View view(Poll poll, String voterKey, Long viewerId) {
+    private View view(Poll poll, String voterKey, AppUser viewer) {
+        Long viewerId = viewer == null ? null : viewer.getId();
         List<PollOption> opts = options.findAllByPollOrderByPositionAsc(poll);
+        Map<String, double[]> ratings = friendRatings(viewer, opts);
         List<PollVote> all = new ArrayList<>(votes.findAllByPoll(poll));
         all.sort(Comparator.comparing(PollVote::getCreatedAt).thenComparing(PollVote::getId));
         Map<Long, List<String>> votersByOption = new HashMap<>();
@@ -280,8 +297,10 @@ public class PollController {
         List<Option> list = opts.stream()
                 .map(o -> {
                     List<String> names = votersByOption.getOrDefault(o.getId(), List.of());
+                    double[] r = ratings.get(o.getRestaurantName() + "|" + o.getRestaurantAddress());
                     return new Option(o.getId(), o.getRestaurantName(), o.getRestaurantCategory(), o.getRestaurantAddress(),
-                            o.getNote(), names.size(), names);
+                            o.getNote(), names.size(), names,
+                            r == null ? null : Math.round(r[0] / r[1] * 10) / 10.0, r == null ? 0 : (int) r[1]);
                 })
                 .toList();
         boolean closed = poll.isClosed(Instant.now());
@@ -289,6 +308,24 @@ public class PollController {
         return new View(poll.getToken(), poll.getTitle(), new Creator(creator.getId(), creator.getNickname()),
                 poll.getCreatedAt(), poll.getClosesAt(), closed, creator.getId().equals(viewerId), list, myChoices, myName,
                 voterKeys.size(), closed ? topOptions(opts, all) : List.of());
+    }
+
+    // 가게(이름|주소)별 [별점 합, 개수] — 이 회원이 지도에서 볼 수 있는 후기만 (ReviewController.list와 같은 기준)
+    private Map<String, double[]> friendRatings(AppUser viewer, List<PollOption> opts) {
+        if (viewer == null || opts.isEmpty()) return Map.of();
+        Predicate<AppUser> visible = audience.visibleAuthors(viewer);
+        Set<Long> hidden = blocks.hiddenFor(viewer);
+        Set<String> wanted = new HashSet<>();
+        for (PollOption o : opts) wanted.add(o.getRestaurantName() + "|" + o.getRestaurantAddress());
+        Map<String, double[]> sums = new HashMap<>();
+        for (Review r : reviews.findAllByRestaurantNameIn(opts.stream().map(PollOption::getRestaurantName).toList())) {
+            String key = r.getRestaurantName() + "|" + r.getRestaurantAddress();
+            if (!wanted.contains(key) || !visible.test(r.getAuthor()) || hidden.contains(r.getAuthor().getId())) continue;
+            double[] acc = sums.computeIfAbsent(key, k -> new double[2]);
+            acc[0] += r.getRating();
+            acc[1]++;
+        }
+        return sums;
     }
 
     // 가장 많이 골린 후보 id들 (담은 순서대로). 아무도 안 골랐으면 빈 목록

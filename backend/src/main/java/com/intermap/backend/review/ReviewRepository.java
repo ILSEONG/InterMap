@@ -4,6 +4,7 @@ import com.intermap.backend.auth.AppUser;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
@@ -22,4 +23,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // 프로필의 "후기 N개" — 팔로우 전에도 개수는 보여준다 (내용은 안 보낸다)
     long countByAuthor(AppUser author);
+
+    // 투표 후보 가게들의 후기 — 회원에게 친구 평점을 붙인다 (작성자까지 한 번에)
+    @EntityGraph(attributePaths = "author")
+    List<Review> findAllByRestaurantNameIn(Collection<String> names);
 }

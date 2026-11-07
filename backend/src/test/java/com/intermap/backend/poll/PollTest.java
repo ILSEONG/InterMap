@@ -3,6 +3,10 @@ package com.intermap.backend.poll;
 import com.intermap.backend.account.AccountController;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
+import com.intermap.backend.review.Review;
+import com.intermap.backend.review.ReviewRepository;
+import com.intermap.backend.social.Follow;
+import com.intermap.backend.social.FollowRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +20,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // "어디 갈래?" 투표 — 만들기·비회원/회원 투표·다시 고르기·마감·삭제·탈퇴·보관 기간
@@ -29,6 +34,8 @@ class PollTest {
     @Autowired PollVoteRepository votes;
     @Autowired AccountController account;
     @Autowired AppUserRepository users;
+    @Autowired ReviewRepository reviews;
+    @Autowired FollowRepository follows;
 
     private static final String GUEST = "guest-key-0123456789abcdef";
 
@@ -178,5 +185,27 @@ class PollTest {
         store.purgeExpired();
         assertTrue(polls.findById(old.getId()).isEmpty());
         assertTrue(polls.findByToken(fresh.token()).isPresent());
+    }
+
+    @Test
+    void membersSeeRatingsOnlyFromPeopleTheyFollow() {
+        AppUser me = user("me");
+        AppUser friend = user("friend");
+        AppUser stranger = user("stranger");
+        var poll = create(me, "국밥집", "라멘집");
+        var gukbap = place("국밥집");
+        follows.save(new Follow(me, friend));
+        reviews.save(new Review(friend, gukbap.name(), "한식", gukbap.address(), 4.0, "좋아요", null));
+        reviews.save(new Review(me, gukbap.name(), "한식", gukbap.address(), 5.0, "최고", null));
+        reviews.save(new Review(stranger, gukbap.name(), "한식", gukbap.address(), 1.0, "별로", null));
+
+        var mine = (PollController.View) controller.get(bearer(me), poll.token(), null).getBody();
+        assertEquals(4.5, mine.options().get(0).rating(), "나와 팔로우한 사람 후기만 — 모르는 사람 1점은 빠진다");
+        assertEquals(2, mine.options().get(0).reviewCount());
+        assertNull(mine.options().get(1).rating(), "후기가 없는 가게");
+
+        var guest = (PollController.View) controller.get(null, poll.token(), GUEST).getBody();
+        assertNull(guest.options().get(0).rating(), "비회원에게는 평점을 보이지 않는다");
+        assertEquals(0, guest.options().get(0).reviewCount());
     }
 }

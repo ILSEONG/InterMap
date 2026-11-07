@@ -166,7 +166,8 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
         : `'${poll.title}' 투표가 끝났어요`
       : `${poll.creator.name}님이 '${poll.title}' 투표를 열었어요. 괜찮은 곳을 골라주세요!`
     const result = await shareLink(poll.title, text, pollLink(poll.token))
-    if (result === 'copied') setToast('링크를 복사했어요. 카톡에 붙여 넣어 보내세요')
+    // 안드로이드 13+는 복사하면 시스템이 "클립보드에 복사했어요"를 띄운다 — 겹치지 않게 우리 안내는 생략
+    if (result === 'copied' && !/Android/i.test(navigator.userAgent)) setToast('링크를 복사했어요. 카톡에 붙여 넣어 보내세요')
   }
 
   async function close() {
@@ -271,6 +272,12 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
                         </span>
                         <span className="poll-option__main">
                           <span className="poll-option__name">{o.name}</span>
+                          {o.rating !== null && (
+                            <span className="poll-option__rating">
+                              <span aria-hidden="true">★</span> {o.rating.toFixed(1)}
+                              <span className="poll-option__rating-count">이웃 후기 {o.reviewCount}개</span>
+                            </span>
+                          )}
                           <span className="poll-option__meta">
                             {o.category ? `${o.category.split('>').at(-1)} · ` : ''}
                             {shortAddress(o.address)}
