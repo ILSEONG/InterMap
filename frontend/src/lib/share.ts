@@ -57,31 +57,37 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
-// 이미지 공유 (인스타 스토리 등). 앱은 캐시 폴더에 쓴 뒤 공유 시트,
-// 웹은 파일 공유가 되면 공유 시트, 아니면 내려받기
-export async function shareImage(blob: Blob, fileName: string, title: string): Promise<ShareResult> {
+// 이미지 공유 (인스타 스토리 등) — 여러 장을 한 번에. 앱은 캐시 폴더에 쓴 뒤 공유 시트,
+// 웹은 파일 공유가 되면 공유 시트, 아니면 한 장씩 내려받기
+export async function shareImages(images: { blob: Blob; name: string }[], title: string): Promise<ShareResult> {
   try {
     if (Capacitor.isNativePlatform()) {
-      const { uri } = await Filesystem.writeFile({ path: fileName, data: await blobToBase64(blob), directory: Directory.Cache })
-      await Share.share({ title, files: [uri], dialogTitle: title })
+      const uris: string[] = []
+      for (const img of images) {
+        const { uri } = await Filesystem.writeFile({ path: img.name, data: await blobToBase64(img.blob), directory: Directory.Cache })
+        uris.push(uri)
+      }
+      await Share.share({ title, files: uris, dialogTitle: title })
       return 'shared'
     }
-    const file = new File([blob], fileName, { type: blob.type })
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title })
+    const files = images.map((img) => new File([img.blob], img.name, { type: img.blob.type }))
+    if (navigator.canShare?.({ files })) {
+      await navigator.share({ files, title })
       return 'shared'
     }
   } catch (e) {
     if (isCancel(e)) return 'cancelled'
     throw e
   }
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  for (const img of images) {
+    const url = URL.createObjectURL(img.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = img.name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  }
   return 'saved'
 }

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchRecap } from '../lib/api'
 import type { Recap } from '../lib/api'
-import { drawRecapCard, recapAltText } from '../lib/recapCard'
-import { shareImage } from '../lib/share'
+import { drawRecapCards, recapAltText } from '../lib/recapCard'
+import { shareImages } from '../lib/share'
 import { kstMonth, monthLabel } from '../lib/time'
 import { ShareIcon } from './PollIcons'
 import './ModalSheet.css'
@@ -31,12 +31,15 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
   )
 }
 
-// 월간 결산 — 그 달의 숫자를 카드 이미지로 만들어 보여 주고, 인스타 스토리 등으로 보낸다
+// 월간 결산 — 그 달의 숫자를 앞·뒤 카드 이미지로 만들어 보여 주고(누르면 뒤집힘), 인스타 스토리 등으로 보낸다
+type Card = { front: Blob; back: Blob; frontUrl: string; backUrl: string }
+
 export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetProps) {
   const [month, setMonth] = useState(initialMonth ?? kstMonth())
   const [recap, setRecap] = useState<Recap | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [card, setCard] = useState<{ blob: Blob; url: string } | null>(null)
+  const [card, setCard] = useState<Card | null>(null)
+  const [flipped, setFlipped] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -44,14 +47,15 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
     let cancelled = false
     setRecap(null)
     setCard(null)
+    setFlipped(false)
     setError(null)
     fetchRecap(month)
       .then(async (next) => {
         if (cancelled) return
         setRecap(next)
         if (next.places === 0) return
-        const blob = await drawRecapCard(next)
-        if (!cancelled) setCard({ blob, url: URL.createObjectURL(blob) })
+        const { front, back } = await drawRecapCards(next)
+        if (!cancelled) setCard({ front, back, frontUrl: URL.createObjectURL(front), backUrl: URL.createObjectURL(back) })
       })
       .catch((e: Error) => !cancelled && setError(e.message))
     return () => {
@@ -62,7 +66,10 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
   // 미리보기 주소는 카드가 바뀌거나 닫힐 때 푼다
   useEffect(() => {
     if (!card) return
-    return () => URL.revokeObjectURL(card.url)
+    return () => {
+      URL.revokeObjectURL(card.frontUrl)
+      URL.revokeObjectURL(card.backUrl)
+    }
   }, [card])
 
   useEffect(() => {
@@ -91,8 +98,14 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
     if (!card || busy) return
     setBusy(true)
     try {
-      const result = await shareImage(card.blob, `intermap-${month}.png`, `${monthLabel(month)} 맛집 결산`)
-      if (result === 'saved') setToast('이미지를 저장했어요')
+      const result = await shareImages(
+        [
+          { blob: card.front, name: `intermap-${month}-1.png` },
+          { blob: card.back, name: `intermap-${month}-2.png` },
+        ],
+        `${monthLabel(month)} 맛집 결산`,
+      )
+      if (result === 'saved') setToast('앞·뒤 이미지를 저장했어요')
     } catch (e) {
       setToast((e as Error).message || '공유하지 못했어요')
     } finally {
@@ -130,16 +143,29 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
               {error}
             </p>
           ) : !recap || (recap.places > 0 && !card) ? (
-            <div className="recap-card recap-card--loading" role="status" aria-label="결산을 만드는 중" />
+            <div className="recap-flip recap-flip--loading" role="status" aria-label="결산을 만드는 중" />
           ) : recap.places === 0 ? (
             <div className="recap-empty">
               <p className="recap-empty__title">{monthLabel(month)}엔 남긴 후기가 없어요</p>
               <p className="recap-empty__text">다녀온 가게에 후기를 남기면 장르·동네·별점이 결산 카드로 모여요.</p>
             </div>
           ) : (
-            card && <img className="recap-card" src={card.url} alt={recapAltText(recap)} />
+            card && (
+              <button
+                type="button"
+                className={`recap-flip${flipped ? ' recap-flip--back' : ''}`}
+                onClick={() => setFlipped((f) => !f)}
+                aria-label={flipped ? '앞면 보기' : '뒷면 보기'}
+              >
+                <span className="recap-flip__inner">
+                  <img className="recap-flip__face" src={card.frontUrl} alt={flipped ? '' : recapAltText(recap)} />
+                  <img className="recap-flip__face recap-flip__face--back" src={card.backUrl} alt={flipped ? recapAltText(recap) : ''} />
+                </span>
+              </button>
+            )
           )}
         </div>
+        {card && <p className="recap-sheet__hint">카드를 누르면 {flipped ? '앞면' : '뒷면'}이 보여요</p>}
 
         <div className="recap-sheet__footer">
           <button
@@ -148,7 +174,7 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
             onClick={share}
             disabled={!card || busy}
           >
-            <ShareIcon size={20} /> {busy ? '준비 중…' : '이미지로 공유하기'}
+            <ShareIcon size={20} /> {busy ? '준비 중…' : '앞·뒤 이미지로 공유하기'}
           </button>
         </div>
         {toast && (

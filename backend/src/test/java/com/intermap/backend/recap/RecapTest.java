@@ -88,6 +88,8 @@ class RecapTest {
         assertEquals("라멘B" + suffix, recap.best().name());
         assertEquals(2, recap.commentsReceived());
         assertEquals(fan.getId(), recap.topFan().id());
+        assertEquals(1, recap.fanTotal());
+        assertEquals(List.of(fan.getId()), recap.fans().stream().map(RecapController.Fan::id).toList());
         assertEquals(List.of("2026-11", "2026-10"), recap.months());
 
         var empty = (RecapController.Recap) controller.recap(bearer(me), "2026-09").getBody();
