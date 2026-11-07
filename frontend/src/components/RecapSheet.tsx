@@ -5,6 +5,7 @@ import { RECAP_THEMES, defaultThemeId, drawRecapCards, recapAltText } from '../l
 import { shareImages } from '../lib/share'
 import { kstMonth, monthLabel } from '../lib/time'
 import { ShareIcon } from './PollIcons'
+import RecapFlipCard from './RecapFlipCard'
 import './ModalSheet.css'
 import './Poll.css'
 import './RecapSheet.css'
@@ -180,17 +181,13 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
             </div>
           ) : (
             card && (
-              <button
-                type="button"
-                className={`recap-flip${flipped ? ' recap-flip--back' : ''}`}
-                onClick={() => setFlipped((f) => !f)}
-                aria-label={flipped ? '앞면 보기' : '뒷면 보기'}
-              >
-                <span className="recap-flip__inner">
-                  <img className="recap-flip__face" src={card.frontUrl} alt={flipped ? '' : recapAltText(recap)} />
-                  <img className="recap-flip__face recap-flip__face--back" src={card.backUrl} alt={flipped ? recapAltText(recap) : ''} />
-                </span>
-              </button>
+              <RecapFlipCard
+                frontUrl={card.frontUrl}
+                backUrl={card.backUrl}
+                alt={recapAltText(recap)}
+                flipped={flipped}
+                onFlippedChange={setFlipped}
+              />
             )
           )}
         </div>
