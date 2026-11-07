@@ -40,6 +40,38 @@
   cursor: default;
 }
 
+.recap-themes {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 20px 8px;
+}
+
+/* 테마 견본 — 바탕색 동그라미 안에 모양색 점. 누르는 칸은 44px */
+.recap-themes__swatch {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.12);
+  cursor: pointer;
+}
+
+.recap-themes__swatch > span {
+  position: absolute;
+  inset: 11px;
+  border-radius: 50%;
+}
+
+.recap-themes__swatch--on {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 1px;
+}
+
 .recap-sheet__body {
   display: flex;
   align-items: center;

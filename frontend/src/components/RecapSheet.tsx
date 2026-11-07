@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchRecap } from '../lib/api'
 import type { Recap } from '../lib/api'
-import { drawRecapCards, recapAltText } from '../lib/recapCard'
+import { RECAP_THEMES, defaultThemeId, drawRecapCards, recapAltText } from '../lib/recapCard'
 import { shareImages } from '../lib/share'
 import { kstMonth, monthLabel } from '../lib/time'
 import { ShareIcon } from './PollIcons'
@@ -40,6 +40,9 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
   const [error, setError] = useState<string | null>(null)
   const [card, setCard] = useState<Card | null>(null)
   const [flipped, setFlipped] = useState(false)
+  // 고른 테마 — 없으면 달마다 바뀌는 기본 테마
+  const [themeId, setThemeId] = useState<string | null>(null)
+  const theme = themeId ?? defaultThemeId(month)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -50,18 +53,26 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
     setFlipped(false)
     setError(null)
     fetchRecap(month)
-      .then(async (next) => {
-        if (cancelled) return
-        setRecap(next)
-        if (next.places === 0) return
-        const { front, back } = await drawRecapCards(next)
+      .then((next) => !cancelled && setRecap(next))
+      .catch((e: Error) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [month])
+
+  // 카드 그리기 — 결산을 받았거나 테마를 바꿀 때마다 (앞·뒤 상태는 그대로)
+  useEffect(() => {
+    if (!recap || recap.places === 0) return
+    let cancelled = false
+    drawRecapCards(recap, theme)
+      .then(({ front, back }) => {
         if (!cancelled) setCard({ front, back, frontUrl: URL.createObjectURL(front), backUrl: URL.createObjectURL(back) })
       })
       .catch((e: Error) => !cancelled && setError(e.message))
     return () => {
       cancelled = true
     }
-  }, [month])
+  }, [recap, theme])
 
   // 미리보기 주소는 카드가 바뀌거나 닫힐 때 푼다
   useEffect(() => {
@@ -136,6 +147,24 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
             <Chevron dir="right" />
           </button>
         </nav>
+
+        <div className="recap-themes" role="radiogroup" aria-label="카드 테마">
+          {RECAP_THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="radio"
+              aria-checked={theme === t.id}
+              aria-label={t.name}
+              title={t.name}
+              className={`recap-themes__swatch${theme === t.id ? ' recap-themes__swatch--on' : ''}`}
+              style={{ background: t.bg }}
+              onClick={() => setThemeId(t.id)}
+            >
+              <span style={{ background: t.shape }} />
+            </button>
+          ))}
+        </div>
 
         <div className="modal-sheet__body recap-sheet__body">
           {error ? (
