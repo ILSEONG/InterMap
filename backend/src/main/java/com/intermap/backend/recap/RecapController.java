@@ -50,9 +50,10 @@ public class RecapController {
     }
 
     // months: 후기가 있는 달 (최근 달부터) — 달을 넘겨 볼 때 쓴다
+    // fans: 내 후기에 댓글 단 사람 (많이 단 순, 최대 3명), fanTotal: 댓글 단 사람 수 — 카드 앞면의 친구 동그라미
     public record Recap(String month, int places, int photos, Double avgRating, Stat topCategory, Stat topArea,
                         Place best, int commentsReceived, Fan topFan, int newFollowing, List<Place> list,
-                        List<String> months) {
+                        List<String> months, List<Fan> fans, int fanTotal) {
     }
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -132,10 +133,12 @@ public class RecapController {
             fanCounts.merge(id, 1, Integer::sum);
             fanNames.put(id, c.getAuthor().getNickname());
         }
-        Fan fan = fanCounts.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
+        // 많이 단 순 (같으면 그 달에 먼저 단 사람 — LinkedHashMap 순서를 지키는 안정 정렬)
+        List<Fan> fans = fanCounts.entrySet().stream()
+                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
                 .map(e -> new Fan(e.getKey(), fanNames.get(e.getKey()), e.getValue()))
-                .orElse(null);
+                .toList();
+        Fan fan = fans.isEmpty() ? null : fans.get(0);
 
         int newFollowing = 0;
         for (Follow f : follows.findByFollowerOrderByCreatedAtDesc(me)) {
@@ -150,7 +153,7 @@ public class RecapController {
                 .toList();
         return ResponseEntity.ok(new Recap(ym.toString(), inMonth.size(), photoCount, avg, top(categoryCounts),
                 top(areaCounts), best == null ? null : new Place(best.getRestaurantName(), categoryOf(best.getRestaurantCategory()), best.getRating()),
-                received, fan, newFollowing, list, List.copyOf(months)));
+                received, fan, newFollowing, list, List.copyOf(months), fans.stream().limit(3).toList(), fans.size()));
     }
 
     // 가장 많은 것 — 같으면 그 달에 먼저 나온 것 (LinkedHashMap 순서)
