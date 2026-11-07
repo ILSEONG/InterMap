@@ -53,7 +53,7 @@ public class RecapController {
     // fans: 내 후기에 댓글 단 사람 (많이 단 순, 최대 3명), fanTotal: 댓글 단 사람 수 — 카드 앞면의 친구 동그라미
     public record Recap(String month, int places, int photos, Double avgRating, Stat topCategory, Stat topArea,
                         Place best, int commentsReceived, Fan topFan, int newFollowing, List<Place> list,
-                        List<String> months, List<Fan> fans, int fanTotal) {
+                        List<String> months, List<Fan> fans, int fanTotal, List<Stat> categories, List<Stat> areas) {
     }
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -153,7 +153,17 @@ public class RecapController {
                 .toList();
         return ResponseEntity.ok(new Recap(ym.toString(), inMonth.size(), photoCount, avg, top(categoryCounts),
                 top(areaCounts), best == null ? null : new Place(best.getRestaurantName(), categoryOf(best.getRestaurantCategory()), best.getRating()),
-                received, fan, newFollowing, list, List.copyOf(months), fans.stream().limit(3).toList(), fans.size()));
+                received, fan, newFollowing, list, List.copyOf(months), fans.stream().limit(3).toList(), fans.size(),
+                top3(categoryCounts), top3(areaCounts)));
+    }
+
+    // 많은 순 세 개 — 같으면 그 달에 먼저 나온 것 (안정 정렬). 카드 뒷면의 Top 3 목록
+    private static List<Stat> top3(Map<String, Integer> counts) {
+        return counts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(3)
+                .map(e -> new Stat(e.getKey(), e.getValue()))
+                .toList();
     }
 
     // 가장 많은 것 — 같으면 그 달에 먼저 나온 것 (LinkedHashMap 순서)

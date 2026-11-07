@@ -655,6 +655,9 @@ export interface Recap {
   // 내 후기에 댓글 단 사람 (많이 단 순, 최대 3명)과 전체 인원 — 카드 앞면의 친구 동그라미
   fans: { id: number; name: string; count: number }[]
   fanTotal: number
+  // 많이 간 장르·동네 Top 3
+  categories: { name: string; count: number }[]
+  areas: { name: string; count: number }[]
 }
 
 export async function fetchRecap(month?: string): Promise<Recap> {
