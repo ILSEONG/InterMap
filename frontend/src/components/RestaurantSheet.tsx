@@ -77,6 +77,9 @@ export default function RestaurantSheet({
   const [height, setHeight] = useState<number | null>(null)
   // 드래그 중에는 height transition을 꺼서 손가락을 그대로 따라오게 한다.
   const [dragging, setDragging] = useState(false)
+  // 끌기 중 다음 프레임에 쓸 높이
+  const frameRef = useRef<number | null>(null)
+  const pendingHeightRef = useRef<number | null>(null)
 
   // 열릴 때마다 이전에 끌어놓은 높이를 버리고 기본 높이에서 시작한다.
   // (닫힌 상태에서 리셋되므로 화면에는 보이지 않음)
@@ -114,12 +117,22 @@ export default function RestaurantSheet({
     const next = drag.startHeight + (drag.startY - e.clientY)
     // 손가락을 따라오는 동안은 상태를 안 바꾼다 — 매 프레임 시트 본문(후기 카드·사진 썸네일)이 다시 렌더되면 끊긴다.
     // 놓을 때 onGrabUp에서 한 번만 상태로 올린다.
-    sheet.style.height = `${Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92)}px`
+    // 포인터 이벤트는 화면 갱신보다 자주 와서, 프레임당 한 번·정수 px로만 높이를 바꾼다 (소수 px면 아래 버튼이 1px씩 떨린다)
+    pendingHeightRef.current = Math.round(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
+    if (frameRef.current === null) {
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null
+        if (sheetRef.current && pendingHeightRef.current !== null) sheetRef.current.style.height = `${pendingHeightRef.current}px`
+      })
+    }
   }
 
   function onGrabUp(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     dragRef.current = null
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    frameRef.current = null
+    pendingHeightRef.current = null
     setDragging(false)
     if (!drag) return
     // 위로 튕기면 끝까지 펼친다 (transition이 다시 켜져 부드럽게 올라감)

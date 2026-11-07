@@ -533,6 +533,9 @@ export interface PollOptionView {
   votes: number
   // 이 후보를 고른 사람 이름 (먼저 고른 순)
   voters: string[]
+  // 회원에게만: 내가 볼 수 있는 후기(나·팔로우한 사람)의 평균 별점과 개수. 비회원·후기 없음이면 null·0
+  rating: number | null
+  reviewCount: number
 }
 
 export interface PollView {

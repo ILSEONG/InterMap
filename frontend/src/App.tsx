@@ -506,10 +506,19 @@ export default function App() {
   // 레이아웃 뷰포트와 실제 보이는 뷰포트의 차이를 직접 잰다. 입력칸은 초점이 오면 가운데로 끌어온다.
   useEffect(() => {
     const vv = window.visualViewport
+    // 입력칸에 초점이 있고 키보드만큼 가려졌을 때만 센다. 그 밖의 뷰포트 변화(모바일 브라우저 주소창·툴바가
+    // 숨었다 나타남, 끌어내릴 때 고무줄 스크롤)까지 따라가면 시트가 손가락 아래에서 위아래로 흔들린다
+    const KEYBOARD_MIN = 120
+    let last = -1
     const applyKeyboard = () => {
-      const overlap = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
-      document.documentElement.style.setProperty('--kb', `${Math.round(overlap)}px`)
+      const typing = !!document.activeElement?.matches?.('input, textarea, [contenteditable="true"]')
+      const raw = vv && typing ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
+      const overlap = raw >= KEYBOARD_MIN ? Math.round(raw) : 0
+      if (overlap === last) return
+      last = overlap
+      document.documentElement.style.setProperty('--kb', `${overlap}px`)
     }
+    const onFocusOut = () => window.setTimeout(applyKeyboard, 50)
     // 키보드가 다 올라오고 레이아웃이 정리된 뒤에 스크롤해야 원하는 자리에 선다
     const scrollToInput = (e: FocusEvent) => {
       const el = e.target as HTMLElement | null
@@ -520,10 +529,12 @@ export default function App() {
     vv?.addEventListener('resize', applyKeyboard)
     vv?.addEventListener('scroll', applyKeyboard)
     document.addEventListener('focusin', scrollToInput)
+    document.addEventListener('focusout', onFocusOut)
     return () => {
       vv?.removeEventListener('resize', applyKeyboard)
       vv?.removeEventListener('scroll', applyKeyboard)
       document.removeEventListener('focusin', scrollToInput)
+      document.removeEventListener('focusout', onFocusOut)
     }
   }, [])
 
