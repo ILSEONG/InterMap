@@ -56,13 +56,13 @@
   max-width: 100%;
   max-height: 100%;
   border-radius: 28px;
-  box-shadow: 0 16px 40px rgba(90, 23, 69, 0.3);
+  box-shadow: 0 14px 40px rgba(90, 60, 50, 0.14);
 }
 
 .recap-card--loading {
   height: 100%;
   aspect-ratio: 9 / 16;
-  background: linear-gradient(160deg, #ffd2c2, #f6b6c6 50%, #d8b3cc);
+  background: linear-gradient(165deg, #fbe4da, #f8f1ec 50%, #ebe6f5);
   animation: recap-pulse 1.2s ease-in-out infinite alternate;
 }
 

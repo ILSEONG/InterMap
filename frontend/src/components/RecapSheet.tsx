@@ -5,6 +5,8 @@ import { drawRecapCard, recapAltText } from '../lib/recapCard'
 import { shareImage } from '../lib/share'
 import { kstMonth, monthLabel } from '../lib/time'
 import { ShareIcon } from './PollIcons'
+// 카드의 큰 숫자는 가는 글씨(300)로 그린다
+import '@fontsource/noto-sans-kr/300.css'
 import './ModalSheet.css'
 import './Poll.css'
 import './RecapSheet.css'
