@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.Instant;
 import java.util.List;
 
 public interface ReviewCommentRepository extends JpaRepository<ReviewComment, Long> {
@@ -28,4 +29,9 @@ public interface ReviewCommentRepository extends JpaRepository<ReviewComment, Lo
 
     @Query("select c.id from ReviewComment c where c.parentId = :parentId")
     List<Long> idsByParentId(Long parentId);
+
+    // 월간 결산 — 그 기간에 남이 내 후기에 단 댓글 (작성자까지 한 번에)
+    @EntityGraph(attributePaths = "author")
+    @Query("select c from ReviewComment c where c.review.author = :owner and c.author <> :owner and c.createdAt >= :from and c.createdAt < :to")
+    List<ReviewComment> findOnReviewsOf(AppUser owner, Instant from, Instant to);
 }

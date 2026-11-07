@@ -90,6 +90,8 @@ jobs:
           # 지도 Client ID는 웹 번들에도 그대로 실리는 공개 값이라 기본값을 둔다 (Secret이 있으면 그 값이 우선)
           VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID || 'yrvo8lm3er' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
+          # 투표 링크에 쓰는 웹 주소 (없으면 lib/api.ts 기본값)
+          VITE_WEB_BASE_URL: ${{ vars.VITE_WEB_BASE_URL }}
         run: npm run build 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
       - id: sync

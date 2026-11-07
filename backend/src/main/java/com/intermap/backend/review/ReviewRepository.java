@@ -15,6 +15,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 회원 탈퇴 시 그 사람 후기 전부
     List<Review> findAllByAuthor(AppUser author);
 
+    // 월간 결산 — 내 후기를 오래된 순으로 (한 사람 후기는 많아야 수백 개라 통으로 받아 달별로 나눈다)
+    List<Review> findAllByAuthorOrderByCreatedAtAsc(AppUser author);
+
     boolean existsByAuthorAndRestaurantNameAndRestaurantAddress(AppUser author, String restaurantName, String restaurantAddress);
 
     // 프로필의 "후기 N개" — 팔로우 전에도 개수는 보여준다 (내용은 안 보낸다)

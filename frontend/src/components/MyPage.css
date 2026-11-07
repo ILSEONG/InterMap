@@ -761,3 +761,55 @@
     animation-timing-function: steps(1, end);
   }
 }
+
+/* ── 월간 결산 · 투표 ───────── */
+.my-page__disclosure-hint {
+  margin-left: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.my-page__poll {
+  min-height: 60px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.my-page__poll-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.my-page__poll-main .my-page__review-name {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.my-page__poll-meta {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-page__poll-state {
+  flex: none;
+  min-width: 52px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: var(--fill);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.my-page__poll-state--open {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}

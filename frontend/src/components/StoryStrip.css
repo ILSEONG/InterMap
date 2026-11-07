@@ -75,3 +75,16 @@
     transition: none;
   }
 }
+
+/* 달이 바뀐 첫 주 — "10월 결산" 동그라미. 결산 카드와 같은 코랄→로즈 */
+.story-chip--recap .story-chip__ring {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--surface-raised), var(--surface-raised)) padding-box,
+    linear-gradient(135deg, #ff8a5c, #d9365a 55%, #5a1745) border-box;
+}
+
+.story-chip__recap {
+  background: linear-gradient(150deg, #ff8a5c, #d9365a 60%, #8a1f57);
+  color: #fff;
+}

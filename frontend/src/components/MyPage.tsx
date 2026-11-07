@@ -10,7 +10,10 @@ import {
   deleteAvatar,
   fetchBlocks,
   unblockUser,
+  fetchMyPolls,
 } from '../lib/api'
+import type { PollSummary } from '../lib/api'
+import { kstMonth, monthLabel, timeLeft } from '../lib/time'
 import { useOpenProfile } from '../lib/openProfile'
 import { shrinkImage } from '../lib/image'
 import type { Review } from '../data/model'
@@ -38,6 +41,11 @@ interface MyPageProps {
   // 운영자(주인장)면 신고 관리 화면으로 가는 버튼
   isAdmin: boolean
   onOpenReports: () => void
+  // 월간 결산 · 투표 화면 열기 (App이 띄운다)
+  onOpenRecap: () => void
+  onOpenPoll: (token: string) => void
+  // 투표를 만들거나 지우면 App이 올린다 — 목록을 다시 받는다
+  pollVersion: number
   onClose: () => void
 }
 
@@ -67,6 +75,9 @@ export default function MyPage({
   onOpenPolicy,
   isAdmin,
   onOpenReports,
+  onOpenRecap,
+  onOpenPoll,
+  pollVersion,
   onClose,
 }: MyPageProps) {
   // 사람을 누르면 그 사람 프로필 개요 (App이 컨텍스트로 내려준다)
@@ -85,6 +96,8 @@ export default function MyPage({
   // 차단한 사용자 — 펼칠 때 받는다
   const [blocksOpen, setBlocksOpen] = useState(false)
   const [blocked, setBlocked] = useState<BlockedPerson[] | null>(null)
+  // 내가 만들었거나 참여한 투표 — 열릴 때 받는다
+  const [polls, setPolls] = useState<PollSummary[] | null>(null)
   // 회원 탈퇴 확인 단계
   const [leaving, setLeaving] = useState(false)
   const [leaveChecked, setLeaveChecked] = useState(false)
@@ -106,6 +119,17 @@ export default function MyPage({
     setLeaving(false)
     setLeaveChecked(false)
   }, [open, session.nickname])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetchMyPolls()
+      .then((list) => !cancelled && setPolls(list))
+      .catch(() => !cancelled && setPolls([]))
+    return () => {
+      cancelled = true
+    }
+  }, [open, pollVersion])
 
   useEffect(() => {
     if (!open || !blocksOpen || blocked) return
@@ -343,6 +367,45 @@ export default function MyPage({
                   </li>
                 ))}
               </ol>
+            )}
+          </section>
+
+          <section className="my-page__section" aria-label="월간 결산">
+            <button type="button" className="my-page__disclosure" onClick={onOpenRecap}>
+              월간 결산
+              <span className="my-page__disclosure-hint">{monthLabel(kstMonth())}의 나</span>
+              <svg className="my-page__chevron my-page__chevron--right" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+          </section>
+
+          <section className="my-page__section" aria-label="어디 갈래? 투표">
+            <h3 className="my-page__section-title">
+              어디 갈래? 투표 {polls && polls.length > 0 && <span className="my-page__count">{polls.length}</span>}
+            </h3>
+            {polls === null ? null : polls.length === 0 ? (
+              <p className="my-page__empty">가게 시트의 투표 담기로 후보를 모아 링크를 보내면, 친구들이 앱 없이도 골라요.</p>
+            ) : (
+              <ul className="my-page__card">
+                {polls.map((p) => (
+                  <li key={p.token}>
+                    <button type="button" className="my-page__review my-page__poll" onClick={() => onOpenPoll(p.token)}>
+                      <span className={`my-page__poll-state${p.closed ? '' : ' my-page__poll-state--open'}`}>
+                        {p.closed ? '마감' : '진행 중'}
+                      </span>
+                      <span className="my-page__poll-main">
+                        <span className="my-page__review-name">{p.title}</span>
+                        <span className="my-page__poll-meta">
+                          {p.closed ? (p.leader ? `${p.leader}(으)로 결정` : '아무도 안 골랐어요') : `${timeLeft(p.closesAt)}${p.leader ? ` · ${p.leader} 앞서는 중` : ''}`}
+                          {' · '}
+                          {p.voterCount}명{p.mine ? '' : ' · 참여'}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 

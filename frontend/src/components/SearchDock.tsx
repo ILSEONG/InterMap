@@ -23,6 +23,8 @@ interface SearchDockProps {
   showReviewFilter: boolean
   // 검색 결과 패널 — 독 바로 위에 붙는다
   results?: ReactNode
+  // 검색 중이 아닐 때 독 바로 위에 붙는 것 (투표 후보 바)
+  extra?: ReactNode
 }
 
 const REVIEW_FILTERS: [ReviewFilter, string][] = [
@@ -52,6 +54,7 @@ export default function SearchDock({
   onReviewFilterChange,
   showReviewFilter,
   results,
+  extra,
 }: SearchDockProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -61,7 +64,7 @@ export default function SearchDock({
 
   return (
     <div className="search-dock">
-      {searching && results}
+      {searching ? results : extra}
       <section className="search-dock__panel glass" aria-label={searching ? '검색' : '검색과 필터'}>
         {searching ? (
           <div className="segmented" role="group" aria-label="검색 대상">

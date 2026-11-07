@@ -17,6 +17,10 @@ import ReportSheet from './components/ReportSheet'
 import PolicyViewer from './components/PolicyViewer'
 import type { PolicyPage } from './components/PolicyViewer'
 import AdminReports from './components/AdminReports'
+import PollComposer from './components/PollComposer'
+import PollSheet from './components/PollSheet'
+import PollCartBar from './components/PollCartBar'
+import RecapSheet from './components/RecapSheet'
 import { backProfile, pushProfile, setTopList, type ProfileList, type ProfileStep } from './lib/profileStack'
 import { OpenProfileContext } from './lib/openProfile'
 import { ModerationContext } from './lib/moderation'
@@ -47,10 +51,12 @@ import {
   exchangeOAuth,
   oauthErrorMessage,
   SUMMARY_MAX_ZOOM,
+  POLL_MAX_OPTIONS,
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
 import { shrinkImage } from './lib/image'
-import type { AuthSession, BBox, ClusterCell, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
+import { kstMonth, monthLabel, prevMonth } from './lib/time'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -223,6 +229,45 @@ export default function App() {
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
   const [policyPage, setPolicyPage] = useState<PolicyPage | null>(null)
   const [adminReportsOpen, setAdminReportsOpen] = useState(false)
+
+  // "어디 갈래?" 투표 — 가게 시트에서 담아 둔 후보 (앱을 껐다 켜도 남게 저장), 만들기 시트, 열어 본 투표.
+  // 친구가 보낸 링크(?poll=)로 들어오면 그 투표를 바로 연다
+  const [pollCart, setPollCart] = useState<PollCandidate[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('intermap.pollCart') ?? '[]')
+      return Array.isArray(saved) ? saved.slice(0, POLL_MAX_OPTIONS) : []
+    } catch {
+      return []
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('intermap.pollCart', JSON.stringify(pollCart))
+    } catch {
+      // 저장 못 해도 이번 실행 동안은 남는다
+    }
+  }, [pollCart])
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [openPoll, setOpenPoll] = useState<string | null>(() => new URLSearchParams(window.location.search).get('poll'))
+  // 투표를 만들거나 지우면 올려서 마이페이지 목록을 다시 받는다
+  const [pollVersion, setPollVersion] = useState(0)
+  // 링크로 들어왔으면 주소창에서 ?poll=을 지운다 (새로고침해도 다시 뜨지 않게)
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has('poll')) return
+    url.searchParams.delete('poll')
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
+  // 월간 결산 — 열려 있으면 보고 있는 달. 지난달 결산 동그라미는 한 번 열면 다시 안 띄운다
+  const [recapMonth, setRecapMonth] = useState<string | null>(null)
+  const [recapSeen, setRecapSeen] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('intermap.recapSeen')
+    } catch {
+      return null
+    }
+  })
   // 차단·운영자 삭제처럼 서버 쪽 목록이 바뀌었을 때 올려서 후기·댓글·팔로우를 다시 받는다
   const [contentVersion, setContentVersion] = useState(0)
   const refreshContent = useCallback(() => setContentVersion((v) => v + 1), [])
@@ -488,6 +533,9 @@ export default function App() {
   handleBackRef.current = () => {
     if (policyPage) return setPolicyPage(null), true
     if (reportTarget) return setReportTarget(null), true
+    if (recapMonth) return setRecapMonth(null), true
+    if (openPoll) return setOpenPoll(null), true
+    if (composerOpen) return setComposerOpen(false), true
     if (adminReportsOpen) return setAdminReportsOpen(false), true
     if (profileUserId !== null) return profileBack(), true
     if (openStory) return setOpenStory(null), true
@@ -837,6 +885,68 @@ export default function App() {
     () => (session ? { myUserId: session.id, report: setReportTarget } : null),
     [session],
   )
+  // 투표 후보 담기/빼기 (가게 시트의 투표 버튼)
+  const togglePollCandidate = useCallback(
+    (place: { name: string; category: string; address: string }) => {
+      const key = restaurantKey(place)
+      if (pollCart.some((c) => restaurantKey(c) === key)) {
+        setPollCart(pollCart.filter((c) => restaurantKey(c) !== key))
+      } else if (pollCart.length >= POLL_MAX_OPTIONS) {
+        alert(`후보는 ${POLL_MAX_OPTIONS}곳까지 담을 수 있어요.`)
+      } else {
+        setPollCart([...pollCart, place])
+      }
+    },
+    [pollCart],
+  )
+  const openComposer = useCallback(() => {
+    if (!session) {
+      setAuthMode('start')
+      return
+    }
+    setSelectedId(null)
+    setComposerOpen(true)
+  }, [session])
+  const handlePollCreated = useCallback((poll: PollView) => {
+    setPollCart([])
+    setComposerOpen(false)
+    setOpenPoll(poll.token)
+    setPollVersion((v) => v + 1)
+  }, [])
+  // 찜한 가게 — 투표 만들기에서 후보로 바로 더할 수 있게
+  const favoriteCandidates = useMemo(
+    () => favRestaurants.map((r) => ({ name: r.name, category: r.category, address: r.address })),
+    [favRestaurants],
+  )
+
+  // 월간 결산 열기. 지난달 동그라미로 열었으면 "봤음"으로 남긴다
+  const openRecap = useCallback((month: string) => {
+    setRecapMonth(month)
+    if (month === prevMonth(kstMonth())) {
+      setRecapSeen(month)
+      try {
+        localStorage.setItem('intermap.recapSeen', month)
+      } catch {
+        // 못 남기면 이번 주 동안 다시 보일 뿐
+      }
+    }
+  }, [])
+  // 마이페이지에서 열 땐 이번 달에 후기가 있으면 이번 달, 없으면 가장 최근에 후기를 남긴 달
+  const openRecapFromMyPage = useCallback(() => {
+    const now = kstMonth()
+    const mine = rawReviews.filter((rv) => rv.author.id === session?.id)
+    openRecap(mine.some((rv) => kstMonth(rv.createdAt) === now) || mine.length === 0 ? now : kstMonth(mine[0].createdAt))
+  }, [rawReviews, session?.id, openRecap])
+  // 달이 바뀐 첫 주엔 스토리 줄 맨 앞에 "지난달 결산" — 지난달에 후기를 남겼을 때만
+  const recapChip = useMemo(() => {
+    if (!session) return null
+    const last = prevMonth(kstMonth())
+    const day = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', day: '2-digit' }).format(new Date()))
+    if (day > 7 || recapSeen === last) return null
+    const had = rawReviews.some((rv) => rv.author.id === session.id && kstMonth(rv.createdAt) === last)
+    return had ? { label: `${monthLabel(last)} 결산`, onOpen: () => openRecap(last) } : null
+  }, [session, rawReviews, recapSeen, openRecap])
+
   // 회원 탈퇴 — 서버에서 지운 뒤 로그아웃 상태로
   const handleDeleteAccount = useCallback(async () => {
     await deleteAccount()
@@ -884,7 +994,7 @@ export default function App() {
             setFavMode((prev) => !prev)
           }}
         />
-        {!searching && <StoryStrip stories={stories} onOpen={setOpenStory} />}
+        {!searching && <StoryStrip stories={stories} onOpen={setOpenStory} recap={recapChip} />}
         {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
         {selectedPerson && (
           <PersonChip
@@ -921,6 +1031,11 @@ export default function App() {
           reviewFilter={reviewFilter}
           onReviewFilterChange={setReviewFilter}
           showReviewFilter={!!session && !personPins}
+          extra={
+            pollCart.length > 0 ? (
+              <PollCartBar count={pollCart.length} onOpen={openComposer} onClear={() => setPollCart([])} />
+            ) : undefined
+          }
           results={
             query.trim() && resultsOpen ? (
               <SearchResults
@@ -959,6 +1074,8 @@ export default function App() {
         onDeleteComment={removeComment}
         favored={selectedRestaurant ? favorites.has(restaurantKey(selectedRestaurant)) : false}
         onToggleFavorite={toggleFav}
+        inPoll={selectedRestaurant ? pollCart.some((c) => restaurantKey(c) === restaurantKey(selectedRestaurant)) : false}
+        onTogglePoll={togglePollCandidate}
       />
 
       {session && (
@@ -975,6 +1092,9 @@ export default function App() {
           onOpenPolicy={setPolicyPage}
           isAdmin={isAdmin(session)}
           onOpenReports={() => setAdminReportsOpen(true)}
+          onOpenRecap={openRecapFromMyPage}
+          onOpenPoll={setOpenPoll}
+          pollVersion={pollVersion}
           onClose={() => setMyPageOpen(false)}
         />
       )}
@@ -1035,6 +1155,29 @@ export default function App() {
           onClose={() => setReportTarget(null)}
         />
       )}
+      {composerOpen && session && (
+        <PollComposer
+          candidates={pollCart}
+          onCandidatesChange={setPollCart}
+          favorites={favoriteCandidates}
+          onCreated={handlePollCreated}
+          onClose={() => setComposerOpen(false)}
+        />
+      )}
+      {openPoll && (
+        <PollSheet
+          token={openPoll}
+          session={session}
+          onLogin={() => {
+            // 로그인 창은 투표 시트 아래 층이라 시트를 닫고 띄운다
+            setOpenPoll(null)
+            setAuthMode('start')
+          }}
+          onChanged={() => setPollVersion((v) => v + 1)}
+          onClose={() => setOpenPoll(null)}
+        />
+      )}
+      {recapMonth && session && <RecapSheet month={recapMonth} onClose={() => setRecapMonth(null)} />}
       {policyPage && <PolicyViewer page={policyPage} onClose={() => setPolicyPage(null)} />}
     </div>
     </ModerationContext.Provider>

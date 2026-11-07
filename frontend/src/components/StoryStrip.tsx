@@ -5,15 +5,31 @@ import './StoryStrip.css'
 interface StoryStripProps {
   stories: Story[]
   onOpen: (story: Story) => void
+  // 달이 바뀐 첫 주에 맨 앞에 붙는 "10월 결산" 동그라미. 한 번 열면 App이 내린다
+  recap?: { label: string; onOpen: () => void } | null
 }
 
 // 최근 24시간 안에 후기를 남긴 사람들. 누르면 그 사람 후기를 StoryViewer로 본다
-export default function StoryStrip({ stories, onOpen }: StoryStripProps) {
-  if (stories.length === 0) return null
+export default function StoryStrip({ stories, onOpen, recap }: StoryStripProps) {
+  if (stories.length === 0 && !recap) return null
 
   return (
     <nav className="story-strip glass" aria-label="24시간 내 올라온 이웃 후기">
       <ul className="story-strip__list">
+        {recap && (
+          <li>
+            <button type="button" className="story-chip story-chip--recap" onClick={recap.onOpen}>
+              <span className="story-chip__ring">
+                <span className="story-chip__avatar story-chip__recap" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 20V11M10 20V5M15 20v-6M20 20V8" />
+                  </svg>
+                </span>
+              </span>
+              <span className="story-chip__name">{recap.label}</span>
+            </button>
+          </li>
+        )}
         {stories.map((story) => (
           <li key={story.id}>
             <button type="button" className="story-chip" onClick={() => onOpen(story)}>

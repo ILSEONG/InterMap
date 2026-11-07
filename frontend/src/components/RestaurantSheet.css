@@ -1441,3 +1441,37 @@ button.comment__author:active {
     scroll-behavior: auto;
   }
 }
+
+/* "어디 갈래?" 투표 후보 담기 — 후기 쓰기 버튼 왼쪽. 담으면 로즈 틴트 */
+.restaurant-sheet__footer--split {
+  display: flex;
+  gap: 8px;
+}
+
+.restaurant-sheet__footer--split .restaurant-sheet__cta {
+  flex: 1;
+  min-width: 0;
+}
+
+.restaurant-sheet__poll {
+  flex: none;
+  height: 56px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 28px;
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.restaurant-sheet__poll--on {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
