@@ -4,6 +4,7 @@ import { photoUrl } from '../lib/api'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import { STAR_SHAPE } from './Stars'
+import { BallotIcon } from './PollIcons'
 import './RestaurantSheet.css'
 
 interface RestaurantSheetProps {
@@ -27,6 +28,9 @@ interface RestaurantSheetProps {
   // 이 가게를 찜했는지 + 별 버튼 토글
   favored: boolean
   onToggleFavorite: (place: { name: string; address: string }) => void
+  // "어디 갈래?" 투표 후보로 담았는지 + 담기/빼기
+  inPoll: boolean
+  onTogglePoll: (place: { name: string; category: string; address: string }) => void
 }
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
@@ -51,6 +55,8 @@ export default function RestaurantSheet({
   onDeleteComment,
   favored,
   onToggleFavorite,
+  inPoll,
+  onTogglePoll,
 }: RestaurantSheetProps) {
   const open = restaurant !== null
   // 닫힐 때 restaurant이 즉시 null이 되는데 패널은 애니메이션으로 내려간다.
@@ -178,6 +184,8 @@ export default function RestaurantSheet({
               onDeleteComment={onDeleteComment}
               favored={favored}
               onToggleFavorite={onToggleFavorite}
+              inPoll={inPoll}
+              onTogglePoll={onTogglePoll}
             />
           </>
         )}
@@ -209,6 +217,9 @@ interface SheetBodyProps {
   // 이 가게를 찜했는지 + 별 버튼 토글
   favored: boolean
   onToggleFavorite: (place: { name: string; address: string }) => void
+  // "어디 갈래?" 투표 후보로 담았는지 + 담기/빼기
+  inPoll: boolean
+  onTogglePoll: (place: { name: string; category: string; address: string }) => void
 }
 
 // 이웃 후기 슬라이더의 카드 사이 간격 (CSS .restaurant-sheet__reviews gap과 같게)
@@ -256,6 +267,8 @@ function SheetBody({
   onDeleteComment,
   favored,
   onToggleFavorite,
+  inPoll,
+  onTogglePoll,
 }: SheetBodyProps) {
   const [draftRating, setDraftRating] = useState(5)
   const [draftReview, setDraftReview] = useState('')
@@ -713,7 +726,16 @@ function SheetBody({
         )}
       </div>
 
-      <div className="restaurant-sheet__footer">
+      <div className="restaurant-sheet__footer restaurant-sheet__footer--split">
+        <button
+          type="button"
+          className={`restaurant-sheet__poll${inPoll ? ' restaurant-sheet__poll--on' : ''}`}
+          onClick={() => onTogglePoll({ name: restaurant.name, category: restaurant.category, address: restaurant.address })}
+          aria-pressed={inPoll}
+        >
+          <BallotIcon size={20} />
+          {inPoll ? '담았어요' : '투표 담기'}
+        </button>
         <button
           type="button"
           className="restaurant-sheet__cta"

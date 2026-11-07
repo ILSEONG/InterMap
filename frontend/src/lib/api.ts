@@ -512,3 +512,148 @@ export async function fetchAdminReports(status: ReportStatus = 'OPEN'): Promise<
 export function resolveReport(id: number, action: 'REMOVE' | 'DISMISS'): Promise<{ message: string }> {
   return postJson<{ message: string }>(`/api/admin/reports/${id}/resolve`, { action })
 }
+
+// ---- "어디 갈래?" 투표 (서버 PollController) ----
+
+// 투표 후보로 담은 가게 (가게 키 = 이름|주소)
+export interface PollCandidate {
+  name: string
+  category: string
+  address: string
+  // 만든 사람의 한마디 (선택, 60자)
+  note?: string
+}
+
+export interface PollOptionView {
+  id: number
+  name: string
+  category: string | null
+  address: string
+  note: string | null
+  votes: number
+  // 이 후보를 고른 사람 이름 (먼저 고른 순)
+  voters: string[]
+}
+
+export interface PollView {
+  token: string
+  title: string
+  creator: { id: number; name: string }
+  createdAt: string
+  closesAt: string
+  closed: boolean
+  // 내가 만든 투표 — 마감·삭제 버튼
+  mine: boolean
+  options: PollOptionView[]
+  myChoices: number[]
+  myName: string | null
+  voterCount: number
+  // 마감 뒤 가장 많이 골린 후보들 (동점이면 여럿)
+  winnerIds: number[]
+}
+
+export interface PollSummary {
+  token: string
+  title: string
+  createdAt: string
+  closesAt: string
+  closed: boolean
+  mine: boolean
+  voterCount: number
+  leader: string | null
+}
+
+export const POLL_MIN_OPTIONS = 2
+export const POLL_MAX_OPTIONS = 6
+
+// 비회원 투표자를 알아보는 이 브라우저의 난수. 서버엔 해시만 남는다 (PollController.voterKeyOf)
+const VOTER_KEY = 'intermap.voter'
+const randomHex = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')
+// 저장소를 못 쓰는 브라우저(사생활 보호 모드 등)는 이번 화면 동안만 같은 사람으로 본다
+let memoryVoterKey: string | null = null
+export function guestVoterKey(): string {
+  try {
+    const saved = localStorage.getItem(VOTER_KEY)
+    if (saved && /^[A-Za-z0-9_-]{16,64}$/.test(saved)) return saved
+    const fresh = randomHex()
+    localStorage.setItem(VOTER_KEY, fresh)
+    return fresh
+  } catch {
+    return (memoryVoterKey ??= randomHex())
+  }
+}
+
+// 친구에게 보낼 투표 링크. 앱(WebView)의 주소는 가짜 호스트라 웹 주소를 따로 쓴다
+// 빌드 변수 VITE_WEB_BASE_URL(GitHub 저장소 변수)로 바꿀 수 있다. 웹에서는 지금 열린 사이트 주소를 쓴다
+const WEB_BASE_URL: string =
+  import.meta.env.VITE_WEB_BASE_URL ||
+  (Capacitor.isNativePlatform() ? 'https://dist-flame-two-40.vercel.app' : window.location.origin)
+
+export function pollLink(token: string): string {
+  return `${WEB_BASE_URL.replace(/\/$/, '')}/?poll=${encodeURIComponent(token)}`
+}
+
+export function createPoll(title: string, hours: number, options: PollCandidate[]): Promise<PollView> {
+  return postJson<PollView>('/api/polls', { title, hours, options })
+}
+
+export async function fetchPoll(token: string): Promise<PollView> {
+  const res = await fetch(`${API_BASE}/api/polls/${encodeURIComponent(token)}?voter=${guestVoterKey()}`, { headers: authHeaders() })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message ?? `투표를 불러오지 못했어요 (${res.status})`)
+  return data
+}
+
+// 로그인했으면 계정으로, 아니면 이 브라우저 난수 + 적은 이름으로. optionIds가 비면 내 선택을 지운다
+export function votePoll(token: string, optionIds: number[], name?: string): Promise<PollView> {
+  return postJson<PollView>(`/api/polls/${encodeURIComponent(token)}/votes`, { voterKey: guestVoterKey(), name, optionIds })
+}
+
+export function closePoll(token: string): Promise<PollView> {
+  return post<PollView>(`/api/polls/${encodeURIComponent(token)}/close`, '')
+}
+
+export async function deletePoll(token: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/polls/${encodeURIComponent(token)}`, { method: 'DELETE', headers: authHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.message ?? `투표 삭제 실패 (${res.status})`)
+  }
+}
+
+export async function fetchMyPolls(): Promise<PollSummary[]> {
+  const res = await fetch(`${API_BASE}/api/me/polls`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`투표 목록 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+// ---- 월간 결산 (서버 RecapController) ----
+
+export interface RecapPlace {
+  name: string
+  category: string | null
+  rating: number
+}
+
+export interface Recap {
+  month: string // "2026-11"
+  places: number
+  photos: number
+  avgRating: number | null
+  topCategory: { name: string; count: number } | null
+  topArea: { name: string; count: number } | null
+  best: RecapPlace | null
+  commentsReceived: number
+  topFan: { id: number; name: string; count: number } | null
+  newFollowing: number
+  list: RecapPlace[]
+  // 후기가 있는 달 (최근 달부터)
+  months: string[]
+}
+
+export async function fetchRecap(month?: string): Promise<Recap> {
+  const res = await fetch(`${API_BASE}/api/me/recap${month ? `?month=${month}` : ''}`, { headers: authHeaders() })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message ?? `결산을 불러오지 못했어요 (${res.status})`)
+  return data
+}
