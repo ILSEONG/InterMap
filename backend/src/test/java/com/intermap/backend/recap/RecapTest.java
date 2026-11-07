@@ -8,6 +8,7 @@ import com.intermap.backend.review.Review;
 import com.intermap.backend.review.ReviewComment;
 import com.intermap.backend.review.ReviewCommentRepository;
 import com.intermap.backend.review.ReviewRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,6 +36,7 @@ class RecapTest {
     @Autowired ReviewCommentRepository comments;
     @Autowired RestaurantRepository restaurants;
     @Autowired JdbcTemplate jdbc;
+    @Autowired EntityManager em;
 
     private AppUser user(String name) {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
@@ -72,6 +74,9 @@ class RecapTest {
         comments.saveAndFlush(new ReviewComment(a, me, null, "내 댓글은 안 센다"));
         jdbc.update("update review_comment set created_at = ? where review_id = ?",
                 Timestamp.from(LocalDateTime.of(2026, 11, 2, 12, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant()), a.getId());
+        // JDBC로 옮긴 작성 시각이 보이도록 1차 캐시를 비운다 (안 비우면 now로 찍힌 엔티티가 그대로 나온다)
+        em.flush();
+        em.clear();
 
         var res = controller.recap(bearer(me), "2026-11");
         assertEquals(HttpStatus.OK, res.getStatusCode());
