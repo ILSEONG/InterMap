@@ -3,6 +3,7 @@ import { closePoll, deletePoll, fetchPoll, pollLink, votePoll } from '../lib/api
 import type { AuthSession, PollOptionView, PollView } from '../lib/api'
 import { shareLink } from '../lib/share'
 import { timeLeft } from '../lib/time'
+import { PLAY_STORE_URL, isAndroidWeb, pollIntentUrl } from '../lib/deepLink'
 import { BallotIcon, CheckIcon, CrownIcon, PinIcon, ShareIcon } from './PollIcons'
 import './ModalSheet.css'
 import './Poll.css'
@@ -335,6 +336,11 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
                 )}
               </div>
               <div className="poll-sheet__tools">
+                {isAndroidWeb() && (
+                  <a className="poll-tool" href={pollIntentUrl(poll.token, PLAY_STORE_URL)}>
+                    앱에서 열기
+                  </a>
+                )}
                 <button type="button" className="poll-tool" onClick={share}>
                   <ShareIcon /> {poll.closed ? '결과 보내기' : '친구에게 보내기'}
                 </button>

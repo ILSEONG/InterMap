@@ -615,3 +615,10 @@
   text-underline-offset: 3px;
   cursor: pointer;
 }
+
+/* 안드로이드 앱은 블러 대신 조금 더 어둡게 (index.css의 platform-android와 같은 이유) */
+html.platform-android .auth-overlay::before {
+  background: rgba(242, 241, 237, 0.7);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}

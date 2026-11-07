@@ -57,6 +57,7 @@ import { topPicksOf } from './lib/topPicks'
 import { shrinkImage } from './lib/image'
 import type { AuthSession, BBox, ClusterCell, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
 import { kstMonth, monthLabel, prevMonth } from './lib/time'
+import { pollTokenFromUrl, tryOpenPollInApp } from './lib/deepLink'
 import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
@@ -251,11 +252,15 @@ export default function App() {
   const [openPoll, setOpenPoll] = useState<string | null>(() => new URLSearchParams(window.location.search).get('poll'))
   // 투표를 만들거나 지우면 올려서 마이페이지 목록을 다시 받는다
   const [pollVersion, setPollVersion] = useState(0)
-  // 링크로 들어왔으면 주소창에서 ?poll=을 지운다 (새로고침해도 다시 뜨지 않게)
+  // 링크로 들어왔으면: 안드로이드 웹이면 먼저 앱을 불러 보고(lib/deepLink), 주소창에서 ?poll=을 지운다
+  // (새로고침해도 다시 뜨지 않게)
   useEffect(() => {
     const url = new URL(window.location.href)
-    if (!url.searchParams.has('poll')) return
+    const token = url.searchParams.get('poll')
+    if (!token) return
+    tryOpenPollInApp(token)
     url.searchParams.delete('poll')
+    url.searchParams.delete('web')
     window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
   }, [])
 
@@ -484,11 +489,22 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
     const listener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      // 투표 링크로 들어왔으면 그 투표를 연다 (intermap://poll?t=…)
+      const poll = pollTokenFromUrl(url)
+      if (poll) {
+        setOpenPoll(poll)
+        return
+      }
       try {
         applyAuthParams(new URL(url).searchParams)
       } catch {
         // 딥링크 형식이 아니면 무시
       }
+    })
+    // 앱이 꺼져 있다가 투표 링크로 켜진 경우
+    void CapacitorApp.getLaunchUrl().then((launch) => {
+      const poll = launch?.url ? pollTokenFromUrl(launch.url) : null
+      if (poll) setOpenPoll(poll)
     })
     return () => {
       void listener.then((sub) => sub.remove())
@@ -739,9 +755,11 @@ export default function App() {
       const target = reviewedRestaurants.find((r) => restaurantKey(r) === key)
       if (!target) return
       setOpenStory(null)
+      // "후기 없는 곳만" 필터면 후기가 있는 이 가게가 지도에서 숨는다 — 전체로 바꿔서 보여준다
+      if (reviewFilterChoice === 'without') setReviewFilter('all')
       focusFromSearch(target)
     },
-    [reviewedRestaurants, focusFromSearch],
+    [reviewedRestaurants, focusFromSearch, reviewFilterChoice],
   )
 
   // 마이페이지 "내가 쓴 후기" — 눌러서 그 가게 시트를 연다 (수정은 시트의 수정 버튼으로)

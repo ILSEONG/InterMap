@@ -56,6 +56,14 @@
   --kb: 0px;
 }
 
+/* 안드로이드 앱(WebView): 지도 위 backdrop-filter 블러는 지도가 움직일 때마다 매 프레임 다시 계산돼
+   프레임이 뚝뚝 끊긴다. 블러를 끄고 거의 불투명한 흰 면으로 바꾼다 (모양·그림자·테두리는 그대로) */
+html.platform-android {
+  --glass: rgba(255, 255, 255, 0.93);
+  --glass-strong: rgba(255, 255, 255, 0.97);
+  --glass-blur: none;
+}
+
 * {
   box-sizing: border-box;
   /* Android WebView가 탭한 요소 위에 씌우는 파란 하이라이트 제거 */

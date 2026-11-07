@@ -60,17 +60,29 @@ function ratingWord(avg: number | null): string {
   return '깐깐한 편'
 }
 
-// 색 — 따뜻한 아이보리 바탕에 먹색 글자, 포인트는 톤 다운한 로즈 한 가지만
-const INK = '#2b2626'
-const SOFT = '#8c8380'
-const FAINT = 'rgba(43, 38, 38, 0.08)'
-const ROSE = '#c25a6e'
-const ROSE_TINT = '#f6e1e4'
+// 색·모양 — 밝은 회색 바탕 위에 한 가지 원색으로 칠한 두툼한 모양 하나, 글자는 검정.
+// 달마다 모양과 색이 바뀐다 (같은 달은 늘 같은 카드)
+const BG = '#f3f2ee'
+const INK = '#111111'
+const SOFT = '#6f6e69'
+const LINE = 'rgba(17, 17, 17, 0.1)'
+type Shape = 'scallop' | 'zigzag' | 'arches' | 'stack' | 'wave'
+const LOOKS: { shape: Shape; color: string }[] = [
+  { shape: 'scallop', color: '#e8e35a' },
+  { shape: 'zigzag', color: '#ecbd5f' },
+  { shape: 'arches', color: '#4f6ee8' },
+  { shape: 'stack', color: '#e05a4e' },
+  { shape: 'wave', color: '#9dd655' },
+]
+
+export function lookOf(month: string) {
+  return LOOKS[Number(month.slice(5, 7)) % LOOKS.length]
+}
 
 // 카드에 들어가는 글자 — 폰트 하위 집합을 미리 받아 두려고 모은다
 function cardText(r: Recap): string {
   return [
-    'INTERMAP MONTHLY 월간 결산 이달의 칭호 친구가 고른 맛집 지도, 인터맵 다녀왔어요 곳 의 나 년 월 ★·.0123456789',
+    'INTERMAP 월간 결산 친구가 고른 맛집 지도, 인터맵 다녀왔어요 곳 의 나 년 월 에 ★·.0123456789',
     personaOf(r),
     ...rowsOf(r).flatMap((row) => [row.label, row.value, row.sub ?? '']),
   ].join('')
@@ -78,7 +90,7 @@ function cardText(r: Recap): string {
 
 async function loadFonts(text: string) {
   if (!document.fonts?.load) return
-  await Promise.all(['300', '400', '500', '700'].map((w) => document.fonts.load(`${w} 64px ${FONT}`, text).catch(() => [])))
+  await Promise.all(['400', '500', '700', '900'].map((w) => document.fonts.load(`${w} 64px ${FONT}`, text).catch(() => [])))
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -107,46 +119,110 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, weight: number, ma
   return cut === text ? text : `${cut}…`
 }
 
-// 아주 옅은 빛 번짐 — 바탕에 파스텔 기운만
-function bloom(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rgb: string, alpha: number) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r)
-  g.addColorStop(0, `rgba(${rgb}, ${alpha})`)
-  g.addColorStop(0.55, `rgba(${rgb}, ${alpha * 0.45})`)
-  g.addColorStop(1, `rgba(${rgb}, 0)`)
-  ctx.fillStyle = g
-  ctx.fillRect(x - r, y - r, r * 2, r * 2)
+// 두툼한 선 하나로 그리는 모양 — 끝과 꺾임을 둥글게
+function stroke(ctx: CanvasRenderingContext2D, points: [number, number][], width: number) {
+  ctx.lineWidth = width
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
+  ctx.stroke()
 }
 
-// 목록 한 줄 — 왼쪽 이름표, 오른쪽 값(진하게) + 덧말(흐리게)
-function drawRow(ctx: CanvasRenderingContext2D, row: Row, x: number, w: number, baseline: number) {
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = SOFT
-  ctx.font = `400 34px ${FONT}`
-  ctx.fillText(row.label, x, baseline)
-  const labelW = ctx.measureText(row.label).width
+function circle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fill()
+}
 
-  const room = w - labelW - 48
+// 위쪽 큰 모양 (x0~x1, y0~y1 상자 안)
+function drawShape(ctx: CanvasRenderingContext2D, shape: Shape, color: string, x0: number, y0: number, x1: number, y1: number) {
+  ctx.fillStyle = color
+  ctx.strokeStyle = color
+  const w = x1 - x0
+  const h = y1 - y0
+  switch (shape) {
+    // 윗변이 물결인 덩어리 (Tickets)
+    case 'scallop': {
+      const bumps = 4
+      const r = w / bumps / 2
+      for (let i = 0; i < bumps; i++) circle(ctx, x0 + r + i * 2 * r, y0 + r, r)
+      // 위 모서리는 반원들 아래로 각지게, 아래 모서리만 둥글게
+      ctx.fillRect(x0, y0 + r, w, 120)
+      roundRect(ctx, x0, y0 + r, w, h - r, 60)
+      ctx.fill()
+      break
+    }
+    // 두툼한 Z (Secret crypto)
+    case 'zigzag': {
+      const t = 210
+      stroke(ctx, [[x0 + t / 2, y0 + t / 2], [x1 - t / 2, y0 + t / 2], [x0 + t / 2, y1 - t / 2], [x1 - t / 2, y1 - t / 2]], t)
+      break
+    }
+    // 아치 셋이 이어진 M (Yoga)
+    case 'arches': {
+      const t = 230
+      stroke(ctx, [[x0 + t / 2, y1 - t / 2], [x0 + t / 2, y0 + t / 2], [x0 + w / 2, y0 + h * 0.62], [x1 - t / 2, y0 + t / 2], [x1 - t / 2, y1 - t / 2]], t)
+      break
+    }
+    // 알약을 겹겹이 쌓은 기둥 (social media)
+    case 'stack': {
+      const pill = 200
+      const step = 150
+      const n = Math.floor((h - pill) / step) + 1
+      for (let i = 0; i < n; i++) {
+        roundRect(ctx, x0, y0 + i * step, w, pill, pill / 2)
+        ctx.fill()
+      }
+      break
+    }
+    // 세 번 접힌 물결 (Fintech) — 가로줄을 반원으로 이어 끊김 없는 리본
+    case 'wave': {
+      const t = 190
+      const rows = 4
+      const gap = (h - t) / (rows - 1)
+      const R = gap / 2
+      const left = x0 + t / 2 + R
+      const right = x1 - t / 2 - R
+      ctx.lineWidth = t
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(x0 + t / 2, y0 + t / 2)
+      for (let i = 0; i < rows; i++) {
+        const y = y0 + t / 2 + gap * i
+        const goingRight = i % 2 === 0
+        const last = i === rows - 1
+        ctx.lineTo(goingRight ? (last ? x1 - t / 2 : right) : last ? x0 + t / 2 : left, y)
+        if (!last) ctx.arc(goingRight ? right : left, y + R, R, -Math.PI / 2, Math.PI / 2, !goingRight)
+      }
+      ctx.stroke()
+      break
+    }
+  }
+}
+
+// 목록 한 줄 — 왼쪽 색 점 + 이름표, 오른쪽 값(굵게) + 덧말(흐리게)
+function drawRow(ctx: CanvasRenderingContext2D, row: Row, x: number, w: number, baseline: number, dot: string) {
+  ctx.fillStyle = dot
+  circle(ctx, x + 12, baseline - 12, 12)
+  ctx.fillStyle = SOFT
+  ctx.font = `500 32px ${FONT}`
+  ctx.fillText(row.label, x + 44, baseline)
+  const labelW = ctx.measureText(row.label).width + 44
+
+  const room = w - labelW - 40
   const sub = row.sub ? `  ${row.sub}` : ''
-  ctx.font = `400 34px ${FONT}`
+  ctx.font = `500 32px ${FONT}`
   let subW = sub ? ctx.measureText(sub).width : 0
   if (subW > room * 0.45) subW = 0
-  const starW = row.star ? 44 : 0
-  const value = fitText(ctx, row.value, 700, 46, 32, room - subW - starW)
-  const valueFont = ctx.font
+  const prefix = row.star ? '★ ' : ''
+  const value = fitText(ctx, prefix + row.value, 700, 44, 30, room - subW)
   const valueW = ctx.measureText(value).width
-  let cursor = x + w - subW - valueW - starW
-  if (row.star) {
-    ctx.fillStyle = ROSE
-    ctx.font = `400 36px ${FONT}`
-    ctx.fillText('★', cursor, baseline - 2)
-    cursor += starW
-  }
   ctx.fillStyle = INK
-  ctx.font = valueFont
-  ctx.fillText(value, cursor, baseline)
+  ctx.fillText(value, x + w - subW - valueW, baseline)
   if (subW) {
     ctx.fillStyle = SOFT
-    ctx.font = `400 34px ${FONT}`
+    ctx.font = `500 32px ${FONT}`
     ctx.fillText(sub, x + w - subW, baseline)
   }
 }
@@ -160,101 +236,62 @@ export async function drawRecapCard(r: Recap): Promise<Blob> {
   await loadFonts(cardText(r))
   ctx.textBaseline = 'alphabetic'
   const inner = CARD_WIDTH - PAD * 2
-
-  // 바탕 — 따뜻한 아이보리 위에 복숭아·장미·라벤더 기운을 옅게
-  ctx.fillStyle = '#f8f4ef'
-  ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
-  bloom(ctx, 980, 120, 760, '251, 214, 196', 0.85)
-  bloom(ctx, 60, 860, 700, '244, 214, 222', 0.7)
-  bloom(ctx, 1040, 1480, 680, '226, 222, 243', 0.75)
-  bloom(ctx, 160, 1900, 520, '250, 228, 210', 0.6)
-
-  // 머리 — 작은 글자 두 개를 양 끝에, 그 아래 머리카락 선
+  const look = lookOf(r.month)
   const [year, monthNum] = r.month.split('-')
+
+  ctx.fillStyle = BG
+  ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
+
+  // 머리 — 왼쪽 검정 알약 "10월 결산", 오른쪽 날짜
+  ctx.font = `700 30px ${FONT}`
+  const chip = `${Number(monthNum)}월 결산`
+  const chipW = ctx.measureText(chip).width + 60
+  roundRect(ctx, PAD, 110, chipW, 66, 33)
   ctx.fillStyle = INK
-  ctx.font = `700 28px ${FONT}`
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '6px'
-  ctx.fillText('INTERMAP', PAD, 168)
-  ctx.fillStyle = SOFT
-  ctx.font = `400 28px ${FONT}`
-  const tag = `MONTHLY  ${year}.${monthNum}`
-  ctx.fillText(tag, CARD_WIDTH - PAD - ctx.measureText(tag).width, 168)
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
-  ctx.fillStyle = FAINT
-  ctx.fillRect(PAD, 206, inner, 2)
-
-  // "10월의 나" + 칭호
-  ctx.fillStyle = SOFT
-  ctx.font = `400 50px ${FONT}`
-  ctx.fillText(`${Number(monthNum)}월의 나`, PAD, 370)
-
-  ctx.font = `700 28px ${FONT}`
-  const badge = '이달의 칭호'
-  const badgeW = ctx.measureText(badge).width + 44
-  roundRect(ctx, PAD, 418, badgeW, 54, 27)
-  ctx.fillStyle = ROSE_TINT
   ctx.fill()
-  ctx.fillStyle = ROSE
-  ctx.fillText(badge, PAD + 22, 455)
-
+  ctx.fillStyle = '#fff'
+  ctx.fillText(chip, PAD + 30, 154)
   ctx.fillStyle = INK
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '-3px'
-  const persona = fitText(ctx, personaOf(r), 700, 112, 64, inner)
-  ctx.fillText(persona, PAD - 4, 600)
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
+  ctx.font = `700 30px ${FONT}`
+  const brand = `INTERMAP · ${year}.${monthNum}`
+  ctx.fillText(brand, CARD_WIDTH - PAD - ctx.measureText(brand).width, 154)
 
-  // 큰 숫자 — 가는 글씨로 크게, 옆에 "곳 다녀왔어요"
-  const num = String(r.places)
+  // 큰 모양 — 흰 카드 위에 (레퍼런스의 프로젝트 카드처럼)
+  const cardX = PAD - 24
+  const cardY = 220
+  const cardW = inner + 48
+  const cardH = 980
+  roundRect(ctx, cardX, cardY, cardW, cardH, 44)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
+  drawShape(ctx, look.shape, look.color, cardX + 22, cardY + 22, cardX + cardW - 22, cardY + cardH - 22)
+
+  // 모양 위 왼쪽 아래에 칭호와 숫자
   ctx.fillStyle = INK
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '-10px'
-  ctx.font = `300 300px ${FONT}`
-  ctx.fillText(num, PAD - 14, 930)
-  const numW = ctx.measureText(num).width
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
-  ctx.font = `500 52px ${FONT}`
-  ctx.fillText(r.places > 0 ? '곳' : '', PAD + numW + 8, 860)
-  ctx.fillStyle = SOFT
-  ctx.font = `400 44px ${FONT}`
-  ctx.fillText(r.places > 0 ? '다녀왔어요' : '아직 다녀온 곳이 없어요', PAD + numW + 8, 926)
+  const persona = fitText(ctx, personaOf(r), 700, 96, 56, cardW - 120)
+  ctx.fillText(persona, cardX + 56, cardY + cardH - 150)
+  ctx.font = `500 46px ${FONT}`
+  ctx.fillText(r.places > 0 ? `${Number(monthNum)}월에 ${r.places}곳 다녀왔어요` : '아직 다녀온 곳이 없어요', cardX + 58, cardY + cardH - 74)
 
-  // 목록 카드 — 반투명 흰 카드에 머리카락 선으로 줄을 나눈다
+  // 아래 목록 — 얇은 선으로 나눈 줄, 줄마다 다른 색 점
   const rows = rowsOf(r)
-  const rowH = 132
-  const cardPad = 26
-  const cardY = 1040
-  const cardH = rows.length * rowH + cardPad * 2
-  ctx.save()
-  ctx.shadowColor = 'rgba(90, 60, 50, 0.08)'
-  ctx.shadowBlur = 60
-  ctx.shadowOffsetY = 18
-  roundRect(ctx, PAD, cardY, inner, cardH, 44)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.78)'
-  ctx.fill()
-  ctx.restore()
-  roundRect(ctx, PAD, cardY, inner, cardH, 44)
-  ctx.lineWidth = 2
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
-  ctx.stroke()
+  const rowH = 104
+  const top = 1260
+  const dots = [LOOKS[0].color, LOOKS[2].color, LOOKS[3].color, LOOKS[4].color, LOOKS[1].color]
   rows.forEach((row, i) => {
-    const top = cardY + cardPad + i * rowH
+    const y = top + i * rowH
     if (i > 0) {
-      ctx.fillStyle = FAINT
-      ctx.fillRect(PAD + 52, top, inner - 104, 2)
+      ctx.fillStyle = LINE
+      ctx.fillRect(PAD, y, inner, 2)
     }
-    drawRow(ctx, row, PAD + 52, inner - 104, top + rowH / 2 + 14)
+    drawRow(ctx, row, PAD, inner, y + rowH / 2 + 14, dots[i % dots.length])
   })
 
-  // 꼬리 — 로즈 점 하나 + 한 줄
-  ctx.font = `400 30px ${FONT}`
-  const foot = '친구가 고른 맛집 지도, 인터맵'
-  const footW = ctx.measureText(foot).width
-  const footX = (CARD_WIDTH - footW) / 2 + 14
-  ctx.fillStyle = ROSE
-  ctx.beginPath()
-  ctx.arc(footX - 26, 1815, 7, 0, Math.PI * 2)
-  ctx.fill()
+  // 꼬리
   ctx.fillStyle = SOFT
-  ctx.fillText(foot, footX, 1826)
+  ctx.font = `500 30px ${FONT}`
+  const foot = '친구가 고른 맛집 지도, 인터맵'
+  ctx.fillText(foot, PAD, 1850)
 
   return new Promise((resolve, reject) =>
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('카드를 만들지 못했어요.'))), 'image/png'),
