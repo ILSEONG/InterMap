@@ -300,6 +300,10 @@
   cursor: pointer;
 }
 
+.poll-tool:is(a) {
+  text-decoration: none;
+}
+
 .poll-tool--quiet {
   background: none;
   color: var(--ink-soft);

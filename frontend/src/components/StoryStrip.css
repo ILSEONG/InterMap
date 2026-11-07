@@ -76,15 +76,12 @@
   }
 }
 
-/* 달이 바뀐 첫 주 — "10월 결산" 동그라미. 결산 카드와 같은 복숭아·라벤더 파스텔 */
+/* 달이 바뀐 첫 주 — "10월 결산" 동그라미. 결산 카드처럼 원색 한 가지에 검정 아이콘 */
 .story-chip--recap .story-chip__ring {
-  border-color: transparent;
-  background:
-    linear-gradient(var(--surface-raised), var(--surface-raised)) padding-box,
-    linear-gradient(135deg, #f3b9a6, #e6a3b4 50%, #b9b0e3) border-box;
+  border-color: #111;
 }
 
 .story-chip__recap {
-  background: linear-gradient(150deg, #fbe2d8, #f6e1e4 55%, #e7e3f6);
-  color: #c25a6e;
+  background: #e8e35a;
+  color: #111;
 }

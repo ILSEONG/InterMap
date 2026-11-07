@@ -26,6 +26,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="intermap" android:host="auth" />
             </intent-filter>
+            <!-- "어디 갈래?" 투표 링크: 웹 투표 페이지가 intent://poll?t=<토큰> 으로 앱을 부른다 (lib/deepLink.ts) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="intermap" android:host="poll" />
+            </intent-filter>
         </activity>
 
         <provider
