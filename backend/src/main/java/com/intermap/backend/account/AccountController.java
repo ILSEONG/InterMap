@@ -9,6 +9,7 @@ import com.intermap.backend.favorite.FavoriteRepository;
 import com.intermap.backend.moderation.Report;
 import com.intermap.backend.moderation.ReportRepository;
 import com.intermap.backend.moderation.UserBlockRepository;
+import com.intermap.backend.poll.PollStore;
 import com.intermap.backend.review.Review;
 import com.intermap.backend.review.ReviewCleanup;
 import com.intermap.backend.review.ReviewComment;
@@ -51,11 +52,12 @@ public class AccountController {
     private final UserAvatarRepository avatars;
     private final UserBlockRepository blocks;
     private final ReportRepository reports;
+    private final PollStore pollStore;
 
     public AccountController(AppUserRepository users, AuthController auth, ReviewRepository reviews,
                              ReviewCommentRepository comments, ReviewCleanup cleanup, FollowRepository follows,
                              UserAliasRepository aliases, FavoriteRepository favorites, UserAvatarRepository avatars,
-                             UserBlockRepository blocks, ReportRepository reports) {
+                             UserBlockRepository blocks, ReportRepository reports, PollStore pollStore) {
         this.users = users;
         this.auth = auth;
         this.reviews = reviews;
@@ -67,6 +69,7 @@ public class AccountController {
         this.avatars = avatars;
         this.blocks = blocks;
         this.reports = reports;
+        this.pollStore = pollStore;
     }
 
     @DeleteMapping("/api/me")
@@ -101,6 +104,8 @@ public class AccountController {
         follows.deleteAllInvolving(me);
         aliases.deleteAllInvolving(me);
         favorites.deleteAllByUser(me);
+        // 내가 만든 투표(후보·선택 포함)와 남의 투표에 남긴 내 선택
+        pollStore.deleteAllFor(me);
         blocks.deleteAllInvolving(me);
         reports.deleteAllByReporter(me);
         if (avatars.existsById(id)) avatars.deleteById(id);
