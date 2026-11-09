@@ -18,6 +18,9 @@ interface ProfileSheetProps {
   userId: number
   // 서버 응답이 오기 전에도 이름은 보여준다 (검색 결과·후기에서 이미 아는 이름)
   fallbackName: string
+  // 앱이 이미 아는 것(팔로우 관계·사진·별칭·후기 수) — 이걸로 처음부터 같은 모양을 그리고 서버 응답은 숫자만 채운다.
+  // 없으면 서버 응답이 올 때까지 "불러오는 중"
+  known?: Pick<UserProfile, 'nickname' | 'alias' | 'avatar' | 'following' | 'followsMe' | 'reviewCount'>
   // 후기가 붙은 가게 목록 — 팔로우한 사람의 별점 TOP 5를 여기서 뽑는다
   restaurants: Restaurant[]
   // 팔로잉·팔로워 목록에서 나 자신을 "나"로 표시하는 데 쓴다
@@ -41,6 +44,7 @@ interface ProfileSheetProps {
 export default function ProfileSheet({
   userId,
   fallbackName,
+  known,
   restaurants,
   myUserId,
   myName,
@@ -52,7 +56,12 @@ export default function ProfileSheet({
   onPick,
   onClose,
 }: ProfileSheetProps) {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [fetched, setProfile] = useState<UserProfile | null>(null)
+  // 서버 응답 전에는 앱이 아는 값으로 — 팔로잉·팔로워 수만 비워 둔다(-1). 응답이 오면 숫자만 바뀌어 화면이 튀지 않는다
+  const profile = useMemo<UserProfile | null>(
+    () => fetched ?? (known ? { id: userId, ...known, followingCount: -1, followerCount: -1, blocked: false } : null),
+    [fetched, known, userId],
+  )
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [lists, setLists] = useState<SocialData | null>(null)
@@ -250,17 +259,17 @@ export default function ProfileSheet({
               <div className="profile-sheet__stats">
                 <div className="profile-sheet__stat">
                   <span className="profile-sheet__stat-label">후기</span>
-                  <span className="profile-sheet__stat-value">{reviewCount}개</span>
+                  <span className="profile-sheet__stat-value">{reviewCount >= 0 ? `${reviewCount}개` : '–'}</span>
                 </div>
                 {profile?.following && !profile.blocked && (
                   <>
                     <button type="button" className="profile-sheet__stat" onClick={() => setListKind('following')}>
                       <span className="profile-sheet__stat-label">팔로잉</span>
-                      <span className="profile-sheet__stat-value">{profile.followingCount}</span>
+                      <span className="profile-sheet__stat-value">{profile.followingCount >= 0 ? profile.followingCount : '–'}</span>
                     </button>
                     <button type="button" className="profile-sheet__stat" onClick={() => setListKind('followers')}>
                       <span className="profile-sheet__stat-label">팔로워</span>
-                      <span className="profile-sheet__stat-value">{profile.followerCount}</span>
+                      <span className="profile-sheet__stat-value">{profile.followerCount >= 0 ? profile.followerCount : '–'}</span>
                     </button>
                   </>
                 )}
