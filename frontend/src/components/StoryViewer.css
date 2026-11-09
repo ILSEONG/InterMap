@@ -153,6 +153,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 찍은 도장처럼 통째로 기울인다 */
+  transform: rotate(-14deg);
 }
 
 .story-viewer__stamp::before {
@@ -171,8 +173,6 @@
   letter-spacing: -0.01em;
   line-height: 1;
   color: var(--accent);
-  /* 시안 도장처럼 숫자를 살짝 기울인다 */
-  transform: skewX(-8deg);
   font-variant-numeric: tabular-nums;
 }
 
