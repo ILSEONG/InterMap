@@ -2,7 +2,6 @@ package com.intermap.backend.restaurant;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -55,30 +54,51 @@ public class NaverGeocoder implements GeocodeBackfill.Geocoder {
         return !keyId.isBlank() && !key.isBlank();
     }
 
-    /** 주소 → [lat, lng]. 결과가 없으면 빈 값 */
+    /** 주소 → [lat, lng]. 결과가 없으면 빈 값. 429(초당 한도)면 잠깐 쉬고 다시 묻는다 */
     @Override
     public Optional<double[]> geocode(String query) {
-        try {
-            Response res = client.get()
-                .uri(UriComponentsBuilder.fromUriString(URL).queryParam("query", query).queryParam("count", 1)
-                    .encode().build().toUri())
-                .header("x-ncp-apigw-api-key-id", keyId)
-                .header("x-ncp-apigw-api-key", key)
-                .header("Accept", "application/json")
-                .retrieve()
-                .body(Response.class);
-            if (res == null || res.addresses() == null || res.addresses().isEmpty()) return Optional.empty();
-            Address a = res.addresses().get(0);
-            return Optional.of(new double[] {Double.parseDouble(a.y()), Double.parseDouble(a.x())});
-        } catch (RestClientResponseException e) {
-            HttpStatusCode code = e.getStatusCode();
-            if (code.value() == 401 || code.value() == 403 || code.value() == 429) {
-                throw new Unavailable(code.value() + " " + e.getResponseBodyAsString());
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return request(query);
+            } catch (RestClientResponseException e) {
+                int code = e.getStatusCode().value();
+                if (code == 429 && attempt < 4) {
+                    sleep(1_000L << attempt);
+                    continue;
+                }
+                if (code == 401 || code == 403 || code == 429) {
+                    throw new Unavailable(code + " " + e.getResponseBodyAsString());
+                }
+                if (code == 400) return Optional.empty(); // 주소로 못 알아본 질의 — 못 찾은 것과 같다
+                throw e;
             }
-            if (code.value() == 400) return Optional.empty(); // 주소로 못 알아본 질의 — 못 찾은 것과 같다
-            throw e;
-        } catch (NumberFormatException e) {
+        }
+    }
+
+    private Optional<double[]> request(String query) {
+        Response res = client.get()
+            .uri(UriComponentsBuilder.fromUriString(URL).queryParam("query", query).queryParam("count", 1)
+                .encode().build().toUri())
+            .header("x-ncp-apigw-api-key-id", keyId)
+            .header("x-ncp-apigw-api-key", key)
+            .header("Accept", "application/json")
+            .retrieve()
+            .body(Response.class);
+        if (res == null || res.addresses() == null || res.addresses().isEmpty()) return Optional.empty();
+        Address a = res.addresses().get(0);
+        try {
+            return Optional.of(new double[] {Double.parseDouble(a.y()), Double.parseDouble(a.x())});
+        } catch (NumberFormatException | NullPointerException e) {
             return Optional.empty();
+        }
+    }
+
+    private static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted");
         }
     }
 

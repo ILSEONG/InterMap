@@ -43,7 +43,8 @@ public class RestaurantController {
     }
 
     // q가 오면 이름 검색(상한 50건), bbox 4개가 다 오면 그 영역만. 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
-    // 통째로 내려주지 않는다. 폐업 가게는 빼고 준다. 데이터는 주간 배치 동기화로만 바뀌므로 6시간 캐시.
+    // 통째로 내려주지 않는다. 폐업 가게는 빼고 준다.
+    // 좌표 보정이 뒤에서 도는 동안 고친 위치가 빨리 보이도록 캐시는 10분 (그 뒤엔 ETag로 304).
     @GetMapping("/api/restaurants")
     public ResponseEntity<List<ListItem>> list(
             @RequestParam(required = false) Double minLat,
@@ -61,8 +62,17 @@ public class RestaurantController {
                 ? repository.findByStatusAndLatBetweenAndLngBetween(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng)
                 : List.of();
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
                 .body(rows.stream().map(ListItem::from).toList());
+    }
+
+    // 좌표 보정 진행 상황 — 브라우저로 열어 확인 (건수만이라 공개해도 된다)
+    @GetMapping("/api/restaurants/geocode-progress")
+    public java.util.Map<String, Long> geocodeProgress() {
+        return java.util.Map.of(
+                "fixed", repository.countByStatusAndGeocoded(Restaurant.Status.OPEN, true),
+                "notFound", repository.countByStatusAndGeocoded(Restaurant.Status.OPEN, false),
+                "pending", repository.countByStatusAndGeocodedIsNull(Restaurant.Status.OPEN));
     }
 
     // 낮은 줌에서는 개별 가게(수천 행) 대신 격자 셀 요약(수십~수백 행)만 내려준다.
@@ -84,7 +94,7 @@ public class RestaurantController {
                 .map(a -> new Cell(((Number) a[0]).doubleValue(), ((Number) a[1]).doubleValue(), ((Number) a[2]).intValue()))
                 .toList();
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
                 .body(body);
     }
 }
