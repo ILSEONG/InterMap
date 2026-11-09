@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Restaurant, Review } from '../data/model'
 import type { SocialData, UserProfile } from '../lib/api'
 import { blockUser, fetchUserProfile, fetchUserSocial, followUser, restaurantKey, unblockUser, unfollowUser, setAlias } from '../lib/api'
@@ -6,6 +6,9 @@ import type { ProfileList } from '../lib/profileStack'
 import { cacheKey, queryClient, useServerState } from '../lib/query'
 import { categoryName, MIN_COMMON, tasteMatch } from '../lib/taste'
 import { shortLocation, topPicksOf } from '../lib/topPicks'
+import { timeAgo } from '../lib/time'
+import { useBackLayer } from '../lib/backLayer'
+import { RatingStar } from './Stars'
 import Avatar from './Avatar'
 import { PersonList } from './MyPage'
 import TasteCardSheet from './TasteCardSheet'
@@ -81,8 +84,20 @@ export default function ProfileSheet({
     if (loadError) setError(loadError.message)
   }, [loadError])
   const [shareOpen, setShareOpen] = useState(false)
-  // 프로필을 아래로 내렸는지 — 위쪽 이름 띠를 보일지
-  const [scrolled, setScrolled] = useState(false)
+  // 입맛 궁합 / 다녀온 곳 / 별점 TOP 5
+  const [tab, setTab] = useState<'taste' | 'visited' | 'top' | null>(null)
+  // 오른쪽 위 ⋯ 메뉴 (차단·차단 해제)
+  const [moreOpen, setMoreOpen] = useState(false)
+  useBackLayer(moreOpen, () => setMoreOpen(false))
+  const moreRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!moreOpen) return
+    const close = (e: PointerEvent) => {
+      if (!moreRef.current?.contains(e.target as Node)) setMoreOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [moreOpen])
 
   // 팔로우/언팔로우/별칭은 소셜 목록을 새로 받고, 프로필도 바뀐 관계로 다시 받는다.
   // 목록 속 팔로우 버튼 상태도 바뀐다 — 펼쳐 있으면 제자리에서 다시 받고, 아니면 버려서 다음에 새로 받는다.
@@ -165,6 +180,27 @@ export default function ProfileSheet({
       })
       .slice(0, 3)
   }, [match, reviews, myUserId, userId])
+  // 다녀온 곳 — 그 사람 후기를 최근 순으로 (가게마다 하나)
+  const visited = useMemo(() => {
+    if (!profile?.following) return []
+    return reviews
+      .filter((rv) => rv.author.id === userId && !rv.author.owner)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .map((rv) => ({
+        key: restaurantKey(rv.restaurant),
+        name: rv.restaurant.name,
+        category: categoryName(rv.restaurant.category),
+        area: shortLocation(rv.restaurant.address),
+        rating: rv.rating,
+        at: rv.createdAt,
+      }))
+  }, [profile?.following, reviews, userId])
+  const tabs: ['taste' | 'visited' | 'top', string][] = [
+    ...(showTaste ? ([['taste', '입맛 궁합']] as ['taste', string][]) : []),
+    ['visited', `다녀온 곳 ${visited.length}`],
+    ['top', '별점 TOP 5'],
+  ]
+  const activeTab = tab && tabs.some(([v]) => v === tab) ? tab : tabs[0][0]
   const cardInput = useMemo(() => (match?.ready ? { myName, theirName: name, match } : null), [match, myName, name])
   const pickPlace = (key: string) => {
     const restaurant = restaurants.find((r) => restaurantKey(r) === key)
@@ -173,32 +209,60 @@ export default function ProfileSheet({
 
   return (
     <div className="my-page-layer my-page-layer--profile">
-      <div className={`my-page my-page--profile${scrolled ? ' profile-sheet--scrolled' : ''}`} role="dialog" aria-label={`${name}님 프로필`}>
-        {/* 내려 보면 위에 이름 띠가 깔려 닫기 버튼이 글·버튼 위에 겹쳐 보이지 않는다 */}
-        <div className="profile-sheet__bar" aria-hidden="true">
-          <span className="profile-sheet__bar-name">{name}</span>
+      <div className="my-page my-page--profile" role="dialog" aria-label={`${name}님 프로필`}>
+        {/* 위 줄 — 뒤로(닫기) · 이름 · ⋯(차단) */}
+        <div className="profile-sheet__top">
+          <button
+            type="button"
+            className="profile-sheet__top-btn"
+            onClick={() => (listKind ? setListKind(null) : onClose())}
+            aria-label={listKind ? `${name}님 프로필로 돌아가기` : '닫기'}
+          >
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
+          <span className="profile-sheet__top-name">{listKind ? (listKind === 'following' ? '팔로잉' : '팔로워') : name}</span>
+          {!isMe && profile && !listKind ? (
+            <div className="profile-sheet__more" ref={moreRef}>
+              <button
+                type="button"
+                className="profile-sheet__top-btn"
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-label="더 보기"
+                aria-expanded={moreOpen}
+              >
+                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="19" cy="12" r="1.8" />
+                </svg>
+              </button>
+              {moreOpen && (
+                <div className="profile-sheet__menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={profile.blocked ? undefined : 'profile-sheet__menu-danger'}
+                    onClick={() => {
+                      setMoreOpen(false)
+                      void toggleBlock()
+                    }}
+                    disabled={busy}
+                  >
+                    {profile.blocked ? '차단 해제' : `${name}님 차단`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="profile-sheet__top-btn" aria-hidden="true" />
+          )}
         </div>
-        <button type="button" className="my-page__close profile-sheet__close" onClick={onClose} aria-label="닫기">
-          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
 
-        <div
-          className="my-page__scroll"
-          onScroll={(e) => {
-            const next = e.currentTarget.scrollTop > 24
-            if (next !== scrolled) setScrolled(next)
-          }}
-        >
+        <div className="my-page__scroll">
           {listKind ? (
             <>
-              <button type="button" className="profile-sheet__back" onClick={() => setListKind(null)}>
-                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 5l-7 7 7 7" />
-                </svg>
-                {name}
-              </button>
               {error && (
                 <p className="my-page__error" role="alert">
                   {error}
@@ -235,34 +299,32 @@ export default function ProfileSheet({
             <>
               <div className="profile-sheet__hero">
                 <Avatar className={`my-page__avatar profile-sheet__avatar tone-${Math.abs(userId) % 4}`} src={profile?.avatar} name={name} />
-                <h2 className="profile-sheet__name">{name}</h2>
-                {profile?.alias && <p className="profile-sheet__nick">@{profile.nickname}</p>}
-                {profile?.blocked && <span className="profile-sheet__badge profile-sheet__badge--blocked">차단한 사용자</span>}
-                {profile?.followsMe && !profile.blocked && (
-                  <span className="profile-sheet__badge">
-                    <span className="profile-sheet__badge-dot" aria-hidden="true" />
-                    {profile.following ? '맞팔 중' : '나를 팔로우하고 있어요'}
-                  </span>
-                )}
-              </div>
-
-              <div className="profile-sheet__stats">
-                <div className="profile-sheet__stat">
-                  <span className="profile-sheet__stat-label">후기</span>
-                  <span className="profile-sheet__stat-value">{reviewCount >= 0 ? `${reviewCount}개` : '–'}</span>
+                <div className="profile-sheet__who">
+                  <p className="profile-sheet__name-line">
+                    <span className="profile-sheet__name">{name}</span>
+                    {profile?.blocked ? (
+                      <span className="profile-sheet__badge profile-sheet__badge--blocked">차단함</span>
+                    ) : (
+                      profile?.followsMe && <span className="profile-sheet__badge">{profile.following ? '맞팔' : '나를 팔로우'}</span>
+                    )}
+                  </p>
+                  {profile?.alias && <p className="profile-sheet__nick">@{profile.nickname}</p>}
+                  <p className="profile-sheet__stats">
+                    <span className="profile-sheet__stat">
+                      후기 <b>{reviewCount >= 0 ? reviewCount : '–'}</b>
+                    </span>
+                    {profile?.following && !profile.blocked && (
+                      <>
+                        <button type="button" className="profile-sheet__stat" onClick={() => setListKind('following')}>
+                          팔로잉 <b>{profile.followingCount >= 0 ? profile.followingCount : '–'}</b>
+                        </button>
+                        <button type="button" className="profile-sheet__stat" onClick={() => setListKind('followers')}>
+                          팔로워 <b>{profile.followerCount >= 0 ? profile.followerCount : '–'}</b>
+                        </button>
+                      </>
+                    )}
+                  </p>
                 </div>
-                {profile?.following && !profile.blocked && (
-                  <>
-                    <button type="button" className="profile-sheet__stat" onClick={() => setListKind('following')}>
-                      <span className="profile-sheet__stat-label">팔로잉</span>
-                      <span className="profile-sheet__stat-value">{profile.followingCount >= 0 ? profile.followingCount : '–'}</span>
-                    </button>
-                    <button type="button" className="profile-sheet__stat" onClick={() => setListKind('followers')}>
-                      <span className="profile-sheet__stat-label">팔로워</span>
-                      <span className="profile-sheet__stat-value">{profile.followerCount >= 0 ? profile.followerCount : '–'}</span>
-                    </button>
-                  </>
-                )}
               </div>
 
               {error && (
@@ -322,25 +384,63 @@ export default function ProfileSheet({
                     )}
                   </div>
 
-                  {showTaste && match && (
-                    <TasteMatchSection
-                      name={name}
-                      match={match}
-                      others={others}
-                      canShare={profile.followsMe && match.ready && match.common.length >= MIN_COMMON}
-                      onPickPlace={pickPlace}
-                      onShare={() => setShareOpen(true)}
-                    />
-                  )}
                   {profile.following ? (
-                    picks.length === 0 ? (
-                      <>
-                        <h3 className="profile-sheet__section-title">{name}의 별점 TOP 5</h3>
-                        <p className="profile-sheet__locked">아직 별점을 남긴 가게가 없어요.</p>
-                      </>
-                    ) : (
-                      <TopPicksCard className="profile-sheet__picks" name={name} picks={picks} onPick={onPick} />
-                    )
+                    <>
+                      <div className="profile-sheet__tabs" role="tablist" aria-label={`${name}님 보기`}>
+                        {tabs.map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === value}
+                            className={`profile-sheet__tab${activeTab === value ? ' profile-sheet__tab--on' : ''}`}
+                            onClick={() => setTab(value)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {activeTab === 'taste' && match && (
+                        <TasteMatchSection
+                          name={name}
+                          match={match}
+                          others={others}
+                          canShare={profile.followsMe && match.ready && match.common.length >= MIN_COMMON}
+                          onPickPlace={pickPlace}
+                          onShare={() => setShareOpen(true)}
+                        />
+                      )}
+                      {activeTab === 'visited' &&
+                        (visited.length === 0 ? (
+                          <p className="profile-sheet__locked">아직 다녀온 곳이 없어요.</p>
+                        ) : (
+                          <ul className="profile-sheet__visited">
+                            {visited.map((v) => (
+                              <li key={v.key}>
+                                <button type="button" className="profile-sheet__place" onClick={() => pickPlace(v.key)}>
+                                  <span className="profile-sheet__place-text">
+                                    <span className="profile-sheet__place-name">{v.name}</span>
+                                    <span className="profile-sheet__place-sub">
+                                      {v.category ?? '음식점'}
+                                      {v.area && ` · ${v.area}`} · {timeAgo(v.at)}
+                                    </span>
+                                  </span>
+                                  <span className="profile-sheet__place-rating">
+                                    <RatingStar />
+                                    {v.rating.toFixed(1)}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ))}
+                      {activeTab === 'top' &&
+                        (picks.length === 0 ? (
+                          <p className="profile-sheet__locked">아직 별점을 남긴 가게가 없어요.</p>
+                        ) : (
+                          <TopPicksCard className="profile-sheet__picks" name={name} picks={picks} onPick={onPick} />
+                        ))}
+                    </>
                   ) : (
                     <p className="profile-sheet__locked">
                       <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -349,15 +449,6 @@ export default function ProfileSheet({
                       </svg>
                       팔로우하면 {name}님의 후기와 별점을 볼 수 있어요.
                     </p>
-                  )}
-                  {!isMe && (
-                    <button type="button" className="profile-sheet__block" onClick={toggleBlock} disabled={busy}>
-                      <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                        <circle cx="12" cy="12" r="8.5" />
-                        <path d="M6 6l12 12" />
-                      </svg>
-                      {name}님 차단
-                    </button>
                   )}
                   </>
                   )}

@@ -5,6 +5,7 @@ import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
+import Avatar from './Avatar'
 import { STAR_SHAPE } from './Stars'
 import { BallotIcon } from './PollIcons'
 import './RestaurantSheet.css'
@@ -37,6 +38,8 @@ interface RestaurantSheetProps {
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
 const MAX_PHOTOS = 10
+// 후기 글 길이 (서버 Review.text 열 길이와 같게)
+const MAX_TEXT = 2000
 // 시트가 멈추는 높이 두 개 — 기본(지도 마커 바로 아래까지)과 거의 전체.
 // 시트 높이는 "전체"로 고정해 두고 아래로 밀어(transform) 기본 높이를 만든다 — 끄는 동안 레이아웃을 다시 계산하지 않아
 // 아래 버튼이 떨리거나 깜빡이지 않는다 (버튼은 같은 거리만큼 반대로 올려 화면 아래에 붙여 둔다).
@@ -367,15 +370,13 @@ interface SheetBodyProps {
   onTogglePoll: (place: { name: string; category: string; address: string }) => void
 }
 
-// 이웃 후기 슬라이더의 카드 사이 간격 (CSS .restaurant-sheet__reviews gap과 같게)
-const SLIDE_GAP = 10
-
 // 별점 옆에 붙는 한마디
 function ratingWord(value: number) {
   if (value < 1.5) return '별로였어요'
   if (value < 2.5) return '아쉬웠어요'
   if (value < 3.5) return '괜찮았어요'
   if (value < 4.5) return '좋았어요'
+  if (value < 5) return '아주 좋았어요'
   return '최고였어요'
 }
 
@@ -427,8 +428,6 @@ function SheetBody({
   const [keepPhotoIds, setKeepPhotoIds] = useState<number[]>([])
   // 상세 화면 ↔ 후기 쓰기 화면 (같은 시트 안에서 바꿔 끼운다)
   const [view, setView] = useState<'detail' | 'write'>('detail')
-  // 이웃 후기 슬라이더에서 지금 보이는 카드 — 그 후기의 댓글을 아래에 펼친다
-  const [activeSlide, setActiveSlide] = useState(0)
   const formRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const ids = useId()
@@ -450,8 +449,8 @@ function SheetBody({
 
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
   const myGroups = groups.filter((g) => restaurant.groupIds.includes(g.id))
-  const slide = Math.min(activeSlide, Math.max(restaurant.reviews.length - 1, 0))
-  const activeReview = restaurant.reviews[slide]
+  // 다녀간 이웃 — 아바타 묶음과 "N명" (한 사람이 한 가게에 후기 하나라 보통 후기 수와 같다)
+  const visitors = [...new Map(restaurant.reviews.map((r) => [r.author.id, r.author])).values()]
 
   function resetForm() {
     setDraftReview('')
@@ -563,16 +562,6 @@ function SheetBody({
     setDraftPhotos((prev) => [...prev, ...files].slice(0, MAX_PHOTOS - keepPhotoIds.length))
   }
 
-  // 슬라이더가 멈춘 자리의 카드 번호
-  function onSlide(e: React.UIEvent<HTMLDivElement>) {
-    const el = e.currentTarget
-    const first = el.firstElementChild as HTMLElement | null
-    if (!first) return
-    const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 2
-    const next = atEnd ? restaurant.reviews.length - 1 : Math.round(el.scrollLeft / (first.offsetWidth + SLIDE_GAP))
-    if (next !== activeSlide) setActiveSlide(next)
-  }
-
   // 이미 후기를 남긴 가게는 수정으로만 폼이 열린다
   const writing = view === 'write' && !(myReview && !editing)
   // 안드로이드 뒤로가기: 후기 쓰기 화면이면 시트를 닫지 않고 상세로 돌아간다
@@ -586,7 +575,7 @@ function SheetBody({
         <div className="restaurant-sheet__head restaurant-sheet__head--write">
           <button
             type="button"
-            className="restaurant-sheet__icon-btn restaurant-sheet__icon-btn--sm"
+            className="restaurant-sheet__icon-btn restaurant-sheet__icon-btn--plain"
             // 수정 중이면 고친 내용을 버리고 돌아간다 (예전 '수정 취소' 버튼 역할)
             onClick={() => (editing ? cancelEdit() : setView('detail'))}
             aria-label={editing ? '수정 취소하고 돌아가기' : '상세로 돌아가기'}
@@ -601,7 +590,7 @@ function SheetBody({
               {restaurant.name} · {restaurant.category}
             </p>
           </div>
-          <button type="button" className="restaurant-sheet__icon-btn restaurant-sheet__icon-btn--sm" onClick={onClose} aria-label="닫기">
+          <button type="button" className="restaurant-sheet__icon-btn restaurant-sheet__icon-btn--plain" onClick={onClose} aria-label="닫기">
             <CloseIcon />
           </button>
         </div>
@@ -609,19 +598,25 @@ function SheetBody({
         <div className="restaurant-sheet__scroll" ref={scrollRef}>
           <div className="review-form" ref={formRef}>
             <div className="review-form__rate">
-              <span id={`${ids}-rate`} className="review-form__rate-label">
+              <span id={`${ids}-rate`} className="review-form__sr">
                 별점
               </span>
               <StarPicker value={draftRating} onChange={setDraftRating} labelledBy={`${ids}-rate`} />
               <span className="review-form__score">
-                {draftRating.toFixed(1)} · {ratingWord(draftRating)}
+                <b>{draftRating.toFixed(1)}</b> · {ratingWord(draftRating)}
               </span>
             </div>
 
-            <label className="review-form__label" htmlFor={`${ids}-text`}>
-              후기
-            </label>
+            <div className="review-form__label-row">
+              <label className="review-form__label" htmlFor={`${ids}-text`}>
+                후기
+              </label>
+              <span className="review-form__hint">
+                {draftReview.length} / {MAX_TEXT}
+              </span>
+            </div>
             <textarea
+              maxLength={MAX_TEXT}
               id={`${ids}-text`}
               className="review-form__text"
               value={draftReview}
@@ -631,9 +626,12 @@ function SheetBody({
               rows={4}
             />
 
-            <label className="review-form__label" htmlFor={`${ids}-menu`}>
-              추천 메뉴
-            </label>
+            <div className="review-form__label-row">
+              <label className="review-form__label" htmlFor={`${ids}-menu`}>
+                추천 메뉴
+              </label>
+              <span className="review-form__hint">여러 개 넣을 수 있어요</span>
+            </div>
             <div className="review-form__menu-row">
               <input
                 id={`${ids}-menu`}
@@ -675,29 +673,13 @@ function SheetBody({
               </div>
             )}
 
-            <span className="review-form__label">사진</span>
+            <div className="review-form__label-row">
+              <span className="review-form__label">사진</span>
+              <span className="review-form__hint">
+                {photoCount} / {MAX_PHOTOS}
+              </span>
+            </div>
             <div className="review-form__photos">
-              {photoCount < MAX_PHOTOS && (
-                <label className="review-form__add-photo">
-                  <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                  <span className="review-form__add-photo-count">
-                    {photoCount}/{MAX_PHOTOS}
-                  </span>
-                  <input
-                    className="review-form__file"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    aria-label="사진 추가"
-                    onChange={(e) => {
-                      addPhotos(e.target.files)
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
-              )}
               {keepPhotoIds.map((id) => (
                 <span key={id} className="review-form__thumb">
                   <img src={photoUrl(editing?.photoUrls[editing.photoIds.indexOf(id)] ?? '')} alt="올려둔 사진" />
@@ -718,10 +700,26 @@ function SheetBody({
                   </button>
                 </span>
               ))}
-              {/* 빈 칸 자리 표시 — 사진이 몇 장 더 들어갈 수 있는지 보여주는 장식 */}
-              {Array.from({ length: Math.max(0, 3 - photoCount) }, (_, i) => (
-                <span key={`slot-${i}`} className="review-form__slot" aria-hidden="true" />
-              ))}
+              {photoCount < MAX_PHOTOS && (
+                <label className="review-form__add-photo">
+                  <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 8h3l2-2.5h6L17 8h3v11H4z" />
+                    <circle cx="12" cy="13" r="3.5" />
+                  </svg>
+                  <span className="review-form__add-photo-count">추가</span>
+                  <input
+                    className="review-form__file"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    aria-label="사진 추가"
+                    onChange={(e) => {
+                      addPhotos(e.target.files)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              )}
             </div>
           </div>
         </div>
@@ -739,6 +737,11 @@ function SheetBody({
               onClick={submitReview}
               disabled={!draftReview.trim() || submitting}
             >
+              {!submitting && (
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+              )}
               {submitting ? '저장 중…' : editing ? '수정 완료' : asOwner ? '주인장 후기 등록' : '후기 등록'}
             </button>
           </div>
@@ -760,7 +763,7 @@ function SheetBody({
         </div>
         <button
           type="button"
-          className={`favorite-star restaurant-sheet__icon-btn${favored ? ' favorite-star--on' : ''}`}
+          className={`favorite-star restaurant-sheet__icon-btn restaurant-sheet__icon-btn--plain${favored ? ' favorite-star--on' : ''}`}
           onClick={() => onToggleFavorite({ name: restaurant.name, address: restaurant.address })}
           aria-label={favored ? '찜 해제' : '찜하기'}
           aria-pressed={favored}
@@ -779,7 +782,7 @@ function SheetBody({
             <path d={STAR_SHAPE} />
           </svg>
         </button>
-        <button type="button" className="restaurant-sheet__icon-btn" onClick={onClose} aria-label="닫기">
+        <button type="button" className="restaurant-sheet__icon-btn restaurant-sheet__icon-btn--plain" onClick={onClose} aria-label="닫기">
           <CloseIcon />
         </button>
       </div>
@@ -787,17 +790,27 @@ function SheetBody({
       <div className="restaurant-sheet__scroll" ref={scrollRef}>
         <div className="restaurant-sheet__summary">
           {restaurant.reviews.length > 0 ? (
-            <span className="restaurant-sheet__rating">
-              <span className="restaurant-sheet__rating-value">
-                이웃 평균{' '}
-                <svg className="restaurant-sheet__rating-star" aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
+            <>
+              <span className="restaurant-sheet__score" aria-label={`이웃 평균 별점 ${avgRating.toFixed(1)}`}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22">
                   <path d={STAR_SHAPE} />
                 </svg>
-                {avgRating.toFixed(1)} · 후기 {restaurant.reviews.length}
+                {avgRating.toFixed(1)}
               </span>
-            </span>
+              <span className="restaurant-sheet__visitors">
+                <span className="restaurant-sheet__visitors-main">
+                  이웃 <b>{visitors.length}명</b>이 다녀왔어요
+                </span>
+                <span className="restaurant-sheet__visitors-sub">후기 {restaurant.reviews.length}개 평균</span>
+              </span>
+              <span className="restaurant-sheet__faces" aria-hidden="true">
+                {visitors.slice(0, 3).map((a) => (
+                  <Avatar key={a.id} className={`restaurant-sheet__face tone-${Math.abs(a.id) % 4}`} src={a.avatar} name={a.name} />
+                ))}
+              </span>
+            </>
           ) : (
-            <p className="restaurant-sheet__rating-value restaurant-sheet__rating-value--empty">아직 평가한 이웃이 없어요</p>
+            <p className="restaurant-sheet__rating-value--empty">아직 평가한 이웃이 없어요</p>
           )}
           {myGroups.length > 0 && (
             <span className="restaurant-sheet__groups" role="img" aria-label={myGroups.map((g) => g.label).join(', ')}>
@@ -814,41 +827,30 @@ function SheetBody({
         </div>
 
         <section className="restaurant-sheet__section">
-          <h3 className="restaurant-sheet__section-title">이웃들의 후기</h3>
+          <h3 className="restaurant-sheet__section-title">
+            이웃 후기 {restaurant.reviews.length > 0 && <span className="restaurant-sheet__section-count">{restaurant.reviews.length}</span>}
+          </h3>
           {restaurant.reviews.length === 0 ? (
             <p className="restaurant-sheet__empty">아직 이웃 후기가 없어요. 첫 후기를 남겨보세요!</p>
           ) : (
-            <>
-              <div className="restaurant-sheet__reviews" onScroll={onSlide}>
-                {restaurant.reviews.map((review) => (
-                  <div key={review.id} className="restaurant-sheet__review-block">
-                    <ReviewCard review={review} onEdit={editHandler(review)} />
-                  </div>
-                ))}
-              </div>
-              {restaurant.reviews.length > 1 && (
-                <div className="restaurant-sheet__dots" aria-hidden="true">
-                  {restaurant.reviews.map((review, i) => (
-                    <span key={review.id} className={`restaurant-sheet__dot${i === slide ? ' restaurant-sheet__dot--on' : ''}`} />
-                  ))}
-                </div>
-              )}
-              {/* 지금 보이는 후기의 댓글. key로 후기가 바뀌면 펼침·입력 상태를 비운다 */}
-              {activeReview && (
-                <div
-                  className="restaurant-sheet__thread"
-                  style={{ ['--thread-for' as string]: JSON.stringify(`${activeReview.author.name} 후기 ·`) }}
-                >
-                  <ReviewComments
-                    key={activeReview.id}
-                    comments={comments[activeReview.id] ?? []}
-                    myUserId={myUserId}
-                    onAdd={(text, parentId) => onAddComment(activeReview.id, text, parentId)}
-                    onDelete={(commentId) => onDeleteComment(activeReview.id, commentId)}
-                  />
-                </div>
-              )}
-            </>
+            <div className="restaurant-sheet__review-list">
+              {restaurant.reviews.map((review) => (
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  onEdit={editHandler(review)}
+                  footer={
+                    <ReviewComments
+                      compact
+                      comments={comments[review.id] ?? []}
+                      myUserId={myUserId}
+                      onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                      onDelete={(commentId) => onDeleteComment(review.id, commentId)}
+                    />
+                  }
+                />
+              ))}
+            </div>
           )}
         </section>
 
@@ -856,7 +858,7 @@ function SheetBody({
           <section className="restaurant-sheet__section">
             <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
             {/* 주인장 후기엔 댓글을 달지 않는다 */}
-            <div className="restaurant-sheet__reviews restaurant-sheet__reviews--stack">
+            <div className="restaurant-sheet__review-list">
               {ownerReviews.map((review) => (
                 <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
               ))}

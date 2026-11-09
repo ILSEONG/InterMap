@@ -78,7 +78,8 @@ export default function PersonPanel({
     .slice(0, 3)
 
   return (
-    <section className="person-panel glass glass--strong" aria-label={`${iGa(person.name)} 다녀온 곳`}>
+    <section className="person-panel" aria-label={`${iGa(person.name)} 다녀온 곳`}>
+      <span className="person-panel__grip" aria-hidden="true" />
       <div className="person-panel__head">
         <Avatar className={`person-panel__avatar tone-${Math.abs(person.id) % 4}`} src={person.avatar} name={person.name} />
         <div className="person-panel__who">
@@ -107,7 +108,7 @@ export default function PersonPanel({
       </div>
       {open && (
         <>
-          <div className="segmented person-panel__tabs" role="group" aria-label="정렬">
+          <div className="person-panel__tabs" role="group" aria-label="정렬">
             {(
               [
                 ['recent', '최근 다녀온 곳'],
@@ -117,7 +118,7 @@ export default function PersonPanel({
               <button
                 key={value}
                 type="button"
-                className={`segmented__item${tab === value ? ' segmented__item--active' : ''}`}
+                className={`person-panel__tab${tab === value ? ' person-panel__tab--on' : ''}`}
                 aria-pressed={tab === value}
                 onClick={() => setTab(value)}
               >

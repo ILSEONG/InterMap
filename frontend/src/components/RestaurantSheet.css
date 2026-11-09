@@ -135,6 +135,18 @@
     color 160ms ease;
 }
 
+.restaurant-sheet__icon-btn--plain {
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.restaurant-sheet__icon-btn.restaurant-sheet__icon-btn--plain.favorite-star--on {
+  background: transparent;
+  color: var(--accent);
+}
+
 .restaurant-sheet__icon-btn--sm {
   width: 44px;
   height: 44px;
@@ -214,52 +226,87 @@
 }
 
 .restaurant-sheet__summary {
-  margin-top: 12px;
+  margin-top: 14px;
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
-/* 평균 별점 알약 — 스토리 뷰어에선 안에 <Stars>도 같이 들어간다 */
-.restaurant-sheet__rating {
+/* 이웃 평균 — 크게 */
+.restaurant-sheet__score {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 17px;
-  background: var(--accent-tint);
-  color: var(--accent-ink);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.restaurant-sheet__rating .stars {
-  color: var(--accent-ink);
-  font-size: 14px;
-}
-
-.restaurant-sheet__rating-value {
-  display: inline-flex;
-  align-items: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--accent-ink);
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-.restaurant-sheet__rating-star {
-  width: 14px;
-  height: 14px;
-  margin: 0 1px 0 4px;
-  fill: currentColor;
+.restaurant-sheet__score svg {
+  fill: var(--accent);
+}
+
+.restaurant-sheet__visitors {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.restaurant-sheet__visitors-main {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.restaurant-sheet__visitors-main b {
+  font-weight: 800;
+  color: var(--mint-ink);
+}
+
+.restaurant-sheet__visitors-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* 다녀간 이웃 얼굴 — 셋까지 겹쳐서 */
+.restaurant-sheet__faces {
+  flex: none;
+  display: flex;
+}
+
+.restaurant-sheet__face {
+  width: 28px;
+  height: 28px;
+  margin-left: -8px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.restaurant-sheet__face:first-child {
+  margin-left: 0;
 }
 
 .restaurant-sheet__rating-value--empty {
   margin: 0;
   min-height: 34px;
-  font-weight: 500;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
   color: var(--ink-soft);
 }
 
@@ -293,6 +340,12 @@
   letter-spacing: -0.02em;
 }
 
+.restaurant-sheet__section-count {
+  margin-left: 4px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
 .restaurant-sheet__empty {
   margin: 0;
   padding: 18px 16px;
@@ -304,89 +357,84 @@
   text-align: center;
 }
 
-/* ───────── 이웃 후기 슬라이더 ───────── */
+/* ───────── 이웃 후기 목록 ───────── */
 
-.restaurant-sheet__reviews {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-  margin: -4px -18px -14px;
-  padding: 4px 18px 14px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-padding: 0 18px;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-}
-
-.restaurant-sheet__reviews::-webkit-scrollbar {
-  display: none;
-}
-
-/* 주인장 후기 — 가로 슬라이더 대신 세로로 쌓는다 */
-.restaurant-sheet__reviews--stack {
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
-  scroll-snap-type: none;
-}
-
-.restaurant-sheet__reviews--stack .review-card {
+/* 시트 안 후기는 카드 대신 구분선으로 나눈 평평한 목록 */
+.restaurant-sheet__review-list .review-card {
   width: auto;
+  padding: 16px 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
 
-.restaurant-sheet__review-block {
-  flex: none;
-  width: min(290px, calc(100vw - 72px));
-  display: flex;
-  flex-direction: column;
-  scroll-snap-align: start;
+.restaurant-sheet__review-list .review-card + .review-card {
+  border-top: 1px solid var(--line);
 }
 
-.restaurant-sheet__review-block .review-card {
-  flex: 1;
-  width: auto;
+.restaurant-sheet__review-list .review-card:first-child {
+  padding-top: 4px;
 }
 
-.restaurant-sheet__dots {
+/* 주인장 후기 — 테두리 고리 대신 왼쪽 주황 막대 */
+.restaurant-sheet__review-list .review-card--owner {
+  padding-left: 12px;
+  box-shadow: inset 3px 0 0 rgba(255, 159, 10, 0.55);
+}
+
+.restaurant-sheet__review-list .review-card__photo {
+  height: 112px;
+}
+
+/* 맨 아래 줄 — 댓글 N(펼치면 아래로 목록) · 신고 깃발 */
+.review-card__foot {
   margin-top: 10px;
   display: flex;
-  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.review-card__foot .review-card__report {
+  margin-left: auto;
+  width: 44px;
+  height: 36px;
+  margin-right: -10px;
+  border-radius: 18px;
+}
+
+.review-card__foot .review-comments--compact {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+
+.restaurant-sheet .review-comments--compact .comment__tray-toggle,
+.restaurant-sheet .review-comments--compact .comment__tray-toggle[aria-expanded='true'] {
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
   gap: 5px;
 }
 
-.restaurant-sheet__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(60, 60, 67, 0.3);
-  transition:
-    width 200ms ease,
-    background-color 200ms ease;
-}
-
-.restaurant-sheet__dot--on {
-  width: 16px;
-  background: var(--ink);
-}
-
-/* 지금 보이는 후기의 댓글 판. 펼침 버튼 앞에 "민지 후기 · "가 붙는다 */
-.restaurant-sheet__thread .review-comments {
-  margin-top: 12px;
-}
-
-.restaurant-sheet__thread .comment__tray-toggle::before {
-  content: var(--thread-for, none);
+.restaurant-sheet .review-comments--compact .comment__compose:not(.comment__compose--cancel),
+.restaurant-sheet .review-comments--compact .restaurant-sheet__comment-form {
+  background: var(--fill);
 }
 
 /* CTA — 후기 쓰기 / 내 후기 수정 */
 .restaurant-sheet__cta {
   width: 100%;
-  height: 56px;
+  height: 54px;
   border: none;
-  border-radius: 28px;
+  border-radius: 16px;
   background: var(--accent);
   color: #fff;
   font-size: 17px;
@@ -553,17 +601,24 @@
   overflow-wrap: anywhere;
 }
 
+/* 추천 메뉴 — 민트 칩 */
 .review-card__menu {
-  margin: 6px 0 0;
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 10px 0 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--mint-tint);
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--ink-2);
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--mint-ink);
+  overflow-wrap: anywhere;
 }
 
 .review-card__menu-label {
-  margin-right: 5px;
-  font-weight: 700;
-  color: var(--ink);
+  margin-right: 6px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -592,25 +647,6 @@
   overflow: hidden;
   background: #e9e8e4;
   cursor: pointer;
-}
-
-/* 시트 카드: 머리 → 사진 → 글 → 추천메뉴 (DOM은 글 → 사진, 스토리 뷰어가 그 순서를 쓴다) */
-.restaurant-sheet .review-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.restaurant-sheet .review-card__header {
-  order: -2;
-}
-
-.restaurant-sheet .review-card__photos {
-  order: -1;
-}
-
-/* 시트 카드에선 사진을 크게 — 높이를 맞추고 폭은 사진 비율대로 (잘리지 않게). 넘치면 가로로 넘겨 본다 */
-.restaurant-sheet .review-card__photo {
-  height: 150px;
 }
 
 /* 사진 전체가 보이게 — 높이에 맞추고 폭은 원래 비율대로. 아주 넓은 사진은 칸 안에 들어오게 줄인다 */
@@ -1016,31 +1052,57 @@ button.comment__author:active {
 .review-form {
   display: flex;
   flex-direction: column;
-  padding-top: 18px;
+  padding-top: 4px;
 }
 
-/* 별점 카드 */
+/* 별점 — 카드 없이 크게, 아래 구분선 */
 .review-form__rate {
-  border-radius: var(--radius-lg);
-  padding: 18px 10px 14px;
-  background: var(--surface-raised);
-  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  margin: 0 -18px;
+  padding: 4px 18px 18px;
+  border-bottom: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.review-form__rate-label {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink-2);
+.review-form__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .review-form__score {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-form__score b {
+  font-weight: 800;
   color: var(--accent-ink);
+}
+
+/* 항목 이름 + 오른쪽 보조 정보(글자 수, 사진 수, 안내) */
+.review-form__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 2px 8px;
+}
+
+.review-form__label-row .review-form__label {
+  margin: 0;
+}
+
+.review-form__hint {
+  font-size: 12px;
+  color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1101,14 +1163,13 @@ button.comment__author:active {
 
 .review-form__text {
   width: 100%;
-  height: 132px;
+  height: 120px;
   box-sizing: border-box;
   resize: none;
   border: none;
-  border-radius: 24px;
-  padding: 16px 18px;
-  background: var(--surface-raised);
-  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.1);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(118, 118, 128, 0.1);
   font-size: 16px;
   line-height: 1.55;
   color: var(--ink);
@@ -1121,58 +1182,43 @@ button.comment__author:active {
 
 /* 추천 메뉴 — 알약 입력 안에 추가 버튼, 담긴 메뉴는 아래 칩으로 */
 .review-form__menu-row {
-  height: 52px;
-  border-radius: 26px;
-  padding: 0 6px 0 18px;
-  background: var(--surface-raised);
-  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.1);
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.review-form__menu-row:focus-within {
-  outline: 3px solid var(--blue);
-  outline-offset: 2px;
 }
 
 .review-form__menu {
   flex: 1;
   min-width: 0;
   height: 50px;
-  padding: 0;
+  padding: 0 16px;
   border: none;
-  background: transparent;
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.1);
   font-size: 16px;
   color: var(--ink);
 }
 
+.review-form__text:focus-visible,
 .review-form__menu:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
 }
 
 .review-form__menu-add {
-  position: relative;
   flex: none;
-  height: 40px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 20px;
-  background: var(--accent-tint);
-  color: var(--accent-ink);
-  font-size: 14px;
+  height: 50px;
+  padding: 0 18px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.review-form__menu-add::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-}
-
 .review-form__menu-add:disabled {
-  background: rgba(118, 118, 128, 0.12);
   color: var(--ink-soft);
   cursor: not-allowed;
 }
@@ -1189,10 +1235,10 @@ button.comment__author:active {
   align-items: center;
   gap: 2px;
   height: 34px;
-  padding: 0 3px 0 12px;
-  border-radius: 17px;
-  background: var(--accent-tint);
-  color: var(--accent-ink);
+  padding: 0 4px 0 12px;
+  border-radius: 9px;
+  background: var(--ink);
+  color: #fff;
   font-size: 14px;
   font-weight: 700;
 }
@@ -1205,7 +1251,7 @@ button.comment__author:active {
   border: none;
   border-radius: 50%;
   background: none;
-  color: var(--accent-ink);
+  color: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1234,18 +1280,19 @@ button.comment__author:active {
 }
 
 .review-form__add-photo,
-.review-form__thumb,
-.review-form__slot {
+.review-form__thumb {
   position: relative;
   flex: none;
   width: 80px;
   height: 80px;
-  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  border-radius: 14px;
 }
 
+/* 사진 더하기 — 점선 칸, 사진들 맨 뒤 */
 .review-form__add-photo {
-  background: var(--accent-tint);
-  color: var(--accent-ink);
+  border: 1.5px dashed rgba(60, 60, 67, 0.3);
+  color: var(--ink-2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1266,7 +1313,7 @@ button.comment__author:active {
 
 .review-form__add-photo-count {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1277,11 +1324,6 @@ button.comment__author:active {
   height: 1px;
   opacity: 0;
   pointer-events: none;
-}
-
-.review-form__slot {
-  background: rgba(118, 118, 128, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.06);
 }
 
 .review-form__thumb {
@@ -1336,9 +1378,13 @@ button.comment__author:active {
 
 .review-form__submit {
   flex: 1;
-  height: 58px;
+  height: 54px;
   border: none;
-  border-radius: 29px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--accent);
   color: #fff;
   font-size: 17px;
@@ -1432,13 +1478,8 @@ button.comment__author:active {
 /* ───────── 움직임 줄이기 ───────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .restaurant-sheet,
-  .restaurant-sheet__dot {
+  .restaurant-sheet {
     transition: none;
-  }
-
-  .restaurant-sheet__reviews {
-    scroll-behavior: auto;
   }
 }
 
@@ -1455,11 +1496,11 @@ button.comment__author:active {
 
 .restaurant-sheet__poll {
   flex: none;
-  height: 56px;
+  height: 54px;
   padding: 0 18px;
   border: none;
-  border-radius: 28px;
-  background: rgba(118, 118, 128, 0.14);
+  border-radius: 16px;
+  background: rgba(118, 118, 128, 0.12);
   color: var(--ink);
   font: inherit;
   font-size: 15px;

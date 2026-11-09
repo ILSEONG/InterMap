@@ -9,18 +9,23 @@
 
 .board__find {
   flex: none;
-  height: 38px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 0 13px 0 10px;
+  padding: 0 8px;
   border: none;
-  border-radius: 19px;
-  background: rgba(118, 118, 128, 0.12);
+  border-radius: 12px;
+  background: none;
   color: var(--ink);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.board__close {
+  background: none;
+  color: var(--ink);
 }
 
 .board__tools {
@@ -37,9 +42,44 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border-radius: 22px;
-  background: rgba(118, 118, 128, 0.12);
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.1);
   color: var(--ink-soft);
+}
+
+/* 정렬 — 밑줄 탭 */
+.board__sort {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.board__sort-tab {
+  position: relative;
+  height: 40px;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.board__sort-tab--on {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.board__sort-tab--on::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
 }
 
 .board__search input {
@@ -88,7 +128,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 16px 4px 8px;
+  margin: 0 16px;
+  padding: 6px 0;
+}
+
+.board__row + .board__row {
+  border-top: 1px solid var(--line);
 }
 
 .board__open {
@@ -97,6 +142,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: -8px;
   padding: 8px;
   border: none;
   border-radius: 18px;
@@ -125,8 +171,8 @@
 }
 
 .board__avatar {
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -180,12 +226,35 @@
 }
 
 .board__latest .rating-star {
-  color: var(--star);
+  color: var(--accent);
   margin-left: 1px;
 }
 
 .board__when {
   color: var(--ink-soft);
+}
+
+.board__flag {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.board__flag--mutual {
+  color: var(--mint-ink);
+}
+
+.board__flag--new {
+  color: var(--accent-ink);
+}
+
+.board__sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .board__tags {
@@ -218,17 +287,28 @@
   color: var(--accent-ink);
 }
 
+/* 지도 보기 — 아이콘 위, 글자 아래. 연한 검정 */
 .board__map {
   flex: none;
-  height: 38px;
-  padding: 0 13px;
+  min-width: 56px;
+  height: 52px;
+  padding: 0 4px;
   border: none;
-  border-radius: 19px;
-  background: rgba(118, 118, 128, 0.12);
-  color: var(--ink);
-  font-size: 13.5px;
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-2);
+  font-size: 11.5px;
   font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   cursor: pointer;
+}
+
+.board__map:active {
+  background: rgba(118, 118, 128, 0.1);
 }
 
 .board__empty {
