@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useBackLayer } from '../lib/backLayer'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
 import { photoUrl } from '../lib/api'
@@ -36,10 +36,19 @@ interface RestaurantSheetProps {
 
 // 후기 한 개에 붙일 수 있는 사진 수 (서버 ReviewController.MAX_PHOTOS와 같게)
 const MAX_PHOTOS = 10
-// 손잡이를 이보다 아래로 끌어내리면 시트를 닫는다.
-const MIN_SHEET_HEIGHT = 140
-// 이 속도(px/ms) 이상으로 튕기면 끝까지 펼치거나 닫는다.
-const FLICK_VELOCITY = 0.5
+// 시트가 멈추는 높이 두 개 — 기본(지도 마커 바로 아래까지)과 거의 전체.
+// 시트 높이는 "전체"로 고정해 두고 아래로 밀어(transform) 기본 높이를 만든다 — 끄는 동안 레이아웃을 다시 계산하지 않아
+// 아래 버튼이 떨리거나 깜빡이지 않는다 (버튼은 같은 거리만큼 반대로 올려 화면 아래에 붙여 둔다).
+type Snap = 'default' | 'full'
+// 손을 뗀 순간의 속도로 이만큼(ms) 더 간다고 보고 가장 가까운 높이로 붙인다 (iOS 시트·지도 앱 방식)
+const PROJECT_MS = 200
+// 이만큼 움직여야 끌기로 본다 (그 전엔 탭·가로 스와이프일 수 있다)
+const DRAG_SLOP = 6
+// 기본 높이에서 아래로 이만큼(투영 거리) 넘기면 닫는다
+const CLOSE_DISTANCE = 80
+// 이 속도(px/ms) 이상으로 쓸면 거리와 상관없이 그 방향 높이로 (지도 앱 시트들이 0.3~0.5 정도)
+const FLICK = 0.35
+const defaultHeight = () => Math.round(window.innerHeight * 0.5 - 28)
 
 export default function RestaurantSheet({
   restaurant,
@@ -67,104 +76,209 @@ export default function RestaurantSheet({
   const shown = restaurant ?? lastRestaurantRef.current
 
   const sheetRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{
-    startY: number
-    startHeight: number
-    lastY: number
-    lastT: number
-    velocity: number
-  } | null>(null)
-  // null이면 CSS 기본 높이(마커 바로 아래까지). 손잡이를 끌면 사용자가 정한 높이로.
-  const [height, setHeight] = useState<number | null>(null)
-  // 드래그 중에는 height transition을 꺼서 손가락을 그대로 따라오게 한다.
+  const [snap, setSnap] = useState<Snap>('default')
+  // 드래그 중에는 transition을 꺼서 손가락을 그대로 따라오게 한다.
   const [dragging, setDragging] = useState(false)
-  // 끌기 중 다음 프레임에 쓸 높이
-  const frameRef = useRef<number | null>(null)
-  const pendingHeightRef = useRef<number | null>(null)
+  // 시트 실제 높이(= 전체 높이). 화면 회전·키보드에 따라 바뀐다
+  const [fullHeight, setFullHeight] = useState(() => Math.round(window.innerHeight * 0.92))
 
-  // 열릴 때마다 이전에 끌어놓은 높이를 버리고 기본 높이에서 시작한다.
-  // (닫힌 상태에서 리셋되므로 화면에는 보이지 않음)
+  // 열릴 때마다 기본 높이에서 시작한다 (닫힌 상태에서 바뀌므로 화면에는 보이지 않음)
   const wasOpenRef = useRef(open)
   if (open !== wasOpenRef.current) {
     wasOpenRef.current = open
-    if (open && height !== null) setHeight(null)
+    if (open && snap !== 'default') setSnap('default')
   }
 
-  function onGrabDown(e: React.PointerEvent<HTMLDivElement>) {
+  useLayoutEffect(() => {
     const sheet = sheetRef.current
     if (!sheet) return
-    dragRef.current = {
-      startY: e.clientY,
-      startHeight: sheet.getBoundingClientRect().height,
-      lastY: e.clientY,
-      lastT: e.timeStamp,
-      velocity: 0,
-    }
-    setDragging(true)
-    e.currentTarget.setPointerCapture(e.pointerId)
+    const measure = () => setFullHeight(sheet.offsetHeight)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(sheet)
+    return () => observer.disconnect()
+  }, [])
+
+  const offsetOf = (s: Snap) => (s === 'full' ? 0 : Math.max(0, fullHeight - defaultHeight()))
+  const offset = offsetOf(snap)
+
+  // 끌어서 닫으면 마지막으로 끌던 위치가 DOM에 남는다(React는 이전 값과 같다고 보고 안 고친다) — 열 때 맞춰 둔다
+  useLayoutEffect(() => {
+    const sheet = sheetRef.current
+    if (!open || !sheet) return
+    sheet.style.setProperty('--sheet-offset', `${offset}px`)
+    sheet.style.transform = `translateY(${offset}px)`
+    // 처음 열 때만 — 이후엔 settle()이 맞춘다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // 터치 리스너는 한 번만 붙이고 최신 값은 ref로 읽는다
+  const live = useRef({ snap, fullHeight, offsetOf, onClose })
+  live.current = { snap, fullHeight, offsetOf, onClose }
+
+  const dragRef = useRef<{ startY: number; startOffset: number; lastY: number; lastT: number; v: number; offset: number } | null>(null)
+  const frameRef = useRef<number | null>(null)
+
+  // 시트와 아래 버튼을 같은 프레임에 옮긴다 (둘 다 transform이라 레이아웃 없음)
+  function apply(px: number) {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    const y = Math.round(px)
+    sheet.style.transform = `translateY(${y}px)`
+    sheet.style.setProperty('--sheet-offset', `${y}px`)
   }
 
-  function onGrabMove(e: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    const sheet = sheetRef.current
-    if (!drag || !sheet) return
-    const dt = e.timeStamp - drag.lastT
+  function begin(y: number, t: number) {
+    const start = live.current.offsetOf(live.current.snap)
+    dragRef.current = { startY: y, startOffset: start, lastY: y, lastT: t, v: 0, offset: start }
+    setDragging(true)
+  }
+
+  function move(y: number, t: number) {
+    const d = dragRef.current
+    if (!d) return
+    const dt = t - d.lastT
     if (dt > 0) {
-      // 위로 움직이면 양수. 최근 움직임 위주로 지수 평활해 놓는 순간의 속도를 얻는다.
-      drag.velocity = 0.2 * drag.velocity + 0.8 * ((drag.lastY - e.clientY) / dt)
-      drag.lastY = e.clientY
-      drag.lastT = e.timeStamp
+      // 아래로 움직이면 양수. 최근 움직임 위주로 평활해 놓는 순간의 속도를 얻는다
+      d.v = 0.25 * d.v + 0.75 * ((y - d.lastY) / dt)
+      d.lastY = y
+      d.lastT = t
     }
-    const next = drag.startHeight + (drag.startY - e.clientY)
-    // 손가락을 따라오는 동안은 상태를 안 바꾼다 — 매 프레임 시트 본문(후기 카드·사진 썸네일)이 다시 렌더되면 끊긴다.
-    // 놓을 때 onGrabUp에서 한 번만 상태로 올린다.
-    // 포인터 이벤트는 화면 갱신보다 자주 와서, 프레임당 한 번·정수 px로만 높이를 바꾼다 (소수 px면 아래 버튼이 1px씩 떨린다)
-    pendingHeightRef.current = Math.round(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
+    let next = d.startOffset + (y - d.startY)
+    // 전체 높이보다 더 끌어올리면 고무줄처럼 버틴다
+    if (next < 0) next *= 0.25
+    d.offset = Math.min(next, live.current.fullHeight - 60)
     if (frameRef.current === null) {
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null
-        if (sheetRef.current && pendingHeightRef.current !== null) sheetRef.current.style.height = `${pendingHeightRef.current}px`
+        if (dragRef.current) apply(dragRef.current.offset)
       })
     }
   }
 
-  function onGrabUp(e: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
+  function settle(s: Snap) {
+    apply(live.current.offsetOf(s))
+    setSnap(s)
+  }
+
+  function end() {
+    const d = dragRef.current
     dragRef.current = null
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
     frameRef.current = null
-    pendingHeightRef.current = null
     setDragging(false)
-    if (!drag) return
-    const max = window.innerHeight * 0.92
-    // 끌면서 DOM에 직접 쓴 높이와 React 상태를 같이 맞춘다. 상태가 이미 같은 값이면 React가 아무것도
-    // 안 해서 끌던 높이에 멈춰 버리므로 DOM에도 직접 쓴다 (transition이 다시 켜져 부드럽게 간다)
-    const settle = (h: number) => {
-      const px = Math.round(h)
-      if (sheetRef.current) sheetRef.current.style.height = `${px}px`
-      setHeight(px)
-    }
-    const next = drag.startHeight + (drag.startY - e.clientY)
-    // 손잡이를 누르기만 했으면 그대로 (기본 높이를 px로 못 박지 않게)
-    if (Math.abs(drag.startY - e.clientY) < 4 && Math.abs(drag.velocity) <= FLICK_VELOCITY) return
-    // 위로 튕기면 끝까지 펼친다
-    if (drag.velocity > FLICK_VELOCITY) {
-      settle(max)
+    if (!d) return
+    const from = live.current.snap
+    const rest = live.current.offsetOf('default')
+    // 손가락을 멈췄다가 떼면 튕긴 게 아니다
+    const v = performance.now() - d.lastT > 90 ? 0 : d.v
+    const moved = d.offset - d.startOffset
+    const projected = d.offset + v * PROJECT_MS
+    if (Math.abs(moved) < 3 && Math.abs(v) < 0.2) {
+      settle(from)
       return
     }
-    // 아래로 튕기거나 최소 높이 아래로 끌어내리면 닫는다.
-    if (drag.velocity < -FLICK_VELOCITY || next < MIN_SHEET_HEIGHT) {
-      // 닫히는 동안 높이가 기본값으로 튀지 않게 지금 높이를 상태로 남긴다 — 다음에 열 때 위에서 기본 높이로 되돌린다
-      setHeight(Math.round(Math.min(Math.max(next, MIN_SHEET_HEIGHT), max)))
-      onClose()
+    // 펼친 상태 — 조금만(20%) 내리거나 아래로 튕기면 기본 높이로. 아무리 세게 쓸어도 닫지는 않는다
+    if (from === 'full') {
+      settle(v > FLICK || projected > rest * 0.2 ? 'default' : 'full')
       return
     }
-    settle(Math.min(Math.max(next, MIN_SHEET_HEIGHT), max))
+    // 기본 높이 — 조금만(20%) 올리거나 위로 튕기면 펼친다
+    if (v < -FLICK || projected < rest * 0.8) {
+      settle('full')
+      return
+    }
+    // 아래로 튕기거나 충분히 내리면 닫는다
+    if ((v > FLICK && moved > 16) || projected > rest + CLOSE_DISTANCE) {
+      live.current.onClose()
+      return
+    }
+    settle('default')
+  }
+
+  // 손가락: 손잡이·제목 줄은 바로 끌고, 본문은 "기본 높이에서 위로" 또는 "맨 위까지 올린 채 아래로"일 때만 시트를 끈다.
+  // 그 밖엔 본문 스크롤, 가로로 움직이면 후기 슬라이더에 양보한다
+  useEffect(() => {
+    const el = sheetRef.current
+    if (!el) return
+    let touch: { x: number; y: number; scroll: HTMLElement | null; decided: boolean; active: boolean } | null = null
+    const onStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      if (e.touches.length !== 1 || target.closest('input, textarea, .restaurant-sheet__footer, .review-card__photos')) {
+        touch = null
+        return
+      }
+      const t = e.touches[0]
+      touch = { x: t.clientX, y: t.clientY, scroll: target.closest('.restaurant-sheet__scroll'), decided: false, active: false }
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!touch) return
+      const t = e.touches[0]
+      const dx = t.clientX - touch.x
+      const dy = t.clientY - touch.y
+      if (!touch.decided) {
+        if (Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return
+        touch.decided = true
+        if (Math.abs(dx) > Math.abs(dy)) return
+        const sc = touch.scroll
+        const canDrag = !sc || (dy < 0 ? live.current.snap === 'default' : sc.scrollTop <= 0)
+        if (!canDrag) return
+        touch.active = true
+        begin(t.clientY, performance.now())
+      }
+      if (touch.active) {
+        e.preventDefault()
+        move(t.clientY, performance.now())
+      }
+    }
+    const onEnd = () => {
+      if (touch?.active) end()
+      touch = null
+    }
+    // 화면 밖(기본 높이일 때 시트 아래쪽)의 요소로 브라우저가 scrollIntoView를 하면 overflow:hidden인 시트 자체가
+    // 밀려 올라가 버튼·본문이 어긋난다 — 시트 자체 스크롤은 늘 0으로 되돌린다
+    const onSheetScroll = () => {
+      if (el.scrollTop !== 0) el.scrollTop = 0
+    }
+    // 기본 높이에서 댓글·입력칸을 누르면 먼저 펼친다 (키보드가 올라와도 입력칸이 보이게)
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement
+      if (target.matches('input, textarea') && live.current.snap === 'default') settle('full')
+    }
+    el.addEventListener('scroll', onSheetScroll)
+    el.addEventListener('focusin', onFocusIn)
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      el.removeEventListener('scroll', onSheetScroll)
+      el.removeEventListener('focusin', onFocusIn)
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+    // begin·move·end는 ref만 읽는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 마우스(데스크톱 웹)는 손잡이로만 끈다 — 터치는 위 리스너가 맡는다
+  function onGrabDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== 'mouse') return
+    begin(e.clientY, performance.now())
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  function onGrabMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'mouse') move(e.clientY, performance.now())
+  }
+  function onGrabUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'mouse') end()
   }
 
   // 후기 쓰기 화면으로 넘어가면 시트를 거의 끝까지 펼친다 (입력칸·사진이 다 들어오도록)
   function expand() {
-    setHeight(window.innerHeight * 0.92)
+    settle('full')
   }
 
   return (
@@ -172,7 +286,14 @@ export default function RestaurantSheet({
       <div
         ref={sheetRef}
         className={`restaurant-sheet${dragging ? ' restaurant-sheet--dragging' : ''}`}
-        style={height !== null ? { height } : undefined}
+        // 열려 있으면 기본 높이만큼 아래로 밀어 둔다 (닫히면 CSS가 화면 밖으로). --sheet-rest는 본문 끝 여백
+        style={
+          {
+            ...(open ? { transform: `translateY(${offset}px)` } : null),
+            '--sheet-offset': `${offset}px`,
+            '--sheet-rest': `${offset}px`,
+          } as React.CSSProperties
+        }
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={shown ? `${shown.name} 상세` : '음식점 상세'}

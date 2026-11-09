@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Restaurant, FriendGroup } from '../data/model'
-import { loadNaverMaps } from '../lib/loadNaverMaps'
+import { loadNaverMaps, useGlMap } from '../lib/loadNaverMaps'
 import { clusterPins, clusterDistanceAt } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
 import { SUMMARY_MAX_ZOOM } from '../lib/api'
@@ -138,6 +138,11 @@ export default function MapCanvas({
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map())
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null)
   // 목록에서 방금 고른 가게. 지도를 옮긴 뒤 어느 핀이었는지 표시해준다.
+  // GL 지도는 줌 숫자가 이미지 지도와 한 단계 다를 수 있다 (타일 크기 차이). 군집·요약 셀 계산은 전부
+  // 이미지 지도(256px 타일) 기준이라, 화면 폭과 경도 폭으로 실제 축척을 재서 그 차이를 더해 쓴다.
+  const zoomOffsetRef = useRef(0)
+  const zoomOf = (map: naver.maps.Map) => map.getZoom() + zoomOffsetRef.current
+  const toMapZoom = (z: number) => z - zoomOffsetRef.current
   const [focusedId, setFocusedId] = useState<string | undefined>(undefined)
   const focusedRef = useRef<string | undefined>(undefined)
   const restaurantsRef = useRef(restaurants)
@@ -147,6 +152,8 @@ export default function MapCanvas({
   onViewportChangeRef.current = onViewportChange
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
+  // GL(벡터) 지도로 떴는지 — 핀 CSS를 GL에 맞게 가볍게 한다
+  const [glActive, setGlActive] = useState(false)
   const [zoom, setZoom] = useState(DEFAULT_ZOOM)
   // 화면에 보이는 영역(여유 포함). 이 밖의 핀은 마커를 만들지 않는다 —
   // 데이터가 수백 건을 넘으면 화면 밖 마커 DOM이 지도 이동을 끊기게 만든다.
@@ -204,7 +211,7 @@ export default function MapCanvas({
         if (!map || !window.naver) return
         map.morph(
           new window.naver.maps.LatLng(coords.latitude, coords.longitude),
-          Math.max(map.getZoom(), DEFAULT_ZOOM),
+          toMapZoom(Math.max(zoomOf(map), DEFAULT_ZOOM)),
           PAN_TRANSITION,
         )
       },
@@ -253,7 +260,7 @@ export default function MapCanvas({
     setFocusedId(restaurant.id)
     const target = new window.naver.maps.LatLng(restaurant.lat, restaurant.lng)
     // 요약 모드(줌 ≤15)에서는 개별 핀이 안 그려지므로 핀이 보이는 줌까지 당겨서 간다
-    if (map.getZoom() <= SUMMARY_MAX_ZOOM) map.morph(target, SUMMARY_MAX_ZOOM + 1, PAN_TRANSITION)
+    if (zoomOf(map) <= SUMMARY_MAX_ZOOM) map.morph(target, toMapZoom(SUMMARY_MAX_ZOOM + 1), PAN_TRANSITION)
     else map.panTo(target, PAN_TRANSITION)
   }, [])
 
@@ -270,7 +277,21 @@ export default function MapCanvas({
           minZoom: 9,
           scaleControl: false,
           mapDataControl: false,
-        })
+          ...(useGlMap ? { gl: true } : null),
+        } as naver.maps.MapOptions)
+        // 실제 축척으로 줌 차이를 잰다 (이미지 지도면 0, GL이 512px 타일이면 1)
+        const span = map.getBounds() as naver.maps.LatLngBounds
+        const width = mapDivRef.current.clientWidth
+        const lngSpan = span.getNE().lng() - span.getSW().lng()
+        if (width > 0 && lngSpan > 0) {
+          const offset = Math.round(Math.log2((width * 360) / (256 * lngSpan)) - map.getZoom())
+          if (offset !== 0 && Math.abs(offset) <= 2) {
+            zoomOffsetRef.current = offset
+            map.setOptions({ minZoom: 9 - offset, maxZoom: MAX_ZOOM - offset })
+            map.setZoom(DEFAULT_ZOOM - offset, false)
+          }
+        }
+        setGlActive(useGlMap)
         infoWindowRef.current = new naver.maps.InfoWindow({
           content: '',
           borderWidth: 0,
@@ -285,7 +306,7 @@ export default function MapCanvas({
         const updateViewport = () => {
           // 모바일 핀치는 소수점 줌으로 멈춘다. 그대로 쓰면 idle마다 군집이
           // 미세하게 달라져 마커 키가 흔들리므로 정수로 반올림해서 쓴다.
-          const nextZoom = Math.round(map.getZoom())
+          const nextZoom = Math.round(zoomOf(map))
           const bounds = map.getBounds() as naver.maps.LatLngBounds
           const sw = bounds.getSW()
           const ne = bounds.getNE()
@@ -348,7 +369,7 @@ export default function MapCanvas({
         setFocusedId(restaurant.id)
         // 이 묶음이 최대 줌에서 몇 덩이로 갈라지는지. 1이면 전부 한 건물이라 확대해도 소용없다.
         const splitCount = clusterPins(pin.items, MAX_ZOOM).length
-        let targetZoom = map.getZoom()
+        let targetZoom = zoomOf(map)
         if (splitCount === 1) {
           // 건물 단위가 보이는 수준까지만 확대
           targetZoom = Math.max(targetZoom, DETAIL_ZOOM)
@@ -360,7 +381,7 @@ export default function MapCanvas({
           }
         }
         // 목록에서 이미 골랐으니 한 번 더 탭하게 하지 않고 상세를 바로 연다
-        map.morph(new window.naver.maps.LatLng(restaurant.lat, restaurant.lng), targetZoom, PAN_TRANSITION)
+        map.morph(new window.naver.maps.LatLng(restaurant.lat, restaurant.lng), toMapZoom(targetZoom), PAN_TRANSITION)
         onPick(restaurant)
       })
     },
@@ -408,10 +429,10 @@ export default function MapCanvas({
         // 서버 요약 셀은 개별 목록이 없다 — 확대해서 풀어주는 것만 한다.
         if (pin.items.length === 0) {
           const map = mapRef.current
-          if (map && map.getZoom() < MAX_ZOOM) {
+          if (map && zoomOf(map) < MAX_ZOOM) {
             map.morph(
               new naver.maps.LatLng(pin.lat, pin.lng),
-              Math.min(map.getZoom() + CLUSTER_TAP_ZOOM_STEP, MAX_ZOOM),
+              toMapZoom(Math.min(zoomOf(map) + CLUSTER_TAP_ZOOM_STEP, MAX_ZOOM)),
               PAN_TRANSITION,
             )
           }
@@ -430,10 +451,10 @@ export default function MapCanvas({
         // 단, 최대 줌에서도 안 갈라지는 자리(같은 건물)는 확대해봐야 소용없으니 바로 목록.
         if (pin.items.length >= ZOOM_INSTEAD_OF_LIST && clusterPins(pin.items, MAX_ZOOM).length > 1) {
           const map = mapRef.current
-          if (map && map.getZoom() < MAX_ZOOM) {
+          if (map && zoomOf(map) < MAX_ZOOM) {
             map.morph(
               new naver.maps.LatLng(pin.lat, pin.lng),
-              Math.min(map.getZoom() + CLUSTER_TAP_ZOOM_STEP, MAX_ZOOM),
+              toMapZoom(Math.min(zoomOf(map) + CLUSTER_TAP_ZOOM_STEP, MAX_ZOOM)),
               PAN_TRANSITION,
             )
             return
@@ -470,7 +491,7 @@ export default function MapCanvas({
   }, [focus, mapReady, focusRestaurant])
 
   return (
-    <div className="map-canvas">
+    <div className={`map-canvas${glActive ? ' map-canvas--gl' : ''}`}>
       <div ref={mapDivRef} className="map-canvas__surface" />
       <button
         type="button"

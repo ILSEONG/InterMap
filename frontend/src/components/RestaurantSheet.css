@@ -34,8 +34,9 @@
   width: calc(100% - 12px);
   max-width: 480px;
   margin-bottom: 6px;
-  /* 고른 마커가 화면 정중앙에 오므로, 기본 높이는 마커 바로 아래(화면 절반)까지만 */
-  height: calc(50vh - 28px);
+  /* 높이는 "전체"로 고정 — 기본 높이(화면 절반)는 RestaurantSheet가 아래로 밀어(translateY) 만든다.
+     끄는 동안 높이를 바꾸지 않아 레이아웃이 다시 계산되지 않는다 */
+  height: calc(92vh);
   max-height: calc(100% - 6px - env(safe-area-inset-top));
   border-radius: var(--radius-sheet);
   background: var(--glass-strong);
@@ -51,9 +52,7 @@
   overflow: hidden;
   /* 그림자까지 화면 밖으로 */
   transform: translateY(calc(100% + 40px));
-  transition:
-    transform 300ms cubic-bezier(0.32, 0.72, 0, 1),
-    height 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1);
   will-change: transform;
 }
 
@@ -62,7 +61,8 @@
 }
 
 /* 드래그 중에는 손가락을 즉시 따라와야 하므로 transition을 끈다 */
-.restaurant-sheet--dragging {
+.restaurant-sheet--dragging,
+.restaurant-sheet--dragging .restaurant-sheet__footer {
   transition: none;
 }
 
@@ -140,13 +140,20 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 18px 16px;
+  /* 기본 높이일 땐 시트 아래쪽이 화면 밖이다 — 그만큼 여백을 둬 마지막 후기까지 버튼 위로 올라오게 */
+  padding: 0 18px calc(16px + var(--sheet-rest, 0px));
 }
 
-/* 하단 고정 버튼 줄 */
+/* 하단 고정 버튼 줄 — 시트를 민 거리만큼 거꾸로 올려 항상 화면 아래에 붙어 있다 (둘 다 transform이라 함께 움직인다) */
 .restaurant-sheet__footer {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   padding: 10px 18px max(22px, env(safe-area-inset-bottom));
+  background: var(--glass-strong);
+  border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
+  transform: translateY(calc(-1 * var(--sheet-offset, 0px)));
+  transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* ───────── 상세 화면: 이름·평균 ───────── */
@@ -566,8 +573,9 @@
 
 .review-card__photo {
   flex: 0 0 auto;
-  width: 72px;
   height: 64px;
+  min-width: 48px;
+  max-width: 100%;
   padding: 0;
   border: none;
   border-radius: 12px;
@@ -590,16 +598,18 @@
   order: -1;
 }
 
-/* 시트 카드에선 두세 장이 카드 폭을 나눠 채운다 */
+/* 시트 카드에선 사진을 크게 — 높이를 맞추고 폭은 사진 비율대로 (잘리지 않게). 넘치면 가로로 넘겨 본다 */
 .restaurant-sheet .review-card__photo {
-  flex: 1 0 72px;
+  height: 150px;
 }
 
+/* 사진 전체가 보이게 — 높이에 맞추고 폭은 원래 비율대로. 아주 넓은 사진은 칸 안에 들어오게 줄인다 */
 .review-card__photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 /* ───────── 사진 크게 보기 ───────── */
