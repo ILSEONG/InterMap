@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Restaurant, Review } from '../data/model'
 import type { SocialData, UserProfile } from '../lib/api'
 import { blockUser, fetchUserProfile, fetchUserSocial, followUser, restaurantKey, unblockUser, unfollowUser, setAlias } from '../lib/api'
 import type { ProfileList } from '../lib/profileStack'
+import { peek, remember } from '../lib/swr'
 import { categoryName, MIN_COMMON, tasteMatch } from '../lib/taste'
 import { shortLocation, topPicksOf } from '../lib/topPicks'
 import Avatar from './Avatar'
@@ -56,7 +57,12 @@ export default function ProfileSheet({
   onPick,
   onClose,
 }: ProfileSheetProps) {
-  const [fetched, setProfile] = useState<UserProfile | null>(null)
+  // 전에 본 프로필이면 기억해 둔 걸로 바로 (숫자까지) — 새 값은 뒤에서 받아 바꾼다 (lib/swr)
+  const [fetched, setFetched] = useState<UserProfile | null>(() => peek<UserProfile>(`profile:${userId}`) ?? null)
+  const setProfile = (p: UserProfile) => {
+    remember(`profile:${userId}`, p)
+    setFetched(p)
+  }
   // 서버 응답 전에는 앱이 아는 값으로 — 팔로잉·팔로워 수만 비워 둔다(-1). 응답이 오면 숫자만 바뀌어 화면이 튀지 않는다
   const profile = useMemo<UserProfile | null>(
     () => fetched ?? (known ? { id: userId, ...known, followingCount: -1, followerCount: -1, blocked: false } : null),
@@ -64,14 +70,20 @@ export default function ProfileSheet({
   )
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [lists, setLists] = useState<SocialData | null>(null)
+  const [lists, setListsState] = useState<SocialData | null>(() => peek<SocialData>(`people:${userId}`) ?? null)
+  const setLists = (data: SocialData | null) => {
+    if (data) remember(`people:${userId}`, data)
+    // 버리면(관계가 바뀌면) 다음에 펼칠 때 새로 받는다
+    else listsFetched.current = false
+    setListsState(data)
+  }
+  // 목록은 이 프로필을 연 동안 한 번만 새로 받는다 (기억해 둔 게 있으면 그걸 먼저 보여 준다)
+  const listsFetched = useRef(false)
   const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    setProfile(null)
     setError(null)
-    setLists(null)
     fetchUserProfile(userId)
       .then((p) => {
         if (!cancelled) setProfile(p)
@@ -82,11 +94,13 @@ export default function ProfileSheet({
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
   // 목록은 처음 펼칠 때 한 번 받는다
   useEffect(() => {
-    if (!listKind || lists) return
+    if (!listKind || listsFetched.current) return
+    listsFetched.current = true
     let cancelled = false
     fetchUserSocial(userId)
       .then((data) => {
@@ -98,7 +112,8 @@ export default function ProfileSheet({
     return () => {
       cancelled = true
     }
-  }, [listKind, lists, userId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKind, userId])
 
   // 팔로우/언팔로우/별칭은 소셜 목록을 새로 받고, 프로필도 바뀐 관계로 다시 받는다.
   // 목록 속 팔로우 버튼 상태도 바뀐다 — 펼쳐 있으면 제자리에서 다시 받고, 아니면 버려서 다음에 새로 받는다.
@@ -211,11 +226,7 @@ export default function ProfileSheet({
                 </p>
               )}
               {lists === null ? (
-                !error && (
-                  <p className="my-page__hint profile-sheet__loading" role="status">
-                    불러오는 중…
-                  </p>
-                )
+                !error && <ListSkeleton />
               ) : (
                 <PersonList
                   title={listKind === 'following' ? '팔로잉' : '팔로워'}
@@ -378,6 +389,20 @@ export default function ProfileSheet({
         </div>
       </div>
       {shareOpen && cardInput && <TasteCardSheet input={cardInput} onClose={() => setShareOpen(false)} />}
+    </div>
+  )
+}
+
+// 목록을 처음 받는 동안 — 실제 줄과 같은 높이의 회색 줄 (받아 오면 그 자리에 그대로 채워져 화면이 밀리지 않는다)
+function ListSkeleton() {
+  return (
+    <div className="profile-sheet__skeleton" role="status" aria-label="불러오는 중">
+      {Array.from({ length: 5 }, (_, i) => (
+        <div key={i} className="profile-sheet__skeleton-row">
+          <span className="profile-sheet__skeleton-avatar" />
+          <span className="profile-sheet__skeleton-bar" style={{ width: `${46 + ((i * 17) % 30)}%` }} />
+        </div>
+      ))}
     </div>
   )
 }

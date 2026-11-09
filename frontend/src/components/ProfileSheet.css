@@ -294,3 +294,30 @@ button.profile-sheet__stat:active {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* 목록 자리표시 — 실제 줄과 같은 높이 */
+.profile-sheet__skeleton {
+  margin-top: 8px;
+}
+
+.profile-sheet__skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 60px;
+  padding: 0 8px;
+}
+
+.profile-sheet__skeleton-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(118, 118, 128, 0.12);
+}
+
+.profile-sheet__skeleton-bar {
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(118, 118, 128, 0.12);
+}
