@@ -38,6 +38,17 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
             + " where r.geocoded is null and r.status = :status order by r.id")
     List<Object[]> findUngeocoded(Restaurant.Status status, Pageable page);
 
+    // 위와 같지만 다른 가게와 좌표가 똑같이 겹친 것만 — 필지 하나에 몰린 가게라 제일 먼저 고친다
+    @Query("select r.id, r.roadAddress, r.address, r.lat, r.lng from Restaurant r"
+            + " where r.geocoded is null and r.status = :status"
+            + " and exists (select 1 from Restaurant o where o.lat = r.lat and o.lng = r.lng and o.id <> r.id)"
+            + " order by r.id")
+    List<Object[]> findUngeocodedStacked(Restaurant.Status status, Pageable page);
+
+    long countByStatusAndGeocoded(Restaurant.Status status, Boolean geocoded);
+
+    long countByStatusAndGeocodedIsNull(Restaurant.Status status);
+
     @Modifying
     @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = true where r.id = :id")
     void relocate(Long id, double lat, double lng);
