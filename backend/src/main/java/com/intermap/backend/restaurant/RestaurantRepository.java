@@ -1,6 +1,8 @@
 package com.intermap.backend.restaurant;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -30,4 +32,17 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
             + " where r.status = :status and r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng"
             + " group by floor(r.lat / :cell), floor(r.lng / :cell)")
     List<Object[]> summarize(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng, double cell);
+
+    // 좌표를 아직 안 고친 영업중 가게 — [id, roadAddress, address, lat, lng]. 엔티티 대신 필요한 열만.
+    @Query("select r.id, r.roadAddress, r.address, r.lat, r.lng from Restaurant r"
+            + " where r.geocoded is null and r.status = :status order by r.id")
+    List<Object[]> findUngeocoded(Restaurant.Status status, Pageable page);
+
+    @Modifying
+    @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = true where r.id = :id")
+    void relocate(Long id, double lat, double lng);
+
+    @Modifying
+    @Query("update Restaurant r set r.geocoded = false where r.id = :id")
+    void markGeocodeFailed(Long id);
 }

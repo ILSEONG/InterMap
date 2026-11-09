@@ -21,6 +21,9 @@ Render 대시보드(https://dashboard.render.com)에서 GitHub 저장소를 Web 
 - DB는 Neon Postgres. Environment 탭에 `JDBC_URL`(Neon 접속 문자열)과 `LOCALDATA_AUTH_KEY`,
   `BREVO_API_KEY`(이메일 인증번호 발송, Render 무료 티어는 SMTP 차단이라 Brevo API 사용), OAuth 키,
   `ADMIN_PASSWORD`(관리자 계정 비밀번호 — 기본값이 없어 비우면 관리자 계정이 안 생긴다. 바꾸고 재배포하면 교체된다)를 넣는다.
+- 가게 좌표 보정: `NCP_MAP_KEY_ID`, `NCP_MAP_KEY`(NCP 콘솔 > AI·NAVER API > Application에서 **Geocoding**을 켠 앱의 Client ID / Client Secret).
+  넣으면 서버가 뒤에서 가게 좌표를 네이버 지오코딩 좌표로 하나씩 고친다(서울 전체 약 11만 건, 몇 시간). 로그에 "가게 좌표 보정 끝"이 찍히면 완료.
+  인허가 좌표는 필지 기준이라 실제 가게 자리와 어긋나고, 한강공원 매점은 강 위에 찍힌다.
 - 환경변수 저장 시 자동 재배포된다. 로그는 Logs 탭.
 - 확인: `https://intermap-be.onrender.com/api/restaurants?q=김밥` 접속 시 JSON 응답.
 
