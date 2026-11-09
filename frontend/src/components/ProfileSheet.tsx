@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Restaurant, Review } from '../data/model'
 import type { SocialData, UserProfile } from '../lib/api'
 import { blockUser, fetchUserProfile, fetchUserSocial, followUser, restaurantKey, unblockUser, unfollowUser, setAlias } from '../lib/api'
 import type { ProfileList } from '../lib/profileStack'
-import { peek, remember } from '../lib/swr'
+import { cacheKey, queryClient, useServerState } from '../lib/query'
 import { categoryName, MIN_COMMON, tasteMatch } from '../lib/taste'
 import { shortLocation, topPicksOf } from '../lib/topPicks'
 import Avatar from './Avatar'
@@ -57,12 +57,8 @@ export default function ProfileSheet({
   onPick,
   onClose,
 }: ProfileSheetProps) {
-  // 전에 본 프로필이면 기억해 둔 걸로 바로 (숫자까지) — 새 값은 뒤에서 받아 바꾼다 (lib/swr)
-  const [fetched, setFetched] = useState<UserProfile | null>(() => peek<UserProfile>(`profile:${userId}`) ?? null)
-  const setProfile = (p: UserProfile) => {
-    remember(`profile:${userId}`, p)
-    setFetched(p)
-  }
+  // 전에 본 프로필이면 받아 둔 걸로 바로 (숫자까지) — 새 값은 뒤에서 받아 바꾼다 (lib/query)
+  const [fetched, setProfile, profileQuery] = useServerState<UserProfile>(['profile', userId], () => fetchUserProfile(userId))
   // 서버 응답 전에는 앱이 아는 값으로 — 팔로잉·팔로워 수만 비워 둔다(-1). 응답이 오면 숫자만 바뀌어 화면이 튀지 않는다
   const profile = useMemo<UserProfile | null>(
     () => fetched ?? (known ? { id: userId, ...known, followingCount: -1, followerCount: -1, blocked: false } : null),
@@ -70,50 +66,23 @@ export default function ProfileSheet({
   )
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [lists, setListsState] = useState<SocialData | null>(() => peek<SocialData>(`people:${userId}`) ?? null)
+  // 팔로잉·팔로워 목록은 처음 펼칠 때 받는다 (받아 둔 게 있으면 그걸 먼저 보여 준다)
+  const [listData, setListData, listsQuery] = useServerState<SocialData>(['people', userId], () => fetchUserSocial(userId), {
+    enabled: Boolean(listKind),
+  })
+  const lists = listData ?? null
   const setLists = (data: SocialData | null) => {
-    if (data) remember(`people:${userId}`, data)
+    if (data) setListData(data)
     // 버리면(관계가 바뀌면) 다음에 펼칠 때 새로 받는다
-    else listsFetched.current = false
-    setListsState(data)
+    else queryClient.removeQueries({ queryKey: cacheKey('people', userId), exact: true })
   }
-  // 목록은 이 프로필을 연 동안 한 번만 새로 받는다 (기억해 둔 게 있으면 그걸 먼저 보여 준다)
-  const listsFetched = useRef(false)
+  const loadError = profileQuery.error ?? listsQuery.error
+  useEffect(() => {
+    if (loadError) setError(loadError.message)
+  }, [loadError])
   const [shareOpen, setShareOpen] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    setError(null)
-    fetchUserProfile(userId)
-      .then((p) => {
-        if (!cancelled) setProfile(p)
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message)
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
-
-  // 목록은 처음 펼칠 때 한 번 받는다
-  useEffect(() => {
-    if (!listKind || listsFetched.current) return
-    listsFetched.current = true
-    let cancelled = false
-    fetchUserSocial(userId)
-      .then((data) => {
-        if (!cancelled) setLists(data)
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message)
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listKind, userId])
+  // 프로필을 아래로 내렸는지 — 위쪽 이름 띠를 보일지
+  const [scrolled, setScrolled] = useState(false)
 
   // 팔로우/언팔로우/별칭은 소셜 목록을 새로 받고, 프로필도 바뀐 관계로 다시 받는다.
   // 목록 속 팔로우 버튼 상태도 바뀐다 — 펼쳐 있으면 제자리에서 다시 받고, 아니면 버려서 다음에 새로 받는다.
@@ -204,14 +173,24 @@ export default function ProfileSheet({
 
   return (
     <div className="my-page-layer my-page-layer--profile">
-      <div className="my-page my-page--profile" role="dialog" aria-label={`${name}님 프로필`}>
+      <div className={`my-page my-page--profile${scrolled ? ' profile-sheet--scrolled' : ''}`} role="dialog" aria-label={`${name}님 프로필`}>
+        {/* 내려 보면 위에 이름 띠가 깔려 닫기 버튼이 글·버튼 위에 겹쳐 보이지 않는다 */}
+        <div className="profile-sheet__bar" aria-hidden="true">
+          <span className="profile-sheet__bar-name">{name}</span>
+        </div>
         <button type="button" className="my-page__close profile-sheet__close" onClick={onClose} aria-label="닫기">
           <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
 
-        <div className="my-page__scroll">
+        <div
+          className="my-page__scroll"
+          onScroll={(e) => {
+            const next = e.currentTarget.scrollTop > 24
+            if (next !== scrolled) setScrolled(next)
+          }}
+        >
           {listKind ? (
             <>
               <button type="button" className="profile-sheet__back" onClick={() => setListKind(null)}>

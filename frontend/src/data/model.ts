@@ -37,6 +37,10 @@ export interface Review {
   createdAt: string // ISO
   photoIds: number[] // 수정 때 남길 사진을 고르는 데 쓴다
   photoUrls: string[] // photoIds와 같은 순서의 사진 경로(키 포함) — api.photoUrl(path)로 이미지 URL
+  // 같은 순서의 흐린 미리보기 코드(BlurHash)와 가로/세로 비율 — 사진이 오기 전에 칸을 제 비율·색으로 채운다.
+  // 예전 서버·예전에 저장해 둔 목록에는 없을 수 있다
+  photoBlurhashes?: (string | null)[]
+  photoRatios?: (number | null)[]
 }
 
 // 스토리 = 최근 24시간 안에 후기를 남긴 사람 한 명과 그 후기들

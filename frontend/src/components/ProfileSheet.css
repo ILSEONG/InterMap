@@ -16,8 +16,39 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 1;
+  z-index: 2;
   margin: 0;
+}
+
+/* 내려 보면 나타나는 위쪽 띠 — 이름 + 닫기 버튼 자리. 글·버튼이 닫기 버튼 밑으로 비치지 않게 가린다 */
+.profile-sheet__bar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 72px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 var(--line);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+
+.profile-sheet--scrolled .profile-sheet__bar {
+  opacity: 1;
+}
+
+.profile-sheet__bar-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 /* 팔로잉·팔로워 목록에서 개요로 돌아가기 — 닫기 버튼과 같은 높이, 왼쪽 */

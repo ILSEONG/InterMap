@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { clearCache, peek, remember, setCacheOwner } from './lib/swr'
+import { clearQueryCache, refresh, setQueryOwner, useServerState } from './lib/query'
 import { useDebounced } from './lib/useDebounced'
 import { closeTopLayer } from './lib/backLayer'
 import { Capacitor } from '@capacitor/core'
@@ -69,6 +69,19 @@ import './App.css'
 
 // 한 글자로는 결과가 너무 많이 걸려 두 글자부터 검색한다.
 const MIN_QUERY_LENGTH = 2
+
+// 아직 못 받았을 때 쓰는 빈 값 — 매 렌더 새 객체를 만들지 않게 하나로
+const NO_REVIEWS: Review[] = []
+const NO_COMMENTS: Record<number, Comment[]> = {}
+
+// 댓글은 받아서 후기별로 나눠 둔다
+async function fetchGroupedComments(): Promise<Record<number, Comment[]>> {
+  const grouped: Record<number, Comment[]> = {}
+  for (const c of await fetchComments()) {
+    ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, text: c.text, parentId: c.parentId })
+  }
+  return grouped
+}
 
 /*
   THESIS: the map is always the ground; everything else floats over it as
@@ -224,8 +237,8 @@ export default function App() {
       return null
     }
   })
-  // 받아 둔 데이터 기억(lib/swr)은 로그인한 사람별로 나눈다 — 아래 상태들이 첫 렌더에서 기억을 읽기 전에 정한다
-  setCacheOwner(session ? `u${session.id ?? 'me'}` : 'guest')
+  // 서버 데이터(lib/query)는 로그인한 사람별로 나눈다 — 아래 데이터 훅들이 첫 렌더에서 키를 만들기 전에 정한다
+  setQueryOwner(session ? `u${session.id ?? 'me'}` : 'guest')
   // 로그아웃이면 주인장 후기만 받아 이웃 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
   const reviewFilter = session ? reviewFilterChoice : 'all'
   // 데이터 다시 받기의 기준 — 세션 객체가 아니라 토큰. 시작할 때 /api/auth/me로 세션 객체를 새로 갈아 끼우거나
@@ -245,7 +258,7 @@ export default function App() {
   }, [])
   // 로컬 세션만 지운다 (로그아웃·탈퇴 공통)
   const clearSession = useCallback(() => {
-    clearCache()
+    clearQueryCache()
     setSession(null)
     try {
       localStorage.removeItem('intermap.session')
@@ -306,86 +319,42 @@ export default function App() {
       return null
     }
   })
-  // 차단·운영자 삭제처럼 서버 쪽 목록이 바뀌었을 때 올려서 후기·댓글·팔로우를 다시 받는다
-  const [contentVersion, setContentVersion] = useState(0)
-  const refreshContent = useCallback(() => setContentVersion((v) => v + 1), [])
+  // 차단·운영자 삭제처럼 서버 쪽 목록이 바뀌었을 때 — 후기·댓글·팔로우를 다시 받는다 (받은 게 있으면 그대로 두고 뒤에서)
+  const refreshContent = useCallback(() => refresh('reviews', 'comments', 'social'), [])
 
   // 서버가 내게 보여주는 후기 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
   // 서버가 거른다 — 로그아웃이면 주인장 후기만, 로그인하면 나·팔로우한 사람·주인장 후기.
-  // 지난번에 받아 둔 후기로 바로 시작한다 — 앱을 켜자마자 핀·스토리가 뜨고, 새 목록은 뒤에서 받아 바꾼다
-  const [rawReviews, setRawReviews] = useState<Review[]>(() => peek<Review[]>('reviews', true) ?? [])
+  // 지난번에 받아 둔 후기(기기 저장)로 바로 시작한다 — 앱을 켜자마자 핀·스토리가 뜨고, 새 목록은 뒤에서 받아 바꾼다
+  const [reviewData, setRawReviews] = useServerState<Review[]>(['reviews'], fetchReviews, { empty: [] })
+  const rawReviews = reviewData ?? NO_REVIEWS
   // 후기 id → 그 후기의 댓글들 (서버 /api/comments를 후기별로 나눠 둔 것)
-  const [reviewComments, setReviewComments] = useState<Record<number, Comment[]>>(() => peek<Record<number, Comment[]>>('comments', true) ?? {})
-  // 내가 찜한 가게 키("이름|주소") 모음
-  const [favorites, setFavorites] = useState<Set<string>>(() => new Set(peek<string[]>('favorites', true) ?? []))
+  const [commentData, setReviewComments] = useServerState<Record<number, Comment[]>>(['comments'], fetchGroupedComments, { empty: {} })
+  const reviewComments = commentData ?? NO_COMMENTS
+  // 내가 찜한 가게 키("이름|주소") 모음 — 저장은 배열로, 화면에선 Set으로
+  const [favoriteKeys, setFavoriteKeys] = useServerState<string[]>(
+    ['favorites'],
+    () => fetchFavorites().then((places) => places.map(restaurantKey)),
+    { enabled: sessionToken !== null, empty: [] },
+  )
+  const favorites = useMemo(() => new Set(sessionToken ? (favoriteKeys ?? []) : []), [favoriteKeys, sessionToken])
+  const setFavorites = useCallback(
+    (update: (prev: Set<string>) => Set<string>) => setFavoriteKeys((prev) => [...update(new Set(prev))]),
+    [setFavoriteKeys],
+  )
   // 헤더 별 버튼: 켜면 지도에 찜한 가게만 (후기 필터 무시, 초록 별 마커)
   const [favMode, setFavMode] = useState(false)
   // 하단 독이 검색 모드인지 (검색 버튼 → 입력창)
   const [searching, setSearching] = useState(false)
-  useEffect(() => {
-    if (!sessionToken) {
-      // 로그아웃하면 이웃 후기는 바로 지우고, 아래에서 주인장 후기만 다시 받는다
-      setRawReviews([])
-      setReviewComments({})
-      setFavorites(new Set())
-      setFavMode(false)
-    } else {
-      // 다른 사람으로 로그인했을 수 있다 — 그 사람 몫으로 기억해 둔 게 있으면 먼저 보여 준다
-      const reviews = peek<Review[]>('reviews', true)
-      if (reviews) setRawReviews(reviews)
-      const comments = peek<Record<number, Comment[]>>('comments', true)
-      if (comments) setReviewComments(comments)
-      const favs = peek<string[]>('favorites', true)
-      if (favs) setFavorites(new Set(favs))
-    }
-    let cancelled = false
-    fetchReviews()
-      .then((list) => {
-        if (cancelled) return
-        remember('reviews', list, true)
-        setRawReviews(list)
-      })
-      .catch(() => {
-        // 못 받으면 후기 없는 지도로 동작
-      })
-    // 후기 댓글도 같이 받아 후기별로 나눠 둔다
-    fetchComments()
-      .then((records) => {
-        if (cancelled) return
-        const grouped: Record<number, Comment[]> = {}
-        for (const c of records) {
-          ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, text: c.text, parentId: c.parentId })
-        }
-        remember('comments', grouped, true)
-        setReviewComments(grouped)
-      })
-      .catch(() => {
-        // 못 받으면 댓글 없는 상태로 동작
-      })
-    // 찜 목록도 같이 (로그인했을 때만)
-    if (sessionToken) {
-      fetchFavorites()
-        .then((places) => {
-          if (cancelled) return
-          const keys = places.map(restaurantKey)
-          remember('favorites', keys, true)
-          setFavorites(new Set(keys))
-        })
-        .catch(() => {
-          // 못 받으면 찜 없는 상태로 동작
-        })
-    }
-    return () => {
-      cancelled = true
-    }
-  }, [sessionToken, contentVersion])
-  // 후기 쓰기·삭제, 댓글, 찜처럼 앱 안에서 바뀐 것도 기억에 반영한다 — 다음에 켤 때 지운 후기가 잠깐 보이는 일이 없게
-  useEffect(() => remember('reviews', rawReviews, true), [rawReviews])
-  useEffect(() => remember('comments', reviewComments, true), [reviewComments])
-  useEffect(() => remember('favorites', [...favorites], true), [favorites])
   // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
-  const [social, setSocial] = useState<SocialData | null>(() => peek<SocialData>('social', true) ?? null)
+  const [socialData, setSocial] = useServerState<SocialData>(['social'], fetchSocial, { enabled: sessionToken !== null })
+  const social = sessionToken ? (socialData ?? null) : null
   const [myPageOpen, setMyPageOpen] = useState(false)
+  useEffect(() => {
+    if (sessionToken) return
+    // 로그아웃하면 찜 지도·마이페이지를 닫는다
+    setFavMode(false)
+    setMyPageOpen(false)
+  }, [sessionToken])
   // 헤더 팔로잉 버튼으로 여는 팔로잉 현황판
   const [boardOpen, setBoardOpen] = useState(false)
   // 헤더 친구 목록에서 고른 사람. 그 사람이 후기 쓴 가게만 지도·목록에 남긴다.
@@ -398,31 +367,6 @@ export default function App() {
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
   // 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕로 해제.
   const personPins = selectedPerson !== null
-  useEffect(() => {
-    if (social) remember('social', social, true)
-  }, [social])
-  useEffect(() => {
-    if (!sessionToken) {
-      setSocial(null)
-      setMyPageOpen(false)
-      return
-    }
-    const known = peek<SocialData>('social', true)
-    if (known) setSocial(known)
-    let cancelled = false
-    fetchSocial()
-      .then((data) => {
-        if (cancelled) return
-        remember('social', data, true)
-        setSocial(data)
-      })
-      .catch(() => {
-        // 못 받으면 별칭 없이 동작
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sessionToken, contentVersion])
   // 팔로우한 사람(+나, 주인장)의 후기만 남기고, 내가 붙인 이름을 작성자 이름 자리에 씌운다.
   // 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다. social을 못 받았으면 필터 없이 동작.
   const reviews = useMemo(() => {
@@ -809,7 +753,7 @@ export default function App() {
       setSocial(next)
       if (next.following.some((p) => !before.has(p.id))) refreshContent()
     },
-    [social, refreshContent],
+    [social, setSocial, refreshContent],
   )
   const follow = useCallback(
     async (userId: number) => {
@@ -1040,7 +984,7 @@ export default function App() {
       }
       return next
     })
-  }, [])
+  }, [setRawReviews, setReviewComments])
   // 차단 — 그 사람 글을 바로 빼고, 팔로우 목록까지 서버에서 다시 받는다
   const handleBlocked = useCallback(
     (userId: number) => {
@@ -1055,7 +999,7 @@ export default function App() {
       })
       refreshContent()
     },
-    [refreshContent],
+    [refreshContent, setRawReviews, setReviewComments],
   )
   const moderation = useMemo<Moderation | null>(
     () => (session ? { myUserId: session.id, report: setReportTarget } : null),

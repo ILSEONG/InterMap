@@ -67,7 +67,7 @@
 
 .story-viewer__media--photo {
   overflow: hidden;
-  background: #111;
+  background: #111 center / cover no-repeat;
 }
 
 /* 사진 전체 — 원래 비율 그대로 (위아래·양옆이 잘리지 않게) */
