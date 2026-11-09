@@ -118,7 +118,9 @@ export default function StoryViewer({
                 {photoPath !== undefined ? (
                   <div className="story-viewer__media story-viewer__media--photo">
                     {/* 슬라이드 전부를 한 번에 받지 않게 — 화면 근처에 온 것만 */}
-                    <img src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
+                    {/* 사진 전체가 보이게(잘리지 않게) 가운데 두고, 남는 칸은 같은 사진을 흐리게 깔아 채운다 */}
+                    <img className="story-viewer__backdrop" src={photoUrl(photoPath)} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+                    <img className="story-viewer__photo" src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="story-viewer__media story-viewer__media--empty" aria-hidden="true">

@@ -94,6 +94,12 @@
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* GL(벡터) 지도는 지도를 WebGL 한 장으로 그린다 — 핀마다 GPU 레이어를 따로 만들 이유가 없고,
+   300개 레이어를 매 프레임 옮기는 비용만 남는다. 핀 묶음 전체가 한 번에 움직이게 둔다 */
+.map-canvas--gl .map-pin {
+  transform: translate(-50%, -50%);
+}
+
 /* 터치 여유를 주되 CLUSTER_PIXEL_DISTANCE(26px)보다 크게 잡지 않는다.
    더 키우면 이웃 핀의 영역까지 먹어서 원하는 핀이 안 눌린다. */
 .map-pin::before {
