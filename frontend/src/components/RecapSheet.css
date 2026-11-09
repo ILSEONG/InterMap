@@ -167,7 +167,6 @@
 .recap-flip--loading {
   border-radius: 28px;
   background: #ffe81f;
-  animation: recap-pulse 1.2s ease-in-out infinite alternate;
 }
 
 .recap-sheet__hint {

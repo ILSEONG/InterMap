@@ -569,3 +569,34 @@
     animation: none;
   }
 }
+
+/* 처음 여는 투표의 자리표시 — 실제 옵션 카드와 같은 크기 */
+.poll-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.poll-skeleton > span {
+  display: block;
+  border-radius: var(--radius-lg);
+  background: rgba(118, 118, 128, 0.1);
+}
+
+.poll-skeleton__line {
+  width: 60%;
+  height: 16px;
+  margin: 2px 0 6px;
+  border-radius: 8px !important;
+}
+
+.poll-skeleton__option {
+  height: 92px;
+}
+
+.poll-skeleton__button {
+  height: 54px;
+  margin-top: 6px;
+  border-radius: 27px !important;
+}

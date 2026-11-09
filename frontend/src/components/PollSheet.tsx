@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { closePoll, deletePoll, fetchPoll, pollLink, votePoll } from '../lib/api'
+import { peek, remember } from '../lib/swr'
 import type { AuthSession, PollOptionView, PollView } from '../lib/api'
 import { shareLink } from '../lib/share'
 import { timeLeft } from '../lib/time'
@@ -68,9 +69,17 @@ const sameSet = (a: Set<number>, b: number[]) => a.size === b.length && b.every(
 // "어디 갈래?" 투표 화면 — 링크로 들어온 친구(비회원 포함)와 만든 사람이 같이 쓴다.
 // 괜찮은 곳을 여러 개 고를 수 있고, 다시 고르면 바뀐다. 마감되면 가장 많이 골린 곳이 결정된다.
 export default function PollSheet({ token, session, onLogin, onChanged, initial, onClose }: PollSheetProps) {
-  const [poll, setPoll] = useState<PollView | null>(initial ?? null)
+  // 방금 만든 투표나 전에 본 투표면 바로 그린다 — 새 값은 뒤에서 받아 바꾼다 (lib/swr)
+  const [poll, setPollState] = useState<PollView | null>(() => initial ?? peek<PollView>(`poll:${token}`) ?? null)
+  const setPoll = useCallback(
+    (next: PollView) => {
+      remember(`poll:${token}`, next)
+      setPollState(next)
+    },
+    [token],
+  )
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [picks, setPicks] = useState<Set<number>>(new Set())
+  const [picks, setPicks] = useState<Set<number>>(() => new Set(poll?.myChoices ?? []))
   const [name, setName] = useState(readName)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,7 +92,7 @@ export default function PollSheet({ token, session, onLogin, onChanged, initial,
     setPoll(next)
     if (resetPicks) setPicks(new Set(next.myChoices))
     if (next.myName && !session) setName((prev) => prev || next.myName!)
-  }, [session])
+  }, [session, setPoll])
 
   // 처음 열 때 + 로그인 상태가 바뀔 때 (계정 기준으로 내 선택이 달라진다)
   useEffect(() => {
@@ -231,9 +240,14 @@ export default function PollSheet({ token, session, onLogin, onChanged, initial,
               {loadError}
             </p>
           ) : !poll ? (
-            <p className="modal-sheet__lead" role="status">
-              불러오는 중…
-            </p>
+            // 처음 여는 투표 — 실제 화면과 같은 크기의 자리표시 (받아 오면 시트 높이가 튀지 않는다)
+            <div className="poll-skeleton" role="status" aria-label="불러오는 중">
+              <span className="poll-skeleton__line" />
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="poll-skeleton__option" />
+              ))}
+              <span className="poll-skeleton__button" />
+            </div>
           ) : (
             <>
               <p className="poll-sheet__meta">

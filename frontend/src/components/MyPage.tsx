@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
+import { peek, remember } from '../lib/swr'
 import { useDebounced } from '../lib/useDebounced'
 import { useBackLayer } from '../lib/backLayer'
 import type { ReactNode } from 'react'
@@ -159,9 +160,10 @@ export default function MyPage({
   const avatarInputRef = useRef<HTMLInputElement>(null)
   // 차단한 사용자 — 펼칠 때 받는다
   const [blocksOpen, setBlocksOpen] = useState(false)
-  const [blocked, setBlocked] = useState<BlockedPerson[] | null>(null)
+  const [blocked, setBlocked] = useState<BlockedPerson[] | null>(() => peek<BlockedPerson[]>('blocks') ?? null)
   // 내가 만들었거나 참여한 투표 — 열릴 때 받는다
-  const [polls, setPolls] = useState<PollSummary[] | null>(null)
+  // 지난번 목록으로 바로 그리고(기기에도 기억) 열 때마다 새로 받는다 — 목록이 늦게 끼어들며 아래가 밀리지 않게
+  const [polls, setPolls] = useState<PollSummary[] | null>(() => peek<PollSummary[]>('myPolls', true) ?? null)
   // 회원 탈퇴 확인 단계
   const [leaving, setLeaving] = useState(false)
   const [leaveChecked, setLeaveChecked] = useState(false)
@@ -181,29 +183,43 @@ export default function MyPage({
     setQuery('')
     setError(null)
     setBlocksOpen(false)
-    setBlocked(null)
+    blocksFetched.current = false
     setLeaving(false)
     setLeaveChecked(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  // 앱이 켜져 있으면(닫혀 있어도) 미리 받아 둔다 — 마이페이지를 처음 열 때도 목록이 이미 있다
+  const pollsFetched = useRef(false)
   useEffect(() => {
-    if (!open) return
+    // 처음 한 번(미리 받기) + 열 때 + 투표가 바뀌었을 때만 — 닫을 때는 받지 않는다
+    if (!open && pollsFetched.current) return
+    pollsFetched.current = true
     let cancelled = false
     fetchMyPolls()
-      .then((list) => !cancelled && setPolls(list))
-      .catch(() => !cancelled && setPolls([]))
+      .then((list) => {
+        if (cancelled) return
+        remember('myPolls', list, true)
+        setPolls(list)
+      })
+      .catch(() => !cancelled && setPolls((prev) => prev ?? []))
     return () => {
       cancelled = true
     }
   }, [open, pollVersion])
 
+  // 차단 목록은 펼칠 때 받는다 — 전에 받은 게 있으면 먼저 보여 주고 새로 받는다
+  const blocksFetched = useRef(false)
+
   useEffect(() => {
-    if (!open || !blocksOpen || blocked) return
+    if (!open || !blocksOpen || blocksFetched.current) return
+    blocksFetched.current = true
     let cancelled = false
     fetchBlocks()
       .then((list) => {
-        if (!cancelled) setBlocked(list)
+        if (cancelled) return
+        remember('blocks', list)
+        setBlocked(list)
       })
       .catch((e: Error) => {
         if (!cancelled) setError(e.message)
@@ -211,7 +227,7 @@ export default function MyPage({
     return () => {
       cancelled = true
     }
-  }, [open, blocksOpen, blocked])
+  }, [open, blocksOpen])
 
   // 닉네임 검색 — 팔로우할 사람 찾기
   const serverQuery = useDebounced(deferredQuery)

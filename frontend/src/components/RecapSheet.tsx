@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchRecap } from '../lib/api'
 import type { Recap } from '../lib/api'
 import { RECAP_THEMES, defaultThemeId, drawRecapCards, recapAltText } from '../lib/recapCard'
+import { peek, remember } from '../lib/swr'
 import { shareImages } from '../lib/share'
 import { kstMonth, monthLabel } from '../lib/time'
 import { ShareIcon } from './PollIcons'
@@ -34,15 +35,30 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
 
 // 월간 결산 — 그 달의 숫자를 앞·뒤 카드 이미지로 만들어 보여 주고(누르면 뒤집힘), 인스타 스토리 등으로 보낸다
 type Card = { front: Blob; back: Blob; frontUrl: string; backUrl: string }
+type Blobs = { front: Blob; back: Blob }
+const toCard = (b: Blobs): Card => ({ ...b, frontUrl: URL.createObjectURL(b.front), backUrl: URL.createObjectURL(b.back) })
+// 그린 카드 기억 키 — 테마와 결산 내용이 같으면 같은 카드
+const cardKey = (r: Recap, theme: string) => `recapCard:${theme}:${JSON.stringify(r)}`
 
 export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetProps) {
   const [month, setMonth] = useState(initialMonth ?? kstMonth())
+  // 전에 본 달이면 기억해 둔 결산·카드로 바로 그린다 — 새 값은 뒤에서 받아, 내용이 달라졌을 때만 바꾼다 (lib/swr)
+  const [initial] = useState(() => {
+    const r = peek<Recap>(`recap:${month}`, true)
+    if (!r) return null
+    if (r.places === 0) return { recap: r, card: null, key: null }
+    const key = cardKey(r, defaultThemeId(month))
+    const blobs = peek<Blobs>(key)
+    return blobs ? { recap: r, card: toCard(blobs), key } : null
+  })
   // 서버에서 막 받은 결산
-  const [fetched, setFetched] = useState<Recap | null>(null)
+  const [fetched, setFetched] = useState<Recap | null>(() => initial?.recap ?? null)
   const [error, setError] = useState<string | null>(null)
   // 화면에 보이는 결산과 카드 — 새 카드가 다 그려져야 둘을 한꺼번에 바꾼다.
-  // 달·테마를 바꾸는 동안엔 이전 화면(카드나 "후기가 없어요")을 살짝 흐리게 두고, 노란 자리표시는 처음 열 때만
-  const [view, setView] = useState<{ recap: Recap; card: Card | null } | null>(null)
+  // 달·테마를 바꾸는 동안엔 이전 화면(카드나 "후기가 없어요")을 살짝 흐리게 두고, 자리표시는 처음 열 때만
+  const [view, setView] = useState<{ recap: Recap; card: Card | null } | null>(() =>
+    initial ? { recap: initial.recap, card: initial.card } : null,
+  )
   const recap = view?.recap ?? null
   const card = view?.card ?? null
   const [flipped, setFlipped] = useState(false)
@@ -52,52 +68,78 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   // 그리는 중인 테마 — 다 그려지면 view와 맞는다
-  const [drawn, setDrawn] = useState<{ recap: Recap; theme: string } | null>(null)
+  const [drawn, setDrawn] = useState<{ recap: Recap; theme: string } | null>(() =>
+    initial?.card ? { recap: initial.recap, theme: defaultThemeId(month) } : null,
+  )
+  // 지금 화면에 있는 카드가 어떤 내용·테마로 그린 것인지 — 같은 내용을 새로 받으면 다시 그리지 않는다
+  const shownKey = useRef<string | null>(initial?.key ?? null)
   const loading = !error && (fetched === null || fetched.month !== month || (fetched.places > 0 && (drawn?.recap !== fetched || drawn.theme !== theme)))
 
   // 넘겨 볼 수 있는 달 — 받은 결산마다 합쳐 둔다 (달을 바꾸는 동안에도 화살표가 꺼지지 않게)
-  const [knownMonths, setKnownMonths] = useState<string[]>([])
+  const [knownMonths, setKnownMonths] = useState<string[]>(() => initial?.recap.months ?? [])
 
   useEffect(() => {
     let cancelled = false
     setError(null)
+    const show = (r: Recap) => {
+      setFetched(r)
+      setKnownMonths((prev) => [...new Set([...prev, ...r.months])])
+      if (r.places === 0) setView({ recap: r, card: null })
+    }
+    const known = peek<Recap>(`recap:${month}`, true)
+    if (known && known !== fetched) show(known)
     fetchRecap(month)
       .then((next) => {
         if (cancelled) return
         // 서버는 요청한 달을 돌려준다 — 화면 비교는 요청한 달 기준으로
         const recapForMonth = { ...next, month }
-        setFetched(recapForMonth)
-        setKnownMonths((prev) => [...new Set([...prev, ...next.months])])
-        if (next.places === 0) setView({ recap: recapForMonth, card: null })
+        // 기억해 둔 것과 내용이 같으면 그대로 둔다 (카드를 다시 그리지 않게)
+        if (known && JSON.stringify(known) === JSON.stringify(recapForMonth)) return
+        remember(`recap:${month}`, recapForMonth, true)
+        show(recapForMonth)
       })
       .catch((e: Error) => !cancelled && setError(e.message))
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month])
 
   // 카드 그리기 — 결산을 받았거나 테마를 바꿀 때마다 (앞·뒤 상태는 그대로).
-  // 이미지를 미리 풀어(decode) 두고 바꿔 끼워서, 바꾸는 순간 빈 프레임이 끼지 않게
+  // 그린 카드는 내용·테마별로 기억해 두고, 이미지를 미리 풀어(decode) 둔 뒤 바꿔 끼워 빈 프레임이 끼지 않게
   useEffect(() => {
     if (!fetched || fetched.places === 0) return
+    const key = cardKey(fetched, theme)
+    if (shownKey.current === key) {
+      setDrawn({ recap: fetched, theme })
+      setView((v) => (v ? { ...v, recap: fetched } : v))
+      return
+    }
     let cancelled = false
-    drawRecapCards(fetched, theme)
-      .then(async ({ front, back }) => {
-        const frontUrl = URL.createObjectURL(front)
-        const backUrl = URL.createObjectURL(back)
+    const cached = peek<Blobs>(key)
+    const blobs = cached
+      ? Promise.resolve(cached)
+      : drawRecapCards(fetched, theme).then((b) => {
+          remember(key, b)
+          return b
+        })
+    blobs
+      .then(async (b) => {
+        const next = toCard(b)
         await Promise.all(
-          [frontUrl, backUrl].map((src) => {
+          [next.frontUrl, next.backUrl].map((src) => {
             const img = new Image()
             img.src = src
             return img.decode().catch(() => {})
           }),
         )
         if (cancelled) {
-          URL.revokeObjectURL(frontUrl)
-          URL.revokeObjectURL(backUrl)
+          URL.revokeObjectURL(next.frontUrl)
+          URL.revokeObjectURL(next.backUrl)
           return
         }
-        setView({ recap: fetched, card: { front, back, frontUrl, backUrl } })
+        shownKey.current = key
+        setView({ recap: fetched, card: next })
         setDrawn({ recap: fetched, theme })
       })
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -211,7 +253,13 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
               {error}
             </p>
           ) : !recap ? (
-            <div className="recap-flip recap-flip--loading" role="status" aria-label="결산을 만드는 중" />
+            // 카드를 그리는 동안 — 그 달 테마의 바탕색 그대로(깜빡이지 않게). 카드가 뜨면 같은 색 위에 그림만 얹힌 것처럼 보인다
+            <div
+              className="recap-flip recap-flip--loading"
+              style={{ background: (RECAP_THEMES.find((t) => t.id === theme) ?? RECAP_THEMES[0]).bg }}
+              role="status"
+              aria-label="결산을 만드는 중"
+            />
           ) : recap.places === 0 ? (
             <div className="recap-empty">
               <p className="recap-empty__title">{monthLabel(recap.month)}엔 남긴 후기가 없어요</p>
@@ -229,7 +277,10 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
             )
           )}
         </div>
-        {card && <p className="recap-sheet__hint">카드를 누르거나 옆으로 밀면 {flipped ? '앞면' : '뒷면'}이 보여요</p>}
+        {/* 자리를 늘 잡아 둔다 — 카드가 뜰 때 이 줄이 생기면 카드 칸이 줄어 카드 크기가 한 번 튄다 */}
+        <p className="recap-sheet__hint" style={card ? undefined : { visibility: 'hidden' }} aria-hidden={!card}>
+          카드를 누르거나 옆으로 밀면 {flipped ? '앞면' : '뒷면'}이 보여요
+        </p>
 
         <div className="recap-sheet__footer">
           <button
