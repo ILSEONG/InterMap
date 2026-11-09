@@ -109,6 +109,7 @@ class ReviewVisibilityTest {
         assertEquals(List.of("/api/photos/" + photo.getId() + "/" + photo.getAccessKey()), item.photoUrls());
         // 읽을 수 없는 바이트라 흐린 미리보기 코드는 없다 — 목록에는 null로 실린다
         assertEquals(java.util.Collections.singletonList(null), item.photoBlurhashes());
+        assertEquals(java.util.Collections.singletonList(null), item.photoRatios());
     }
 
     @Test
@@ -123,6 +124,7 @@ class ReviewVisibilityTest {
         var item = reviewController.list(bearer(me)).stream()
                 .filter(i -> i.id().equals(photo.getReview().getId())).findFirst().orElseThrow();
         assertEquals(List.of(photo.getBlurhash()), item.photoBlurhashes());
+        assertEquals(List.of(1.5), item.photoRatios(), "120×80 → 1.5");
     }
 
     @Test

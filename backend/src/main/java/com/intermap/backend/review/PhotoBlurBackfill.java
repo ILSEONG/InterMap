@@ -35,8 +35,8 @@ public class PhotoBlurBackfill implements ApplicationRunner {
         try {
             List<Long> ids = photos.idsWithoutBlurhash();
             for (Long id : ids) {
-                tx.executeWithoutResult(s -> photos.findById(id)
-                        .ifPresent(p -> photos.setBlurhash(id, BlurHash.of(p.getData()))));
+                // 엔티티를 고쳐 두면 트랜잭션이 끝날 때 저장된다
+                tx.executeWithoutResult(s -> photos.findById(id).ifPresent(p -> p.setPreview(BlurHash.of(p.getData()))));
             }
             if (!ids.isEmpty()) log.info("흐린 미리보기 코드 {}장 채움", ids.size());
         } catch (RuntimeException e) {

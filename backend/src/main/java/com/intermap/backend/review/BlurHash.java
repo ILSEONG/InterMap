@@ -18,15 +18,20 @@ final class BlurHash {
     private BlurHash() {
     }
 
-    // 이미지 바이트에서 코드를 만든다. 읽을 수 없는 형식(WebP 등)이면 "" — 다시 시도하지 않게 빈 값으로 남긴다.
-    static String of(byte[] data) {
+    // 미리보기 코드와 원본 크기 (앱이 사진 칸을 처음부터 제 비율로 잡는 데 쓴다)
+    record Preview(String hash, Integer width, Integer height) {
+        // 읽을 수 없는 형식(WebP 등) — 다시 시도하지 않게 코드는 빈 값으로 남긴다
+        static final Preview NONE = new Preview("", null, null);
+    }
+
+    static Preview of(byte[] data) {
         try {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
-            if (image == null) return "";
+            if (image == null) return Preview.NONE;
             boolean portrait = image.getHeight() > image.getWidth();
-            return encode(shrink(image), portrait ? 3 : 4, portrait ? 4 : 3);
+            return new Preview(encode(shrink(image), portrait ? 3 : 4, portrait ? 4 : 3), image.getWidth(), image.getHeight());
         } catch (IOException | RuntimeException e) {
-            return "";
+            return Preview.NONE;
         }
     }
 

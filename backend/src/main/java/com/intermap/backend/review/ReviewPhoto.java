@@ -40,6 +40,10 @@ public class ReviewPhoto {
     @Column(length = 64)
     private String blurhash;
 
+    // 원본 크기(px) — 앱이 사진이 오기 전부터 칸을 제 비율로 잡는다. 못 읽은 사진은 null
+    private Integer width;
+    private Integer height;
+
     protected ReviewPhoto() {
     }
 
@@ -48,7 +52,7 @@ public class ReviewPhoto {
         this.contentType = contentType;
         this.data = data;
         this.accessKey = newKey();
-        this.blurhash = BlurHash.of(data);
+        setPreview(BlurHash.of(data));
     }
 
     static String newKey() {
@@ -58,6 +62,14 @@ public class ReviewPhoto {
     public Long getId() { return id; }
     public String getAccessKey() { return accessKey; }
     public String getBlurhash() { return blurhash; }
+    public Integer getWidth() { return width; }
+    public Integer getHeight() { return height; }
+
+    void setPreview(BlurHash.Preview preview) {
+        this.blurhash = preview.hash();
+        this.width = preview.width();
+        this.height = preview.height();
+    }
     public Review getReview() { return review; }
     public String getContentType() { return contentType; }
     public byte[] getData() { return data; }
