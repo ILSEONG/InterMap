@@ -58,14 +58,6 @@ const MIN_SEARCH_LENGTH = 1
 // 아바타 바탕색 4가지 — 사람마다 id로 고정해서 목록에서 구분되게 한다
 const toneOf = (id: number) => `tone-${Math.abs(id) % 4}`
 
-// 내가 쓴 후기 줄 앞 장르 칩 — "음식점>일식" → "일". 같은 장르는 늘 같은 색
-function genreOf(category: string): { letter: string; tone: string } {
-  const name = category.split('>').pop()?.trim() || category
-  let hash = 0
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) | 0
-  return { letter: name.slice(0, 1) || '·', tone: `tone-${Math.abs(hash) % 4}` }
-}
-
 // 팔로잉 줄 오른쪽 "…" — 누르면 언팔로우 메뉴 (줄마다 회색 버튼을 늘어놓지 않고, 실수로 누르는 일도 줄인다)
 function MoreMenu({ label, disabled, onUnfollow }: { label: string; disabled: boolean; onUnfollow: () => void }) {
   const [open, setOpen] = useState(false)
@@ -411,9 +403,6 @@ export default function MyPage({
                 {sortedReviews.map((r) => (
                   <li key={r.id}>
                     <button type="button" className="my-page__review" onClick={() => onOpenReview(r)}>
-                      <span className={`my-page__genre ${genreOf(r.restaurant.category).tone}`} aria-hidden="true">
-                        {genreOf(r.restaurant.category).letter}
-                      </span>
                       <span className="my-page__review-name">{r.restaurant.name}</span>
                       <span className="my-page__review-rating">
                         <RatingStar />

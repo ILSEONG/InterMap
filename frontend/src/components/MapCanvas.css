@@ -15,7 +15,7 @@
 /* 현재 위치 버튼 — 오른쪽, 하단 검색 독 바로 위 (유리 원) */
 .map-gps {
   position: fixed;
-  bottom: calc(max(env(safe-area-inset-bottom), 16px) + 12px + 146px);
+  bottom: calc(max(env(safe-area-inset-bottom), 16px) + 12px + var(--dock-h, 0px));
   right: calc(max(0px, 50vw - 240px) + 14px);
   z-index: 5;
   width: 50px;

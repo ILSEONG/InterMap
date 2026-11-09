@@ -184,3 +184,32 @@ button:active {
   vertical-align: -0.1em;
   fill: currentColor;
 }
+
+/* iOS 세그먼트 컨트롤 — 여러 화면이 같이 쓴다 */
+.segmented {
+  height: 46px;
+  display: flex;
+  padding: 3px;
+  border-radius: 23px;
+  background: var(--fill);
+}
+
+.segmented__item {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.segmented__item--active {
+  background: var(--surface-raised);
+  box-shadow: var(--control-shadow);
+  font-weight: 700;
+  color: var(--ink);
+}

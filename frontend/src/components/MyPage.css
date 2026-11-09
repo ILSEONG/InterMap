@@ -776,19 +776,6 @@
   color: var(--accent-ink);
 }
 
-/* 내가 쓴 후기 — 장르 첫 글자 칩 (순위 숫자 대신) */
-.my-page__genre {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 800;
-}
-
 /* 팔로잉 "…" 메뉴 */
 .my-page__more {
   position: relative;
