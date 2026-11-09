@@ -107,23 +107,20 @@ class ReviewVisibilityTest {
         var item = reviewController.list(bearer(me)).stream()
                 .filter(i -> i.id().equals(photo.getReview().getId())).findFirst().orElseThrow();
         assertEquals(List.of("/api/photos/" + photo.getId() + "/" + photo.getAccessKey()), item.photoUrls());
-        // 읽을 수 없는 바이트라 흐린 미리보기 코드는 없다 — 목록에는 null로 실린다
-        assertEquals(java.util.Collections.singletonList(null), item.photoBlurhashes());
+        // 읽을 수 없는 바이트라 크기를 모른다 — 목록에는 null로 실린다
         assertEquals(java.util.Collections.singletonList(null), item.photoRatios());
     }
 
     @Test
-    void photosCarryBlurPreview() throws Exception {
+    void photosCarryAspectRatio() throws Exception {
         AppUser me = user("me");
         java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(120, 80, java.awt.image.BufferedImage.TYPE_INT_RGB);
         for (int x = 0; x < 120; x++) for (int y = 0; y < 80; y++) img.setRGB(x, y, x < 60 ? 0xE0533A : 0x2A6F97);
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         javax.imageio.ImageIO.write(img, "jpg", out);
         ReviewPhoto photo = photos.save(new ReviewPhoto(review(me), "image/jpeg", out.toByteArray()));
-        assertEquals(28, photo.getBlurhash().length(), "가로 사진은 4×3 성분 — 28자");
         var item = reviewController.list(bearer(me)).stream()
                 .filter(i -> i.id().equals(photo.getReview().getId())).findFirst().orElseThrow();
-        assertEquals(List.of(photo.getBlurhash()), item.photoBlurhashes());
         assertEquals(List.of(1.5), item.photoRatios(), "120×80 → 1.5");
     }
 

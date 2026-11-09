@@ -59,23 +59,22 @@ public class ReviewController {
     public record UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds) {
     }
 
-    // 사진 하나의 id, 주소 키 (ReviewPhoto.accessKey), 흐린 미리보기 코드와 가로/세로 비율 (모르면 null)
-    record Photo(Long id, String key, String blurhash, Double ratio) {
-        static Photo of(Long id, String key, String blurhash, Integer width, Integer height) {
-            Double ratio = width == null || height == null || height == 0 ? null : Math.round(width * 1000.0 / height) / 1000.0;
-            return new Photo(id, key, blurhash == null || blurhash.isEmpty() ? null : blurhash, ratio);
+    // 사진 하나의 id, 주소 키 (ReviewPhoto.accessKey), 가로/세로 비율 (모르면 null)
+    record Photo(Long id, String key, Double ratio) {
+        static Photo of(Long id, String key, Integer width, Integer height) {
+            Double ratio = width == null || height == null || width <= 0 || height <= 0 ? null : Math.round(width * 1000.0 / height) / 1000.0;
+            return new Photo(id, key, ratio);
         }
 
         static Photo of(ReviewPhotoRepository.Ref ref) {
-            return of(ref.getId(), ref.getAccessKey(), ref.getBlurhash(), ref.getWidth(), ref.getHeight());
+            return of(ref.getId(), ref.getAccessKey(), ref.getWidth(), ref.getHeight());
         }
     }
 
     // photoUrls는 photoIds와 같은 순서의 사진 주소(API 경로, 키 포함). photoIds는 수정 때 남길 사진을 고르는 데 쓴다.
-    // photoBlurhashes·photoRatios도 같은 순서 — 사진이 받아지기 전에 그릴 흐린 미리보기 코드와 가로/세로 비율 (없으면 null)
+    // photoRatios도 같은 순서 — 사진이 받아지기 전에 칸을 잡을 가로/세로 비율 (모르면 null)
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
-                       Instant createdAt, List<Long> photoIds, List<String> photoUrls,
-                       List<String> photoBlurhashes, List<Double> photoRatios) {
+                       Instant createdAt, List<Long> photoIds, List<String> photoUrls, List<Double> photoRatios) {
         static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
             AppUser a = r.getAuthor();
             return new Item(r.getId(),
@@ -85,7 +84,6 @@ public class ReviewController {
                     r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
                     photos.stream().map(Photo::id).toList(),
                     photos.stream().map(p -> "/api/photos/" + p.id() + "/" + p.key()).toList(),
-                    photos.stream().map(Photo::blurhash).toList(),
                     photos.stream().map(Photo::ratio).toList());
         }
     }
@@ -298,7 +296,7 @@ public class ReviewController {
     private Photo savePhoto(Review review, MultipartFile f) throws IOException {
         byte[] data = f.getBytes();
         ReviewPhoto saved = photos.save(new ReviewPhoto(review, AvatarController.imageType(data), data));
-        return Photo.of(saved.getId(), saved.getAccessKey(), saved.getBlurhash(), saved.getWidth(), saved.getHeight());
+        return Photo.of(saved.getId(), saved.getAccessKey(), saved.getWidth(), saved.getHeight());
     }
 
     private boolean overPhotoLimit(AppUser user, int count) {

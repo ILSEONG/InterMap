@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
-import { blurUrl } from '../lib/blurhash'
 import { useOpenProfile } from '../lib/openProfile'
 import { useBackLayer } from '../lib/backLayer'
 import { canReport, useModeration } from '../lib/moderation'
 import { timeAgo } from '../lib/time'
 import { STAR_SHAPE } from './Stars'
 import Avatar from './Avatar'
-import BlurPhoto from './BlurPhoto'
 import './ReportSheet.css'
 
 // 시트·스토리 뷰어가 같은 카드를 쓴다. 스타일은 RestaurantSheet.css(.review-card*)
@@ -109,23 +107,19 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
       {/* 시트에선 CSS order로 사진이 글 위에 온다 (스토리 뷰어는 글 → 사진 순서 그대로) */}
       {review.photoIds.length > 0 && (
         <div className="review-card__photos">
-          {review.photoIds.map((id, i) => {
-            // 사진이 오기 전부터 칸은 제 비율, 바탕은 그 사진의 흐린 미리보기 — 받아지면 그 위로 서서히
-            const blur = blurUrl(review.photoBlurhashes?.[i])
-            const ratio = review.photoRatios?.[i]
-            return (
-              <button
-                type="button"
-                key={id}
-                className="review-card__photo"
-                style={{ backgroundImage: blur ? `url(${blur})` : undefined, aspectRatio: ratio ?? undefined }}
-                onClick={() => setLightbox(i)}
-                aria-label="사진 크게 보기"
-              >
-                <BlurPhoto src={photoUrl(review.photoUrls[i])} alt="" loading="lazy" decoding="async" />
-              </button>
-            )
-          })}
+          {review.photoIds.map((id, i) => (
+            // 사진이 오기 전부터 칸을 제 비율로 잡아 둔다 — 받아진 뒤 옆 사진·글이 밀리지 않게
+            <button
+              type="button"
+              key={id}
+              className="review-card__photo"
+              style={{ aspectRatio: review.photoRatios?.[i] ?? undefined }}
+              onClick={() => setLightbox(i)}
+              aria-label="사진 크게 보기"
+            >
+              <img src={photoUrl(review.photoUrls[i])} alt="" loading="lazy" decoding="async" />
+            </button>
+          ))}
         </div>
       )}
       {review.menu && (
