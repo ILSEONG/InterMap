@@ -20,3 +20,8 @@
 .taste-card__placeholder.recap-flip--loading {
   background: #efe9df;
 }
+
+/* 이미지로 공유하기 — 분홍 둥근 사각형 */
+.modal-sheet__btn.taste-card__share {
+  border-radius: 16px;
+}

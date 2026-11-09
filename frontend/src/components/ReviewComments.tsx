@@ -10,6 +10,12 @@ interface ReviewCommentsProps {
   // 성공하면 true — 실패하면 입력을 지우지 않는다 (네트워크 오류·하루 한도에 쓴 글이 날아가지 않게)
   onAdd: (text: string, parentId?: number) => Promise<boolean>
   onDelete: (commentId: number) => void
+  // 가게 시트 목록용 — 펼침 버튼을 말풍선 + "댓글 N"으로 짧게
+  compact?: boolean
+  // 스토리용 — 접고 펴지 않고 목록과 입력칸을 늘 펼쳐 둔다
+  inline?: boolean
+  // inline일 때 입력칸 id (바깥 "댓글" 버튼이 초점을 옮긴다)
+  inputId?: string
 }
 
 // 위로 보내기 화살표 — 댓글·답글 등록 버튼
@@ -24,8 +30,9 @@ function SendIcon() {
 // 후기 카드 아래에 붙는 댓글 트레이 — 후기 단위로 접고 편다.
 // 접힌 상태에선 "댓글 N개 보기"(없으면 "댓글 달기")만 보이고, 펴면 목록과 입력이 나온다.
 // 가게 시트와 스토리 뷰어가 같이 쓴다. 스타일은 RestaurantSheet.css에 있다.
-export default function ReviewComments({ comments, myUserId, onAdd, onDelete }: ReviewCommentsProps) {
-  const [open, setOpen] = useState(false)
+export default function ReviewComments({ comments, myUserId, onAdd, onDelete, compact = false, inline = false, inputId }: ReviewCommentsProps) {
+  const [openState, setOpen] = useState(false)
+  const open = inline || openState
   const [writing, setWriting] = useState(false)
   const [draft, setDraft] = useState('')
   const roots = comments.filter((c) => !c.parentId)
@@ -62,7 +69,11 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete }: 
   }
 
   // 펼친 상태에서도 개수를 보여준다 (펼침 여부는 aria-expanded와 화살표로)
-  const toggleLabel = open
+  const toggleLabel = compact
+    ? comments.length > 0
+      ? `댓글 ${comments.length}`
+      : '댓글 달기'
+    : open
     ? comments.length > 0
       ? `댓글 ${comments.length}개`
       : '댓글 접기'
@@ -70,11 +81,54 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete }: 
       ? `댓글 ${comments.length}개 보기`
       : '댓글 달기'
 
+  if (inline) {
+    return (
+      <div className="review-comments review-comments--inline">
+        {roots.length > 0 && (
+          <ul className="restaurant-sheet__comments">
+            {roots.map((comment) => (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                replies={comments.filter((c) => c.parentId === comment.id)}
+                myUserId={myUserId}
+                onReply={(text) => onAdd(text, comment.id)}
+                onDelete={onDelete}
+              />
+            ))}
+          </ul>
+        )}
+        <div className="restaurant-sheet__comment-form">
+          <input
+            id={inputId}
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit()
+            }}
+            placeholder="이 후기에 댓글 남기기"
+            aria-label="댓글 입력"
+          />
+          <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim() || sending}>
+            <SendIcon />
+            <span className="comment__send-label">등록</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // 자식 순서(펼침 토글 → 목록 → 댓글 달기/취소 토글 → 입력칸)는 스토리 뷰어 CSS가 기대는 구조라 그대로 둔다
   return (
-    <div className="review-comments">
+    <div className={`review-comments${compact ? ' review-comments--compact' : ''}`}>
       {/* 펼침 화살표는 시트 CSS가 그린다 (스토리 뷰어는 이 버튼의 ::before/::after를 자체 아이콘·문구로 쓴다) */}
       <button type="button" className="comment__reply-toggle comment__tray-toggle" onClick={toggleOpen} aria-expanded={open}>
+        {compact && (
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12a8 7 0 1 1 3.4 5.7L4 19l1.1-3.3A6.7 6.7 0 0 1 4 12z" />
+          </svg>
+        )}
         {toggleLabel}
       </button>
       {open && (
@@ -166,7 +220,7 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
   // 남의 댓글·답글 신고 (로그인했을 때만)
   const moderation = useModeration()
   const report = (c: Comment) =>
-    moderation?.report({ type: 'COMMENT', id: c.id, authorId: c.authorId, authorName: c.authorName })
+    moderation?.report({ type: 'COMMENT', id: c.id, authorId: c.authorId, authorName: c.authorName, excerpt: c.text })
 
   return (
     <li>

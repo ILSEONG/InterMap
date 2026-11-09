@@ -7,6 +7,8 @@ export interface ReportTarget {
   id: number
   authorId: number
   authorName: string
+  // 신고 화면 위에 인용해 보여줄 내용 (한 줄로 잘린다)
+  excerpt?: string
 }
 
 export interface Moderation {

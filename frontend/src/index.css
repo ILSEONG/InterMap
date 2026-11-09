@@ -29,6 +29,10 @@
   --accent-ink: #b3204a;
   --accent-tint: rgba(217, 54, 90, 0.13);
   --blue: #2f7bf6;
+  /* 브랜드 보조색(민트) — 다녀간 이웃 수·추천 메뉴처럼 '좋은 소식' 정보에 */
+  --mint: #1fa38c;
+  --mint-ink: #0e7563;
+  --mint-tint: rgba(31, 163, 140, 0.13);
   --star: #ff9f0a;
 
   /* 유리 재질 */

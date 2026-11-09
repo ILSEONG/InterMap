@@ -1,24 +1,24 @@
 /* 친구 프로필 속 "나와의 입맛 궁합" */
 .taste {
-  margin: 22px 0 0;
-  padding: 18px 18px 16px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow:
-    0 1px 0 var(--line),
-    0 6px 20px rgba(20, 20, 30, 0.06);
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+/* 탭 이름이 "입맛 궁합"이라 제목은 스크린리더에만 */
+.taste__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .taste__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.taste__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
+  justify-content: flex-end;
+  margin-bottom: -18px;
 }
 
 .taste__how {
@@ -45,7 +45,7 @@
 }
 
 .taste__percent {
-  font-size: 40px;
+  font-size: 46px;
   font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -179,16 +179,16 @@
 
 .taste__share {
   width: 100%;
-  min-height: 48px;
-  margin-top: 14px;
+  min-height: 50px;
+  margin-top: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: none;
-  border-radius: 24px;
-  background: var(--accent);
-  color: #fff;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
   font: inherit;
   font-size: 15px;
   font-weight: 700;

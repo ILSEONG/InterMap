@@ -125,7 +125,7 @@ export default function TasteCardSheet({ input, onClose }: TasteCardSheetProps) 
         <p className="recap-sheet__hint">가게 이름과 각자 준 별점은 카드에 넣지 않아요</p>
 
         <div className="recap-sheet__footer">
-          <button type="button" className="modal-sheet__btn modal-sheet__btn--primary recap-sheet__share" onClick={share} disabled={!card || busy || loading}>
+          <button type="button" className="modal-sheet__btn modal-sheet__btn--primary recap-sheet__share taste-card__share" onClick={share} disabled={!card || busy || loading}>
             <ShareIcon size={20} /> {busy ? '준비 중…' : '이미지로 공유하기'}
           </button>
         </div>

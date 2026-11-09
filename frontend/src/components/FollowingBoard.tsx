@@ -28,7 +28,6 @@ const SORTS: [Sort, string][] = [
   ['name', '이름순'],
 ]
 
-const WEEK = 7 * 24 * 3_600_000
 
 interface Row {
   person: Person
@@ -91,18 +90,6 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
     )
   }, [rows, query, sort])
 
-  // 최근 활동순일 때만 묶음 제목을 단다
-  const now = Date.now()
-  const sections: { title: string | null; accent?: boolean; rows: Row[] }[] =
-    sort === 'recent'
-      ? [
-          { title: '새 후기를 올린 사람', accent: true, rows: shown.filter((r) => r.newCount > 0) },
-          { title: '이번 주', rows: shown.filter((r) => r.newCount === 0 && r.latest && now - Date.parse(r.latest.createdAt) < WEEK) },
-          { title: '그 전', rows: shown.filter((r) => r.newCount === 0 && r.latest && now - Date.parse(r.latest.createdAt) >= WEEK) },
-          { title: '아직 후기가 없어요', rows: shown.filter((r) => !r.latest) },
-        ].filter((s) => s.rows.length > 0)
-      : [{ title: null, rows: shown }]
-
   return (
     <div className="modal-layer board-layer" hidden={hidden} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall board" role="dialog" aria-modal="true" aria-labelledby="board-title">
@@ -116,7 +103,7 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
             </svg>
             사람 찾기
           </button>
-          <button type="button" className="modal-sheet__icon-btn" onClick={onClose} aria-label="닫기">
+          <button type="button" className="modal-sheet__icon-btn board__close" onClick={onClose} aria-label="닫기">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
@@ -139,12 +126,12 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
                 enterKeyHint="search"
               />
             </label>
-            <div className="segmented board__sort" role="group" aria-label="정렬">
+            <div className="board__sort" role="group" aria-label="정렬">
               {SORTS.map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
-                  className={`segmented__item${sort === value ? ' segmented__item--active' : ''}`}
+                  className={`board__sort-tab${sort === value ? ' board__sort-tab--on' : ''}`}
                   aria-pressed={sort === value}
                   onClick={() => setSort(value)}
                 >
@@ -167,52 +154,48 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
           ) : shown.length === 0 ? (
             <p className="board__none">‘{query.trim()}’ 닉네임을 가진 사람이 없어요</p>
           ) : (
-            sections.map((section) => (
-              <section key={section.title ?? 'all'} className="board__section">
-                {section.title && (
-                  <h3 className={`board__section-title${section.accent ? ' board__section-title--accent' : ''}`}>{section.title}</h3>
-                )}
-                <ul className="board__list">
-                  {section.rows.map((r) => (
-                    <li key={r.person.id} className="board__row">
-                      <button type="button" className="board__open" onClick={() => onOpenProfile(r.person.id)}>
-                        <span className={`board__avatar-wrap${r.newCount > 0 ? ' board__avatar-wrap--new' : ''}`}>
-                          <Avatar className={`board__avatar tone-${Math.abs(r.person.id) % 4}`} src={r.person.avatar} name={r.name} />
-                          {r.newCount > 0 && <span className="board__new-dot" aria-hidden="true" />}
+            // 새 후기·이번 주·그 전으로 나누지 않고 한 목록으로 (정렬만 바꾼다)
+            <ul className="board__list">
+              {shown.map((r) => (
+                <li key={r.person.id} className="board__row">
+                  <button type="button" className="board__open" onClick={() => onOpenProfile(r.person.id)}>
+                    <span className={`board__avatar-wrap${r.newCount > 0 ? ' board__avatar-wrap--new' : ''}`}>
+                      <Avatar className={`board__avatar tone-${Math.abs(r.person.id) % 4}`} src={r.person.avatar} name={r.name} />
+                    </span>
+                    <span className="board__meta">
+                      <span className="board__name-line">
+                        <span className="board__name">{r.name}</span>
+                        {r.person.followsMe && <span className="board__flag board__flag--mutual">맞팔</span>}
+                        {r.newCount > 0 && <span className="board__flag board__flag--new">새 후기 {r.newCount}개</span>}
+                      </span>
+                      {r.latest ? (
+                        <span className="board__latest">
+                          <span className="board__when">{timeAgo(r.latest.createdAt)} ·</span> {r.latest.restaurant.name}{' '}
+                          <RatingStar />
+                          {r.latest.rating.toFixed(1)}
                         </span>
-                        <span className="board__meta">
-                          <span className="board__name-line">
-                            <span className="board__name">{r.name}</span>
-                            {r.person.followsMe && <span className="board__tag board__tag--mutual">맞팔</span>}
-                            {r.newCount > 0 && <span className="board__tag board__tag--new">새 후기 {r.newCount}개</span>}
-                          </span>
-                          {r.latest ? (
-                            <span className="board__latest">
-                              <span className="board__when">{timeAgo(r.latest.createdAt)} ·</span> {r.latest.restaurant.name}{' '}
-                              <RatingStar />
-                              {r.latest.rating.toFixed(1)}
-                            </span>
-                          ) : (
-                            <span className="board__latest board__when">아직 남긴 후기가 없어요</span>
-                          )}
-                          {r.count > 0 && (
-                            <span className="board__tags">
-                              <span className="board__tag">후기 {r.count}개</span>
-                              {r.tag && <span className="board__tag">{r.tag}</span>}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                      {r.count > 0 && (
-                        <button type="button" className="board__map" onClick={() => onShowOnMap(r.person.id)}>
-                          지도 보기
-                        </button>
+                      ) : (
+                        <span className="board__latest board__when">아직 남긴 후기가 없어요</span>
                       )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+                      {r.count > 0 && (
+                        <span className="board__sub">
+                          후기 {r.count}개{r.tag && ` · ${r.tag}`}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  {r.count > 0 && (
+                    <button type="button" className="board__map" onClick={() => onShowOnMap(r.person.id)}>
+                      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z" />
+                        <path d="M9 4v13.5M15 6.5V20" />
+                      </svg>
+                      지도 보기
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

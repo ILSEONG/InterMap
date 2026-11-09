@@ -6,157 +6,178 @@
 /* 헤더 아래로 조금 내려 시트 위쪽에 지도가 보이게 둔다 */
 .my-page--profile {
   top: calc(max(env(safe-area-inset-top), 12px) + 42px);
+  background: #fff;
 }
 
 .my-page--profile .my-page__scroll {
-  padding: 35px 18px max(22px, env(safe-area-inset-bottom));
+  padding: 6px 18px max(22px, env(safe-area-inset-bottom));
 }
 
-.profile-sheet__close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 2;
-  margin: 0;
+/* 위 줄 — 뒤로 · 이름 · ⋯ */
+.profile-sheet__top {
+  flex: none;
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  height: 60px;
+  padding: 6px 8px 0;
 }
 
-/* 내려 보면 나타나는 위쪽 띠 — 이름 + 닫기 버튼 자리. 글·버튼이 닫기 버튼 밑으로 비치지 않게 가린다 */
-.profile-sheet__bar {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 1;
-  height: 76px;
+.profile-sheet__top-btn {
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 72px;
-  background: var(--glass-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 var(--line);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease-out;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
 }
 
-.profile-sheet--scrolled .profile-sheet__bar {
-  opacity: 1;
+.profile-sheet__top-btn:active {
+  background: var(--fill);
 }
 
-.profile-sheet__bar-name {
+.profile-sheet__top-name {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-align: center;
   font-size: 17px;
   font-weight: 800;
 }
 
-/* 팔로잉·팔로워 목록에서 개요로 돌아가기 — 닫기 버튼과 같은 높이, 왼쪽 */
-.profile-sheet__back {
-  min-height: 44px;
-  margin: -19px 56px 8px -8px;
-  padding: 0 8px 0 2px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: none;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--ink);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+.profile-sheet__more {
+  position: relative;
+  justify-self: end;
 }
 
-.profile-sheet__back:active {
+.profile-sheet__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  min-width: 160px;
+  padding: 8px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  box-shadow: 0 14px 36px rgba(20, 20, 30, 0.16);
+}
+
+.profile-sheet__menu button {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 14px;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.profile-sheet__menu button:active {
   background: var(--fill);
 }
 
+.profile-sheet__menu .profile-sheet__menu-danger {
+  color: #b8233a;
+}
+
+/* 프로필 머리 — 왼쪽 큰 사진, 오른쪽 이름·맞팔·숫자 */
 .profile-sheet__hero {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  /* 닫기 버튼과 이름이 겹치지 않게 좌우 여유 */
-  padding: 0 48px;
+  gap: 16px;
 }
 
 .profile-sheet__avatar {
-  width: 96px;
-  height: 96px;
-  font-size: 38px;
-  font-weight: 900;
-  box-shadow:
-    0 0 0 4px #fff,
-    0 10px 24px rgba(20, 20, 30, 0.12);
+  flex: none;
+  width: 76px;
+  height: 76px;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.profile-sheet__who {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-sheet__name-line {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .profile-sheet__name {
-  margin: 14px 0 0;
-  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: var(--font-display);
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1.3;
-  overflow-wrap: anywhere;
 }
 
 .profile-sheet__nick {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 13px;
   color: var(--ink-2);
 }
 
 .profile-sheet__badge {
-  margin-top: 6px;
-  height: 26px;
-  padding: 0 12px;
-  border-radius: 13px;
-  background: rgba(255, 93, 115, 0.14);
-  color: #b42a44;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--mint-tint);
+  color: var(--mint-ink);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.profile-sheet__badge-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff5d73;
-}
-
-/* 후기 · 팔로잉 · 팔로워 — 숫자가 위, 이름표가 아래 */
+/* 후기 6  팔로잉 12  팔로워 18 — 한 줄 */
 .profile-sheet__stats {
-  margin: 18px 0 0;
-  padding: 12px 0;
+  margin: 4px 0 0;
   display: flex;
-  border-radius: 26px;
-  background: var(--surface-raised);
-  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  flex-wrap: wrap;
+  gap: 0 14px;
 }
 
 .profile-sheet__stat {
-  flex: 1;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
+  font-size: 14px;
+  color: var(--ink-2);
 }
 
-/* 팔로잉·팔로워 수는 눌러서 목록을 연다 */
+.profile-sheet__stat b {
+  margin-left: 2px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 팔로잉·팔로워 수는 눌러서 목록을 연다 (보이는 줄은 낮게, 누르는 칸은 44px) */
 button.profile-sheet__stat {
-  margin: 0;
+  min-height: 44px;
+  margin: -12px 0;
   padding: 0;
   border: none;
   background: none;
   font: inherit;
-  color: inherit;
+  font-size: 14px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -165,22 +186,100 @@ button.profile-sheet__stat:active {
   opacity: 0.6;
 }
 
-.profile-sheet__stat + .profile-sheet__stat {
-  box-shadow: -1px 0 0 rgba(60, 60, 67, 0.1);
+/* 입맛 궁합 · 다녀온 곳 · 별점 TOP 5 — 밑줄 탭, 시트 끝까지 */
+.profile-sheet__tabs {
+  display: flex;
+  margin: 18px -18px 16px;
+  border-bottom: 1px solid var(--line);
 }
 
-.profile-sheet__stat-label {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--ink-2);
+.profile-sheet__tab {
+  position: relative;
+  flex: 1;
+  height: 46px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.profile-sheet__stat-value {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 900;
-  line-height: 1.35;
-  font-variant-numeric: tabular-nums;
+.profile-sheet__tab--on {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.profile-sheet__tab--on::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--ink);
+}
+
+/* 다녀온 곳 목록 */
+.profile-sheet__visited {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-sheet__visited li + li {
+  border-top: 1px solid var(--line);
+}
+
+.profile-sheet__place {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-sheet__place:active {
+  opacity: 0.6;
+}
+
+.profile-sheet__place-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-sheet__place-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.profile-sheet__place-sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.profile-sheet__place-rating {
+  flex: none;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.profile-sheet__place-rating .rating-star {
+  color: var(--accent);
 }
 
 .profile-sheet__loading {
@@ -197,9 +296,9 @@ button.profile-sheet__stat:active {
 
 .profile-sheet__follow,
 .profile-sheet__rename {
-  height: 52px;
+  height: 48px;
   border: none;
-  border-radius: 26px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -232,12 +331,13 @@ button.profile-sheet__stat:active {
 }
 
 .profile-sheet__rename {
-  flex: none;
+  flex: 1;
   padding: 0 18px;
   gap: 6px;
   font-size: 15px;
-  background: rgba(118, 118, 128, 0.12);
-  color: var(--ink-2);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.18);
+  color: var(--ink);
 }
 
 .profile-sheet__rename:active {
@@ -351,4 +451,8 @@ button.profile-sheet__stat:active {
   height: 14px;
   border-radius: 7px;
   background: rgba(118, 118, 128, 0.12);
+}
+
+.profile-sheet__actions > * {
+  flex: 1;
 }

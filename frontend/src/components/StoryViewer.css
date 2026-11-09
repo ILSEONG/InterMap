@@ -1,26 +1,25 @@
 /*
-  스토리 뷰어 — 인스타그램 스토리 모양의 전체 화면.
-  사진(없으면 회색 자리)이 화면 끝까지 깔리고, 그 위에 유리 재질 컨트롤이 뜬다:
-  위 = 진행 막대 + 작성자 알약 + 닫기, 아래 = 넘기기 힌트 + 가게·후기 카드 + 동작 버튼 3개.
-  사진은 상태바·홈 표시줄 밑까지 덮고, 컨트롤만 safe-area와 키보드 높이(--kb)를 피한다.
+  스토리 뷰어 — 어두운 전체 화면.
+  위 = 사진(화면 위쪽을 꽉 채우고 아래로 어둡게 번짐) + 진행 막대·작성자·닫기,
+  아래 = 어두운 판: 가게 이름·후기, 점수 도장, 동작 세 개(지도에서 보기·찜하기·댓글), 댓글 목록과 입력칸.
+  사진은 상태바 밑까지 덮고, 컨트롤만 safe-area와 키보드 높이(--kb)를 피한다.
 */
 
 .story-viewer {
-  /* 사진 위 유리. 기본 --glass(0.58)보다 살짝 진하게 — 어두운 사진 위에서도 보조 글자(--ink-2)가 4.5:1을 넘게 */
-  --sv-glass: rgba(255, 255, 255, 0.66);
-  --sv-solid: rgba(255, 255, 255, 0.88);
-  --sv-placeholder: #cfcbc4;
+  --sv-bg: #141416;
+  --sv-line: rgba(255, 255, 255, 0.12);
+  --sv-soft: rgba(255, 255, 255, 0.62);
   --sv-top: max(calc(env(safe-area-inset-top) + 3px), 16px);
-  --sv-bottom: calc(max(env(safe-area-inset-bottom), 28px) + var(--kb));
+  --sv-bottom: calc(max(env(safe-area-inset-bottom), 16px) + var(--kb));
 
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(20, 20, 30, 0.72);
+  background: rgba(10, 10, 12, 0.8);
   display: flex;
   justify-content: center;
   letter-spacing: -0.01em;
-  color: var(--ink);
+  color: #fff;
 }
 
 /* 폰에선 화면 전체, 넓은 화면에선 가운데 폰 폭 기둥. 기둥 바깥을 누르면 닫힌다 */
@@ -29,10 +28,10 @@
   width: min(100%, 480px);
   height: 100%;
   overflow: hidden;
-  background: var(--sv-placeholder);
+  background: var(--sv-bg);
 }
 
-/* 한 장씩 가로로 스냅. 스크롤바는 숨긴다. 슬라이드 사이 틈이 없어야 scrollLeft / 폭 = 지금 index */
+/* 한 장씩 가로로 스냅. 슬라이드 사이 틈이 없어야 scrollLeft / 폭 = 지금 index */
 .story-viewer__track {
   display: flex;
   height: 100%;
@@ -55,63 +54,347 @@
   scroll-snap-align: center;
   scroll-snap-stop: always;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ── 사진 칸 ───────────────────────────── */
+/* ── 사진 ───────────────────────────── */
 
+/* 남는 높이를 사진이 다 쓴다 (아래 판이 길어지면 사진이 줄어든다, 그래도 화면의 1/3은 남긴다) */
 .story-viewer__media {
-  position: absolute;
-  inset: 0;
-  background: var(--sv-placeholder);
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 34%;
+  background: #24242a;
 }
 
-.story-viewer__media--photo {
-  overflow: hidden;
-  background: #111;
-}
-
-/* 사진 전체 — 원래 비율 그대로 (위아래·양옆이 잘리지 않게) */
 .story-viewer__photo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
 }
 
-/* 남는 칸 — 같은 사진을 크게 흐려 깐다 */
-.story-viewer__backdrop {
-  position: absolute;
-  inset: -40px;
-  width: calc(100% + 80px);
-  height: calc(100% + 80px);
-  object-fit: cover;
-  filter: blur(28px) brightness(0.7) saturate(1.2);
-  transform: translateZ(0);
-}
-
-/* 밝은 사진 위에서도 흰 진행 막대가 보이게 위쪽만 살짝 어둡게 */
-.story-viewer__media--photo::after {
+/* 위는 진행 막대가 보이게 살짝, 아래는 판과 이어지게 바탕색까지 */
+.story-viewer__media::after {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
-  height: 180px;
-  background: linear-gradient(rgba(20, 20, 30, 0.32), rgba(20, 20, 30, 0));
+  inset: 0;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0) 160px),
+    linear-gradient(to top, var(--sv-bg), rgba(20, 20, 22, 0) 38%);
   pointer-events: none;
 }
 
-/* 사진 없는 후기 — 시안의 "[사진]" 자리 (회색 바탕, 가운데보다 조금 위) */
 .story-viewer__media--empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4a4743;
+  color: rgba(255, 255, 255, 0.28);
 }
 
-.story-viewer__media--empty svg {
-  margin-top: -120px;
-  opacity: 0.55;
+/* 사진 칸 아래 경계에 붙은 얇은 층 — 힌트와 점수 도장이 판 위로 걸치게 (판보다 위에 그린다) */
+.story-viewer__overlay {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: 0;
+}
+
+/* 넘기기 힌트 — 사진 아래쪽 가운데 */
+.story-viewer__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 52px;
+  transform: translateX(-50%);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* ── 아래 판 ───────────────────────────── */
+
+.story-viewer__sheet {
+  position: relative;
+  flex: 0 1 auto;
+  max-height: 62%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding: 2px 18px var(--sv-bottom);
+  background: var(--sv-bg);
+}
+
+.story-viewer__sheet::-webkit-scrollbar {
+  display: none;
+}
+
+/* 점수 도장 — 분홍 고리 안에 점수, 아래 작성자 이름. 사진과 판 경계에 걸친다 */
+.story-viewer__stamp {
+  position: absolute;
+  top: -44px;
+  right: 18px;
+  width: 78px;
+  height: 78px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  background: rgba(20, 20, 22, 0.86);
+  box-shadow:
+    0 0 0 4px rgba(217, 54, 90, 0.22),
+    0 8px 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.story-viewer__stamp b {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #ff6f8f;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-viewer__stamp span {
+  margin-top: 4px;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sv-soft);
+}
+
+.story-viewer__panel {
+  padding-top: 14px;
+  padding-right: 92px;
+}
+
+.story-viewer__name {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.story-viewer__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.story-viewer__meta {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--sv-soft);
+}
+
+.story-viewer__meta .rating-star {
+  color: var(--star);
+}
+
+/* 후기 카드(ReviewCard) — 판 안의 본문으로만 녹인다. 머리(작성자·별점)는 위 작성자 줄·도장이 보여준다 */
+.story-viewer .review-card,
+.story-viewer .review-card--owner {
+  width: auto;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: #fff;
+}
+
+.story-viewer .review-card__header {
+  display: none;
+}
+
+.story-viewer .review-card__text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: #fff;
+}
+
+.story-viewer .review-card__photos {
+  margin-top: 10px;
+}
+
+.story-viewer .review-card__photo {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: #2a2a30;
+}
+
+.story-viewer .review-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-viewer .review-card__menu {
+  background: rgba(31, 163, 140, 0.2);
+  color: #7fe0cd;
+}
+
+/* ── 동작 세 개: 지도에서 보기 · 찜하기 · 댓글 ── */
+
+.story-viewer__actions {
+  margin: 16px -18px 0;
+  border-top: 1px solid var(--sv-line);
+  border-bottom: 1px solid var(--sv-line);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.story-viewer__action {
+  min-width: 0;
+  height: 52px;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.story-viewer__action + .story-viewer__action {
+  box-shadow: inset 1px 0 0 var(--sv-line);
+}
+
+.story-viewer__action:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.story-viewer__action--on {
+  color: #ff6f8f;
+}
+
+/* ── 댓글: 늘 펼친 목록 + 입력칸 ── */
+
+.story-viewer .review-comments--inline {
+  margin: 12px 0 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+
+.story-viewer .restaurant-sheet__comments {
+  margin: 0 0 12px;
+  gap: 8px;
+}
+
+.story-viewer .comment__avatar {
+  display: none;
+}
+
+.story-viewer .comment__line {
+  margin: 0;
+  font-size: 14px;
+}
+
+.story-viewer .comment__author,
+.story-viewer .comment__text {
+  color: #fff;
+}
+
+.story-viewer .comment__author {
+  margin-right: 4px;
+}
+
+.story-viewer .comment__actions {
+  gap: 4px;
+  margin-left: -8px;
+}
+
+.story-viewer .comment__actions .comment__reply-toggle {
+  min-height: 36px;
+  margin: 0;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--sv-soft);
+}
+
+.story-viewer .comment__reply-toggle--danger,
+.story-viewer .comment__actions .comment__reply-toggle--danger {
+  color: #ff8aa3;
+}
+
+/* 댓글·답글 입력칸 — 어두운 칸 + 흰 등록 */
+.story-viewer .restaurant-sheet__comment-form {
+  display: flex;
+  gap: 8px;
+}
+
+.story-viewer .restaurant-sheet__comment-form input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 15px;
+}
+
+.story-viewer .restaurant-sheet__comment-form input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.story-viewer .restaurant-sheet__comment-form input:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 0;
+}
+
+.story-viewer .restaurant-sheet__comment-form .comment__send {
+  flex: 0 0 auto;
+  height: 48px;
+  min-width: 64px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.story-viewer .comment__send-icon {
+  display: none;
+}
+
+.story-viewer .restaurant-sheet__comment-form .comment__send:disabled {
+  opacity: 0.5;
 }
 
 /* ── 위: 진행 막대 · 작성자 · 닫기 (트랙 밖에 고정) ───────── */
@@ -129,49 +412,41 @@
 }
 
 .story-viewer__progress {
-  margin: 0 16px;
+  margin: 0 14px;
   display: flex;
-  gap: 5px;
+  gap: 4px;
 }
 
 .story-viewer__segment {
   flex: 1;
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.5);
-  transition: background-color 200ms ease, box-shadow 200ms ease;
+  background: rgba(255, 255, 255, 0.35);
+  transition: background-color 200ms ease;
 }
 
 .story-viewer__segment--on {
   background: #fff;
-  box-shadow: 0 1px 3px rgba(20, 20, 30, 0.25);
 }
 
 .story-viewer__header {
-  margin: 12px 12px 0;
+  margin: 10px 8px 0 14px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.story-viewer__author,
-.story-viewer__close {
-  height: 52px;
-  border-radius: 26px;
-  background: var(--sv-glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  color: var(--ink);
-}
-
+/* 작성자 — 알약 없이 사진 위에 바로 */
 .story-viewer__author {
   min-width: 0;
-  padding: 0 18px 0 6px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #fff;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font: inherit;
   text-align: left;
 }
@@ -182,22 +457,24 @@ button.story-viewer__author {
 
 .story-viewer__avatar {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 20px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   overflow: hidden;
 }
 
+/* 이름과 시간을 한 줄로 */
 .story-viewer__author-text {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
-  line-height: 1.25;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }
 
 .story-viewer__author-name {
@@ -211,379 +488,25 @@ button.story-viewer__author {
 .story-viewer__author-time {
   font-size: 12px;
   font-weight: 500;
-  color: var(--ink-2);
+  color: rgba(255, 255, 255, 0.75);
   white-space: nowrap;
 }
 
 .story-viewer__close {
   flex: 0 0 auto;
   margin-left: auto;
-  width: 52px;
+  width: 44px;
+  height: 44px;
   padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-
-/* ── 아래: 힌트 + 카드 (아래에서부터 쌓고, 길어지면 헤더 밑까지만 커진 뒤 카드 안에서 스크롤) ── */
-
-.story-viewer__bottom {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: var(--sv-bottom);
-  /* 진행 막대 4 + 12 + 헤더 52 + 여유 12 */
-  top: calc(var(--sv-top) + 80px);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  pointer-events: none;
-}
-
-.story-viewer__hint {
-  flex: 0 0 auto;
-  /* 시안: 힌트 아래 카드까지 약 60px — 화면이 낮으면 줄인다 */
-  margin: 0 0 clamp(12px, 7.5vh, 64px);
-  height: 34px;
-  padding: 0 16px;
-  border-radius: 17px;
-  background: var(--sv-glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-.story-viewer__card {
-  pointer-events: auto;
-  align-self: stretch;
-  min-height: 0;
-  flex: 0 1 auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  border-radius: var(--radius-sheet);
-  padding: 10px;
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.story-viewer__card::-webkit-scrollbar {
-  display: none;
-}
-
-/* 안쪽 반경 26 = 카드 36 - 여백 10 (동심원) */
-.story-viewer__panel {
-  flex: 0 0 auto;
-  border-radius: 26px;
-  padding: 16px 16px 14px;
-  background: var(--sv-solid);
-}
-
-.story-viewer__title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.story-viewer__name {
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-  font-size: 21px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.story-viewer__rating {
-  flex: 0 0 auto;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 15px;
-  background: var(--accent-tint);
-  color: var(--accent-ink);
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.story-viewer__sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.story-viewer__meta {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--ink-2);
-}
-
-/* 후기 카드(ReviewCard, 기본 스타일은 RestaurantSheet.css) — 여기선 패널 안의 본문으로만 녹인다.
-   작성자·별점 머리는 위 작성자 알약과 별점 칩이 이미 보여준다 */
-.story-viewer .review-card,
-.story-viewer .review-card--owner {
-  width: auto;
-  margin: 10px 0 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-}
-
-.story-viewer .review-card__header {
-  display: none;
-}
-
-.story-viewer .review-card__text {
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.55;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.story-viewer .review-card__photos {
-  margin-top: 10px;
-}
-
-.story-viewer .review-card__photo {
-  width: 56px;
-  height: 56px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--fill);
-}
-
-.story-viewer .review-card__menu {
-  margin: 8px 0 0;
-  padding: 0;
-  border: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink-2);
-}
-
-.story-viewer .review-card__menu-label {
-  margin: 0 4px 0 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-/* ── 동작 버튼: 지도에서 보기 / 찜하기 / 댓글 ─────────── */
-
-.story-viewer__actions {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 8px;
-}
-
-.story-viewer__action,
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child {
-  min-width: 0;
-  height: 54px;
-  margin: 0;
-  padding: 0 8px;
-  border: none;
-  border-radius: 27px;
-  background: var(--sv-solid);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.story-viewer__action--primary {
-  background: var(--ink);
-  color: #fff;
-}
-
-.story-viewer__action--fav svg {
-  flex: 0 0 auto;
-  color: var(--accent);
-}
-
-.story-viewer__action--on {
-  background: var(--accent-tint);
-  color: var(--accent-ink);
-}
-
-/* 댓글 트레이(ReviewComments)는 상자를 없애고 자식들이 버튼 격자에 바로 들어온다:
-   첫 토글 = 세 번째 버튼, 펼친 목록·"댓글 달기"·입력칸 = 그 아래 한 줄씩 */
-.story-viewer__actions .review-comments {
-  display: contents;
-}
-
-.story-viewer__actions .review-comments > * {
-  grid-column: 1 / -1;
-}
-
-/* 첫 토글 — 화면 글자는 시안대로 "댓글 N" / 펼치면 "댓글 접기". 원래 문구("댓글 3개 보기")는 글자 크기 0으로 남겨 스크린리더가 읽는다 */
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child {
-  grid-column: auto;
-  font-size: 0;
-  /* 크기 0인 원래 글자도 flex 항목이라 gap 대신 아이콘 쪽 margin으로 띄운다 */
-  gap: 0;
-}
-
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child::before {
-  content: '';
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-right: 6px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child::after {
-  content: '댓글 ' var(--sv-count, '');
-  font-size: 15px;
-}
-
-/* 펼친 상태 = 토글 뒤에 목록·두 번째 토글이 붙어 있다 */
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child:not(:only-child) {
-  background: var(--ink);
-  color: #fff;
-}
-
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child:not(:only-child)::after {
-  content: '댓글 접기';
-}
-
-/* 펼친 댓글 목록 — 위 패널과 같은 흰 면 */
-.story-viewer__actions .review-comments > .restaurant-sheet__comments {
-  margin: 0;
-  width: auto;
-  padding: 16px;
-  border-radius: 26px;
-  background: var(--sv-solid);
-  gap: 12px;
-}
-
-/* 목록 아래 "댓글 달기 / 취소" */
-.story-viewer__actions .review-comments > .comment__reply-toggle:not(:first-child) {
-  justify-self: start;
-  min-height: 44px;
-  margin: 0;
-  padding: 0 18px;
-  border-radius: var(--radius-pill);
-  background: var(--sv-solid);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-/* 쓰는 중엔 "취소" 버튼을 숨긴다 — 접을 땐 위 "댓글 N개" 토글로 */
-.story-viewer__actions .review-comments > .comment__compose--cancel {
-  display: none;
-}
-
-.story-viewer__actions .review-comments > .comment__reply-toggle:not(:first-child):hover,
-.story-viewer__actions .review-comments > .comment__reply-toggle:first-child:hover {
-  text-decoration: none;
-}
-
-/* 댓글 안의 "답글 달기 / 삭제" — 글자 버튼이지만 누르는 칸은 44px */
-.story-viewer .comment__actions {
-  gap: 4px;
-  margin-left: -10px;
-}
-
-.story-viewer .comment__actions .comment__reply-toggle {
-  min-height: 44px;
-  margin: 0;
-  padding: 0 10px;
-  font-size: 13px;
-  color: var(--ink-2);
-}
-
-/* 유리 위 흰 면에서 4.5:1이 나오게 진한 포인트색 */
-.story-viewer .comment__reply-toggle--danger,
-.story-viewer .comment__actions .comment__reply-toggle--danger {
-  color: var(--accent-ink);
-}
-
-/* 댓글·답글 입력칸 — 알약 입력 + 포인트색 등록 */
-.story-viewer .restaurant-sheet__comment-form {
-  display: flex;
-  gap: 8px;
-}
-
-.story-viewer .restaurant-sheet__comment-form input {
-  flex: 1;
-  min-width: 0;
-  height: 48px;
-  padding: 0 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  color: var(--ink);
-  font-size: 15px;
-}
-
-.story-viewer .restaurant-sheet__comment-form input:focus-visible {
-  outline: 3px solid var(--blue);
-  outline-offset: 0;
-  border-color: transparent;
-}
-
-.story-viewer .restaurant-sheet__comment-form button {
-  flex: 0 0 auto;
-  height: 48px;
-  min-width: 64px;
-  padding: 0 18px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.story-viewer .restaurant-sheet__comment-form button:disabled {
-  background: var(--fill-strong);
-  color: var(--ink-soft);
-  opacity: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -118,13 +118,11 @@ export default function StoryViewer({
                 {photoPath !== undefined ? (
                   <div className="story-viewer__media story-viewer__media--photo">
                     {/* 슬라이드 전부를 한 번에 받지 않게 — 화면 근처에 온 것만 */}
-                    {/* 사진 전체가 보이게(잘리지 않게) 가운데 두고, 남는 칸은 같은 사진을 흐리게 깔아 채운다 */}
-                    <img className="story-viewer__backdrop" src={photoUrl(photoPath)} alt="" aria-hidden="true" loading="lazy" decoding="async" />
                     <img className="story-viewer__photo" src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="story-viewer__media story-viewer__media--empty" aria-hidden="true">
-                    {/* 사진 없는 후기 — 시안의 "[사진]" 자리. 회색 바탕에 숟가락·포크만 흐리게 */}
+                    {/* 사진 없는 후기 — 어두운 바탕에 숟가락·포크만 흐리게 */}
                     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20" />
                       <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
@@ -132,27 +130,29 @@ export default function StoryViewer({
                   </div>
                 )}
 
-                {/* 힌트 + 카드를 아래에서부터 쌓는다. 카드가 길어지면(댓글을 펴면) 위 헤더 밑까지만 커지고 안에서 스크롤 */}
-                <div className="story-viewer__bottom">
-                {slides.length > 1 && (
-                  <p className="story-viewer__hint">
-                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 7l-5 5 5 5M16 7l5 5-5 5" />
-                    </svg>
-                    좌우로 넘겨서 다음 후기 보기
-                  </p>
-                )}
+                {/* 사진 칸 위에 얹는 것 — 넘기기 힌트, 사진과 판 경계에 걸친 점수 도장 */}
+                <div className="story-viewer__overlay">
+                  {slides.length > 1 && (
+                    <p className="story-viewer__hint">
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 6l-6 6 6 6" />
+                      </svg>
+                      좌우로 넘겨서 다음 후기
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
+                    </p>
+                  )}
+                    <span className="story-viewer__stamp" aria-label={`${owner.name}님 별점 ${review.rating.toFixed(1)}`}>
+                      <b>{review.rating.toFixed(1)}</b>
+                      <span>{owner.name}</span>
+                    </span>
+                </div>
 
-                <div className="story-viewer__card">
+                {/* 사진 아래 어두운 판 — 가게·후기, 동작 세 개, 댓글. 길어지면 판 안에서 스크롤 */}
+                <div className="story-viewer__sheet">
                   <div className="story-viewer__panel">
-                    <div className="story-viewer__title-row">
-                      <h2 className="story-viewer__name">{review.restaurant.name}</h2>
-                      <span className="story-viewer__rating">
-                        <RatingStar />
-                        <span className="story-viewer__sr">{owner.name}님 별점 </span>
-                        {review.rating.toFixed(1)}
-                      </span>
-                    </div>
+                    <h2 className="story-viewer__name">{review.restaurant.name}</h2>
                     <p className="story-viewer__meta">
                       {review.restaurant.category} · {review.restaurant.address}
                     </p>
@@ -162,53 +162,64 @@ export default function StoryViewer({
                         {avg.toFixed(1)}
                       </p>
                     )}
-                    {/* 작성자·별점은 위 작성자 줄과 별점 칩이 보여주므로 카드 머리는 CSS에서 숨긴다. 본문·사진·추천메뉴만 쓴다 */}
+                    {/* 작성자·별점은 위 작성자 줄과 점수 도장이 보여주므로 카드 머리는 CSS에서 숨긴다 */}
                     <ReviewCard review={review} />
                   </div>
 
-                  {/* --sv-count: 댓글 버튼(아래 ReviewComments의 토글)에 CSS로 "댓글 N"을 그리기 위한 개수 */}
-                  <div
-                    className="story-viewer__actions"
-                    style={{ ['--sv-count' as string]: `"${(comments[review.id] ?? []).length || ''}"` }}
-                  >
+                  <div className="story-viewer__actions">
                     <button
                       type="button"
-                      className="story-viewer__action story-viewer__action--primary"
+                      className="story-viewer__action"
                       onClick={(e) => {
                         e.stopPropagation()
                         onFocusRestaurant(review)
                       }}
                     >
-                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-                        <circle cx="12" cy="9.5" r="2.5" />
+                      <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z" />
+                        <path d="M9 4v13.5M15 6.5V20" />
                       </svg>
                       지도에서 보기
                     </button>
                     <button
                       type="button"
-                      className={`story-viewer__action story-viewer__action--fav${favored ? ' story-viewer__action--on' : ''}`}
+                      className={`story-viewer__action${favored ? ' story-viewer__action--on' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation()
                         onToggleFavorite({ name: review.restaurant.name, address: review.restaurant.address })
                       }}
                       aria-pressed={favored}
                     >
-                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill={favored ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill={favored ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
                       </svg>
-                      찜하기
+                      {favored ? '찜했어요' : '찜하기'}
                     </button>
-                    {/* 댓글 트레이를 그대로 쓴다 — CSS display: contents로 트레이의 "댓글 N개 보기" 토글이 세 번째 동작 버튼 자리에 들어가고,
-                        펼친 목록·입력칸은 버튼 줄 아래 한 줄씩 붙는다. 화면 글자는 시안대로 "댓글 N"(스크린리더는 원래 문구를 읽는다) */}
-                    <ReviewComments
-                      comments={comments[review.id] ?? []}
-                      myUserId={myUserId}
-                      onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
-                      onDelete={(commentId) => onDeleteComment(review.id, commentId)}
-                    />
+                    <button
+                      type="button"
+                      className="story-viewer__action"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const input = document.getElementById(`story-comment-${review.id}`)
+                        input?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                        input?.focus({ preventScroll: true })
+                      }}
+                    >
+                      <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z" />
+                      </svg>
+                      댓글 {(comments[review.id] ?? []).length || ''}
+                    </button>
                   </div>
-                </div>
+
+                  <ReviewComments
+                    inline
+                    inputId={`story-comment-${review.id}`}
+                    comments={comments[review.id] ?? []}
+                    myUserId={myUserId}
+                    onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                    onDelete={(commentId) => onDeleteComment(review.id, commentId)}
+                  />
                 </div>
               </article>
             )

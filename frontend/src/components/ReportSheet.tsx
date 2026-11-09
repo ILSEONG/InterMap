@@ -66,7 +66,7 @@ export default function ReportSheet({ target, onReported, onBlocked, onClose }: 
 
   return (
     <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="report-sheet-title">
+      <div className="modal-sheet report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-sheet-title">
         <header className="modal-sheet__header">
           <h2 id="report-sheet-title" className="modal-sheet__title">
             {done ? '신고했어요' : `${what} 신고`}
@@ -124,6 +124,11 @@ export default function ReportSheet({ target, onReported, onBlocked, onClose }: 
               <p className="modal-sheet__lead">
                 {target.authorName}님의 {what}을 신고하는 이유를 골라주세요. 신고한 사람은 상대에게 알려지지 않아요.
               </p>
+              {target.excerpt && (
+                <blockquote className="report-sheet__quote">
+                  <b>{target.authorName}</b> {target.excerpt}
+                </blockquote>
+              )}
               <fieldset className="report-sheet__reasons">
                 <legend className="report-sheet__sr">신고 사유</legend>
                 {REPORT_REASONS.map((r) => (
@@ -140,9 +145,12 @@ export default function ReportSheet({ target, onReported, onBlocked, onClose }: 
                   </label>
                 ))}
               </fieldset>
-              <label className="report-sheet__detail-label" htmlFor="report-detail">
-                자세한 내용 <span>(선택)</span>
-              </label>
+              <div className="report-sheet__detail-row">
+                <label className="report-sheet__detail-label" htmlFor="report-detail">
+                  자세한 내용
+                </label>
+                <span className="report-sheet__optional">선택</span>
+              </div>
               <textarea
                 id="report-detail"
                 className="report-sheet__detail"
@@ -153,7 +161,7 @@ export default function ReportSheet({ target, onReported, onBlocked, onClose }: 
                 rows={3}
               />
               <div className="modal-sheet__actions">
-                <button type="button" className="modal-sheet__btn modal-sheet__btn--primary" onClick={submit} disabled={!reason || busy}>
+                <button type="button" className="modal-sheet__btn modal-sheet__btn--dark report-sheet__submit" onClick={submit} disabled={!reason || busy}>
                   {busy ? '보내는 중…' : '신고하기'}
                 </button>
               </div>
