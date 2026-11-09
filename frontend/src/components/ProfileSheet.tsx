@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
-import type { Restaurant } from '../data/model'
+import { useEffect, useMemo, useState } from 'react'
+import type { Restaurant, Review } from '../data/model'
 import type { SocialData, UserProfile } from '../lib/api'
-import { blockUser, fetchUserProfile, fetchUserSocial, followUser, unblockUser, unfollowUser, setAlias } from '../lib/api'
+import { blockUser, fetchUserProfile, fetchUserSocial, followUser, restaurantKey, unblockUser, unfollowUser, setAlias } from '../lib/api'
 import type { ProfileList } from '../lib/profileStack'
-import { topPicksOf } from '../lib/topPicks'
+import { categoryName, MIN_COMMON, tasteMatch } from '../lib/taste'
+import { shortLocation, topPicksOf } from '../lib/topPicks'
 import Avatar from './Avatar'
 import { PersonList } from './MyPage'
+import TasteCardSheet from './TasteCardSheet'
+import TasteMatchSection from './TasteMatchSection'
+import type { OtherPlace } from './TasteMatchSection'
 import TopPicksCard from './TopPicksCard'
 import './MyPage.css'
 import './ProfileSheet.css'
@@ -18,6 +22,10 @@ interface ProfileSheetProps {
   restaurants: Restaurant[]
   // 팔로잉·팔로워 목록에서 나 자신을 "나"로 표시하는 데 쓴다
   myUserId?: number
+  // 궁합 카드에 들어갈 내 이름
+  myName: string
+  // 앱이 받은 후기 전체 (팔로우한 사람 + 나) — 나와의 입맛 궁합을 여기서 계산한다
+  reviews: Review[]
   // 팔로잉·팔로워 수를 누르면 개요 대신 그 목록을 보여준다. App이 들고 있어 안드로이드 뒤로가기로 한 단계씩 닫힌다
   list: ProfileList | null
   onListChange: (list: ProfileList | null) => void
@@ -35,6 +43,8 @@ export default function ProfileSheet({
   fallbackName,
   restaurants,
   myUserId,
+  myName,
+  reviews,
   list: listKind,
   onListChange: setListKind,
   onSocialChange,
@@ -46,6 +56,7 @@ export default function ProfileSheet({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [lists, setLists] = useState<SocialData | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -136,6 +147,36 @@ export default function ProfileSheet({
   // 마이페이지 팔로잉·팔로워 목록은 두 칸이라 좁아서, 사람을 눌러 여기로 와서 이름을 바꾼다.
   const canRename = !!profile && !profile.blocked && (profile.following || profile.followsMe)
   const isMe = myUserId === userId
+
+  // 나와의 입맛 궁합 — 둘 다 후기를 남긴 가게의 별점으로 (팔로우해야 상대 후기가 오므로 팔로우 중일 때만)
+  const showTaste = !!profile?.following && !profile.blocked && !isMe && myUserId !== undefined
+  const match = useMemo(() => {
+    if (!showTaste) return null
+    const mine = reviews.filter((rv) => rv.author.id === myUserId && !rv.author.owner)
+    const theirs = reviews.filter((rv) => rv.author.id === userId)
+    return tasteMatch(mine, theirs)
+  }, [showTaste, reviews, myUserId, userId])
+  // 겹치는 곳이 적을 때 — 상대는 가 봤고 나는 아직 안 가 본 곳 (별점 높은 순 3곳)
+  const others = useMemo<OtherPlace[]>(() => {
+    if (!match || match.ready) return []
+    const mineKeys = new Set(reviews.filter((rv) => rv.author.id === myUserId).map((rv) => restaurantKey(rv.restaurant)))
+    const seen = new Set<string>()
+    return reviews
+      .filter((rv) => rv.author.id === userId)
+      .sort((a, b) => b.rating - a.rating || Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .flatMap((rv) => {
+        const key = restaurantKey(rv.restaurant)
+        if (mineKeys.has(key) || seen.has(key)) return []
+        seen.add(key)
+        return [{ key, name: rv.restaurant.name, category: categoryName(rv.restaurant.category), area: shortLocation(rv.restaurant.address), rating: rv.rating }]
+      })
+      .slice(0, 3)
+  }, [match, reviews, myUserId, userId])
+  const cardInput = useMemo(() => (match?.ready ? { myName, theirName: name, match } : null), [match, myName, name])
+  const pickPlace = (key: string) => {
+    const restaurant = restaurants.find((r) => restaurantKey(r) === key)
+    if (restaurant) onPick(restaurant)
+  }
 
   return (
     <div className="my-page-layer my-page-layer--profile">
@@ -282,6 +323,16 @@ export default function ProfileSheet({
                     )}
                   </div>
 
+                  {showTaste && match && (
+                    <TasteMatchSection
+                      name={name}
+                      match={match}
+                      others={others}
+                      canShare={profile.followsMe && match.ready && match.common.length >= MIN_COMMON}
+                      onPickPlace={pickPlace}
+                      onShare={() => setShareOpen(true)}
+                    />
+                  )}
                   {profile.following ? (
                     picks.length === 0 ? (
                       <>
@@ -317,6 +368,7 @@ export default function ProfileSheet({
           )}
         </div>
       </div>
+      {shareOpen && cardInput && <TasteCardSheet input={cardInput} onClose={() => setShareOpen(false)} />}
     </div>
   )
 }

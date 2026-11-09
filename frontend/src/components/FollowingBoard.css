@@ -1,0 +1,262 @@
+/* 팔로잉 현황판 — 헤더 팔로잉 버튼으로 여는 시트. 프로필(46)이 그 위에 열리도록 마이페이지(45)보다 아래 */
+.modal-layer.board-layer {
+  z-index: 44;
+}
+
+.board__count {
+  color: var(--accent);
+}
+
+.board__find {
+  flex: none;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 13px 0 10px;
+  border: none;
+  border-radius: 19px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.board__tools {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 16px 6px;
+}
+
+.board__search {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 22px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-soft);
+}
+
+.board__search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.board__search input::placeholder {
+  color: var(--ink-soft);
+}
+
+.board__body {
+  padding: 4px 0 calc(16px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.board__section + .board__section {
+  margin-top: 6px;
+}
+
+.board__section-title {
+  margin: 12px 20px 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.board__section-title--accent {
+  color: var(--accent-ink);
+}
+
+.board__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 4px 8px;
+}
+
+.board__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: none;
+  border-radius: 18px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board__open:active {
+  background: rgba(118, 118, 128, 0.1);
+}
+
+.board__avatar-wrap {
+  position: relative;
+  flex: none;
+  border-radius: 50%;
+}
+
+/* 새 후기가 있으면 분홍 고리 + 점 */
+.board__avatar-wrap--new {
+  box-shadow:
+    0 0 0 2.5px var(--surface-raised),
+    0 0 0 4.5px var(--accent);
+}
+
+.board__avatar {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.board__new-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid var(--surface-raised);
+}
+
+.board__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.board__name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.board__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.board__latest {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.board__latest .rating-star {
+  color: var(--star);
+  margin-left: 1px;
+}
+
+.board__when {
+  color: var(--ink-soft);
+}
+
+.board__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.board__tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.board__tag--mutual {
+  background: #e3f5ee;
+  color: #127a62;
+}
+
+.board__tag--new {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.board__map {
+  flex: none;
+  height: 38px;
+  padding: 0 13px;
+  border: none;
+  border-radius: 19px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.board__empty {
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.board__empty-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.board__empty-text {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.board__none {
+  margin: 32px 20px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+/* 프로필이 위에 열려 있는 동안 — display:flex를 이기도록 명시 */
+.modal-layer.board-layer[hidden] {
+  display: none;
+}

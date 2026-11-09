@@ -1,4 +1,5 @@
 import type { Restaurant } from '../data/model'
+import { categoryName } from '../lib/taste'
 import { shortLocation } from '../lib/topPicks'
 import type { TopPick } from '../lib/topPicks'
 import { useOpenProfile } from '../lib/openProfile'
@@ -42,7 +43,7 @@ export default function TopPicksCard({ name, picks, onPick, userId, className }:
               <span className="top-picks__body">
                 <span className="top-picks__name">{restaurant.name}</span>
                 <span className="top-picks__meta">
-                  {restaurant.category} · {shortLocation(restaurant.address)}
+                  {categoryName(restaurant.category) ?? '음식점'} · {shortLocation(restaurant.address)}
                 </span>
               </span>
               <span className="top-picks__rating">

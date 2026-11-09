@@ -6,7 +6,9 @@ import { App as CapacitorApp } from '@capacitor/app'
 import Header from './components/Header'
 import SearchResults from './components/SearchResults'
 import SearchDock from './components/SearchDock'
-import PersonChip from './components/PersonChip'
+import FollowingBoard from './components/FollowingBoard'
+import PersonPanel, { PersonMapChip } from './components/PersonPanel'
+import type { PersonPlace } from './components/PersonPanel'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
 import MapCanvas from './components/MapCanvas'
@@ -56,6 +58,7 @@ import {
   POLL_MAX_OPTIONS,
 } from './lib/api'
 import { topPicksOf } from './lib/topPicks'
+import { tasteTag } from './lib/taste'
 import { shrinkImage } from './lib/image'
 import type { AuthSession, BBox, ClusterCell, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
 import { kstMonth, monthLabel, prevMonth } from './lib/time'
@@ -359,6 +362,8 @@ export default function App() {
   // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
   const [social, setSocial] = useState<SocialData | null>(null)
   const [myPageOpen, setMyPageOpen] = useState(false)
+  // 헤더 팔로잉 버튼으로 여는 팔로잉 현황판
+  const [boardOpen, setBoardOpen] = useState(false)
   // 헤더 친구 목록에서 고른 사람. 그 사람이 후기 쓴 가게만 지도·목록에 남긴다.
   const [personId, setPersonId] = useState<number | null>(null)
   const followingPeople = useMemo(
@@ -594,6 +599,7 @@ export default function App() {
     if (composerOpen) return setComposerOpen(false), true
     if (adminReportsOpen) return setAdminReportsOpen(false), true
     if (profileUserId !== null) return profileBack(), true
+    if (boardOpen) return setBoardOpen(false), true
     if (openStory) return setOpenStory(null), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
@@ -686,10 +692,26 @@ export default function App() {
   )
 
   // 고른 친구의 별점 TOP 5 (칩 아래 카드). 핀 필터와 무관하게 전체 목록에서 뽑는다.
-  const selectedPersonPicks = useMemo(
-    () => (selectedPerson ? topPicksOf(reviewedRestaurants, selectedPerson.id) : []),
-    [reviewedRestaurants, selectedPerson],
-  )
+  // 지도에서 한 사람을 골라 볼 때 아래 패널 — 그 사람이 다녀온 가게(가게마다 마지막 후기), 후기 수, 입맛 꼬리표
+  const personView = useMemo(() => {
+    if (!selectedPerson || !social) return null
+    const entry = social.following.find((p) => p.id === selectedPerson.id)
+    const places: PersonPlace[] = []
+    for (const restaurant of reviewedRestaurants) {
+      let last: Review | null = null
+      for (const rv of restaurant.reviews) {
+        if (rv.author.id === selectedPerson.id && (!last || Date.parse(rv.createdAt) > Date.parse(last.createdAt))) last = rv
+      }
+      if (last) places.push({ restaurant, rating: last.rating, at: last.createdAt })
+    }
+    const theirs = reviews.filter((rv) => rv.author.id === selectedPerson.id)
+    return {
+      person: { id: selectedPerson.id, name: selectedPerson.name, avatar: entry?.avatar ?? null, mutual: !!entry?.followsMe },
+      places,
+      reviewCount: theirs.length,
+      tag: tasteTag(theirs),
+    }
+  }, [selectedPerson, social, reviewedRestaurants, reviews])
 
   // 가게 검색 목록은 후기 있는 가게 먼저, 그 안에서 내 위치에서 가까운 순. 위치를 아직 모르면 원래 순서 유지.
   // 지도 핀엔 순서가 무의미하니 visibleRestaurants는 건드리지 않는다 (마커 재생성 방지).
@@ -1084,7 +1106,7 @@ export default function App() {
           onMyPage={() => setMyPageOpen(true)}
           following={followingPeople}
           selectedPersonId={selectedPerson?.id ?? null}
-          onSelectPerson={setPersonId}
+          onOpenBoard={() => setBoardOpen(true)}
           favMode={favMode}
           onToggleFavMode={() => {
             if (!session) {
@@ -1113,12 +1135,12 @@ export default function App() {
           />
         )}
         {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
-        {selectedPerson && (
-          <PersonChip
-            name={selectedPerson.name}
-            picks={selectedPersonPicks}
-            onPick={focusFromSearch}
+        {personView && (
+          <PersonMapChip
+            person={personView.person}
+            count={personView.places.length}
             onClose={() => setPersonId(null)}
+            onOpenBoard={() => setBoardOpen(true)}
           />
         )}
         <SearchDock
@@ -1149,8 +1171,26 @@ export default function App() {
           onReviewFilterChange={setReviewFilter}
           showReviewFilter={!!session && !personPins}
           extra={
-            pollCart.length > 0 ? (
-              <PollCartBar count={pollCart.length} onOpen={openComposer} onClear={() => setPollCart([])} />
+            personView || pollCart.length > 0 ? (
+              <>
+                {personView && (
+                  <PersonPanel
+                    key={personView.person.id}
+                    person={personView.person}
+                    places={personView.places}
+                    reviewCount={personView.reviewCount}
+                    tag={personView.tag}
+                    onPick={(restaurant) => {
+                      setSelectedId(restaurant.id)
+                      focusFromSearch(restaurant)
+                    }}
+                    onOpenProfile={() => openProfile(personView.person.id)}
+                  />
+                )}
+                {pollCart.length > 0 && (
+                  <PollCartBar count={pollCart.length} onOpen={openComposer} onClear={() => setPollCart([])} />
+                )}
+              </>
             ) : undefined
           }
           results={
@@ -1239,6 +1279,8 @@ export default function App() {
           fallbackName={profileName}
           restaurants={reviewedRestaurants}
           myUserId={session.id}
+          myName={session.nickname}
+          reviews={reviews}
           list={profileTop?.list ?? null}
           onListChange={setProfileList}
           onSocialChange={applySocial}
@@ -1254,6 +1296,39 @@ export default function App() {
             focusFromSearch(restaurant)
           }}
           onClose={() => setProfileStack([])}
+        />
+      )}
+
+      {session && social && boardOpen && (
+        <FollowingBoard
+          people={social.following}
+          reviews={reviews}
+          onShowOnMap={(id) => {
+            setBoardOpen(false)
+            // 이 사람 핀이 가려지지 않게 찜 모드·검색어는 풀고, 가장 최근에 간 곳으로 지도를 옮긴다
+            setFavMode(false)
+            setQuery('')
+            setSearching(false)
+            setPersonId(id)
+            let latest: { restaurant: Restaurant; at: number } | null = null
+            for (const restaurant of reviewedRestaurants) {
+              for (const rv of restaurant.reviews) {
+                const at = Date.parse(rv.createdAt)
+                if (rv.author.id === id && (!latest || at > latest.at)) latest = { restaurant, at }
+              }
+            }
+            if (latest) focusFromSearch(latest.restaurant)
+          }}
+          onOpenProfile={openProfile}
+          onFindPeople={() => {
+            setBoardOpen(false)
+            setPersonId(null)
+            setSearchMode('person')
+            setResultsOpen(true)
+            setSearching(true)
+          }}
+          hidden={profileUserId !== null}
+          onClose={() => setBoardOpen(false)}
         />
       )}
 

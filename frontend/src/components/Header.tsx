@@ -13,8 +13,10 @@ interface HeaderProps {
   onMyPage: () => void
   // 내가 팔로잉하는 사람들. 로그인 전이거나 아직 못 받았으면 null (버튼 숨김)
   following: FollowingPerson[] | null
+  // 지도에서 한 사람을 골라 보고 있으면 버튼을 켜 둔다
   selectedPersonId: number | null
-  onSelectPerson: (id: number | null) => void
+  // 팔로잉 현황판 열기
+  onOpenBoard: () => void
   // 찜 모드 — 켜면 지도에 내가 찜한 가게만 별로 나온다
   favMode: boolean
   onToggleFavMode: () => void
@@ -34,28 +36,24 @@ export default function Header({
   onMyPage,
   following,
   selectedPersonId,
-  onSelectPerson,
+  onOpenBoard,
   favMode,
   onToggleFavMode,
 }: HeaderProps) {
   const [accountOpen, setAccountOpen] = useState(false)
-  const [friendsOpen, setFriendsOpen] = useState(false)
   // 펼친 메뉴는 안드로이드 뒤로가기로 먼저 닫힌다
   useBackLayer(accountOpen, () => setAccountOpen(false))
-  useBackLayer(friendsOpen, () => setFriendsOpen(false))
   const accountRef = useRef<HTMLDivElement>(null)
-  const friendsRef = useRef<HTMLDivElement>(null)
 
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
-    if (!accountOpen && !friendsOpen) return
+    if (!accountOpen) return
     const close = (e: PointerEvent) => {
       if (!accountRef.current?.contains(e.target as Node)) setAccountOpen(false)
-      if (!friendsRef.current?.contains(e.target as Node)) setFriendsOpen(false)
     }
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
-  }, [accountOpen, friendsOpen])
+  }, [accountOpen])
 
   return (
     <header className="app-header glass">
@@ -64,10 +62,7 @@ export default function Header({
           <button
             type="button"
             className="app-header__icon-btn app-header__icon-btn--filled"
-            onClick={() => {
-              setFriendsOpen(false)
-              setAccountOpen((prev) => !prev)
-            }}
+            onClick={() => setAccountOpen((prev) => !prev)}
             aria-label="내 계정"
             aria-expanded={accountOpen}
           >
@@ -115,43 +110,17 @@ export default function Header({
           )}
         </div>
         {following && (
-          <div className="app-header__menu-anchor" ref={friendsRef}>
-            <button
-              type="button"
-              className={`app-header__icon-btn${selectedPersonId !== null ? ' app-header__icon-btn--active' : ''}`}
-              onClick={() => {
-                setAccountOpen(false)
-                setFriendsOpen((prev) => !prev)
-              }}
-              aria-label="친구 목록"
-              aria-expanded={friendsOpen}
-            >
-              <FriendsIcon />
-            </button>
-            {friendsOpen && (
-              <div className="app-header__menu" role="menu">
-                {following.length === 0 ? (
-                  <p className="app-header__menu-label">팔로잉한 사람이 없어요</p>
-                ) : (
-                  following.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={selectedPersonId === p.id}
-                      className={selectedPersonId === p.id ? 'app-header__menu-item--active' : undefined}
-                      onClick={() => {
-                        setFriendsOpen(false)
-                        onSelectPerson(p.id)
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            className={`app-header__icon-btn${selectedPersonId !== null ? ' app-header__icon-btn--active' : ''}`}
+            onClick={() => {
+              setAccountOpen(false)
+              onOpenBoard()
+            }}
+            aria-label="팔로잉 현황"
+          >
+            <FriendsIcon />
+          </button>
         )}
       </div>
 
