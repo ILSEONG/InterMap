@@ -36,6 +36,10 @@ public class ReviewPhoto {
     @Column(unique = true)
     private String accessKey;
 
+    // 흐린 미리보기 코드 (BlurHash). 못 만든 사진은 "", 예전 사진은 PhotoBlurBackfill이 채우기 전까지 null.
+    @Column(length = 64)
+    private String blurhash;
+
     protected ReviewPhoto() {
     }
 
@@ -44,6 +48,7 @@ public class ReviewPhoto {
         this.contentType = contentType;
         this.data = data;
         this.accessKey = newKey();
+        this.blurhash = BlurHash.of(data);
     }
 
     static String newKey() {
@@ -52,6 +57,7 @@ public class ReviewPhoto {
 
     public Long getId() { return id; }
     public String getAccessKey() { return accessKey; }
+    public String getBlurhash() { return blurhash; }
     public Review getReview() { return review; }
     public String getContentType() { return contentType; }
     public byte[] getData() { return data; }
