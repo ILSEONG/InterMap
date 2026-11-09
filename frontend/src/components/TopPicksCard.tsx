@@ -3,6 +3,7 @@ import { shortLocation } from '../lib/topPicks'
 import type { TopPick } from '../lib/topPicks'
 import { useOpenProfile } from '../lib/openProfile'
 import './TopPicksCard.css'
+import { RatingStar } from './Stars'
 
 interface TopPicksCardProps {
   name: string
@@ -45,7 +46,7 @@ export default function TopPicksCard({ name, picks, onPick, userId, className }:
                 </span>
               </span>
               <span className="top-picks__rating">
-                <span aria-hidden="true">★</span>
+                <RatingStar />
                 <span className="top-picks__sr">별점 </span>
                 {rating.toFixed(1)}
               </span>

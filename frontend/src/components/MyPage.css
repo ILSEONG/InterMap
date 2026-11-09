@@ -370,39 +370,10 @@
   outline-offset: -1px;
 }
 
-.my-page__rank {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
 
-.my-page__rank--1,
-.my-page__rank--2,
-.my-page__rank--3 {
-  font-weight: 900;
-  color: #fff;
-}
 
-.my-page__rank--1 {
-  background: var(--accent);
-}
 
-.my-page__rank--2 {
-  background: var(--ink);
-}
 
-.my-page__rank--3 {
-  background: var(--ink-soft);
-}
 
 .my-page__review-name {
   flex: 1;
@@ -421,17 +392,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.my-page__review--top {
-  color: var(--ink);
-}
 
-.my-page__review--top .my-page__review-name {
-  font-weight: 700;
-}
 
-.my-page__review--top .my-page__review-rating {
-  color: var(--accent-ink);
-}
 
 /* ── 사람 목록 (검색 결과 · 팔로잉 · 팔로워) ─────────── */
 .my-page__found {
@@ -812,4 +774,74 @@
 .my-page__poll-state--open {
   background: var(--accent-tint);
   color: var(--accent-ink);
+}
+
+/* 내가 쓴 후기 — 장르 첫 글자 칩 (순위 숫자 대신) */
+.my-page__genre {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* 팔로잉 "…" 메뉴 */
+.my-page__more {
+  position: relative;
+  flex: none;
+}
+
+.my-page__more-btn {
+  width: 40px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 22px;
+  background: none;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.my-page__more-btn[aria-expanded='true'],
+.my-page__more-btn:active {
+  background: var(--fill);
+}
+
+.my-page__more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  min-width: 120px;
+  padding: 6px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(20, 20, 30, 0.16);
+  display: flex;
+  flex-direction: column;
+}
+
+.my-page__more-menu button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-page__more-menu button:active {
+  background: var(--fill);
 }

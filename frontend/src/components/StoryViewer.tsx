@@ -7,6 +7,7 @@ import Avatar from './Avatar'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import './StoryViewer.css'
+import { RatingStar } from './Stars'
 
 interface StoryViewerProps {
   // 스토리 띠 순서 그대로. 한 사람의 마지막 후기에서 더 넘기면 다음 사람으로 이어진다
@@ -126,7 +127,7 @@ export default function StoryViewer({
                     <div className="story-viewer__title-row">
                       <h2 className="story-viewer__name">{review.restaurant.name}</h2>
                       <span className="story-viewer__rating">
-                        <span aria-hidden="true">★</span>
+                        <RatingStar />
                         <span className="story-viewer__sr">{owner.name}님 별점 </span>
                         {review.rating.toFixed(1)}
                       </span>
@@ -136,7 +137,8 @@ export default function StoryViewer({
                     </p>
                     {showNeighbors && (
                       <p className="story-viewer__meta">
-                        이웃 {neighbors.length}명 평균 ★{avg.toFixed(1)}
+                        이웃 {neighbors.length}명 평균 <RatingStar />
+                        {avg.toFixed(1)}
                       </p>
                     )}
                     {/* 작성자·별점은 위 작성자 줄과 별점 칩이 보여주므로 카드 머리는 CSS에서 숨긴다. 본문·사진·추천메뉴만 쓴다 */}

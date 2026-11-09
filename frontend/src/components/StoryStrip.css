@@ -10,11 +10,11 @@
   margin: 0;
   padding: 0 6px;
   display: flex;
-  gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  /* 다섯 명이면 카드 폭에 고르게 퍼지고, 넘치면 가로로 넘긴다 */
-  justify-content: space-between;
+  /* 왼쪽부터 같은 간격으로 붙이고, 넘치면 가로로 넘긴다 (양 끝 정렬은 친구가 적을 때 가운데가 텅 빈다) */
+  gap: 14px;
+  justify-content: flex-start;
 }
 
 .story-strip__list::-webkit-scrollbar {
@@ -84,4 +84,15 @@
 .story-chip__recap {
   background: #e8e35a;
   color: #111;
+}
+
+/* 친구가 적을 때 끝에 붙는 "+ 친구 찾기" — 점선 동그라미 */
+.story-chip--find .story-chip__ring {
+  border: 2px dashed rgba(60, 60, 67, 0.28);
+  background: transparent;
+}
+
+.story-chip__find {
+  background: var(--fill);
+  color: var(--ink-soft);
 }
