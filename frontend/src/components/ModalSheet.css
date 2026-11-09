@@ -126,8 +126,10 @@
 }
 
 .modal-sheet__btn--primary {
-  background: var(--accent);
-  color: #fff;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
+  background: #fff;
+  color: var(--ink);
 }
 
 .modal-sheet__btn--dark {

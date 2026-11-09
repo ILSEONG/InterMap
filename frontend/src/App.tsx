@@ -1296,6 +1296,10 @@ export default function App() {
           onOpenRecap={openRecapFromMyPage}
           onOpenPoll={setOpenPoll}
           pollVersion={pollVersion}
+          onLogout={() => {
+            setMyPageOpen(false)
+            handleLogout()
+          }}
           onClose={() => setMyPageOpen(false)}
         />
       )}

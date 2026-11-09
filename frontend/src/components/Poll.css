@@ -49,9 +49,8 @@
   margin: 0 0 14px;
   padding: 16px 18px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #d9365a, #ff7a59);
+  background: var(--ink);
   color: #fff;
-  box-shadow: 0 10px 24px rgba(217, 54, 90, 0.28);
 }
 
 .poll-result--empty {
@@ -310,7 +309,9 @@
 }
 
 .poll-tool--danger {
-  background: var(--accent-tint);
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
+  background: #fff;
   color: var(--accent-ink);
 }
 
@@ -535,13 +536,14 @@
 }
 
 .poll-cart__go {
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
   flex: none;
   min-height: 44px;
   padding: 0 18px;
-  border: none;
   border-radius: 22px;
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: var(--ink);
   font: inherit;
   font-size: 15px;
   font-weight: 700;

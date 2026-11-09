@@ -388,8 +388,9 @@
 }
 
 .auth-modal__submit--accent {
-  background: var(--accent);
-  box-shadow: 0 8px 20px rgba(217, 54, 90, 0.26);
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
+  background: #fff;
 }
 
 /* 인증번호 다시 받기·비밀번호 대신 인증번호 같은 보조 동작 */

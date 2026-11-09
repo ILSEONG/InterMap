@@ -178,9 +178,9 @@
 }
 
 .topbar__chip--on {
-  background: #fff1f4;
-  box-shadow: 0 2px 10px rgba(20, 20, 30, 0.12), inset 0 0 0 1.5px var(--accent);
-  color: var(--accent-ink);
+  background: var(--glass-strong);
+  box-shadow: 0 2px 10px rgba(20, 20, 30, 0.12), inset 0 0 0 1.5px var(--ink);
+  color: var(--ink);
 }
 
 .topbar__chip--dark {

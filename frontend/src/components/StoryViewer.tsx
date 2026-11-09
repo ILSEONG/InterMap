@@ -143,10 +143,9 @@ export default function StoryViewer({
                       </svg>
                     </p>
                   )}
-                    <span className="story-viewer__stamp" aria-label={`${owner.name}님 별점 ${review.rating.toFixed(1)}`}>
-                      <b>{review.rating.toFixed(1)}</b>
-                      <span>{owner.name}</span>
-                    </span>
+                  <span className="story-viewer__stamp" role="img" aria-label={`${owner.name}님 별점 ${review.rating.toFixed(1)}`}>
+                    <b aria-hidden="true">{review.rating.toFixed(1)}</b>
+                  </span>
                 </div>
 
                 {/* 사진 아래 어두운 판 — 가게·후기, 동작 세 개, 댓글. 길어지면 판 안에서 스크롤 */}
