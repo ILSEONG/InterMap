@@ -590,7 +590,7 @@
   border: none;
   border-radius: 12px;
   overflow: hidden;
-  background: #e9e8e4 center / 100% 100% no-repeat;
+  background: #e9e8e4;
   cursor: pointer;
 }
 

@@ -36,11 +36,8 @@ public class ReviewPhoto {
     @Column(unique = true)
     private String accessKey;
 
-    // 흐린 미리보기 코드 (BlurHash). 못 만든 사진은 "", 예전 사진은 PhotoBlurBackfill이 채우기 전까지 null.
-    @Column(length = 64)
-    private String blurhash;
-
-    // 원본 크기(px) — 앱이 사진이 오기 전부터 칸을 제 비율로 잡는다. 못 읽은 사진은 null
+    // 원본 크기(px) — 앱이 사진이 오기 전부터 칸을 제 비율로 잡는다.
+    // 못 읽은 사진은 0, 예전 사진은 PhotoSizeBackfill이 채우기 전까지 null
     private Integer width;
     private Integer height;
 
@@ -52,7 +49,7 @@ public class ReviewPhoto {
         this.contentType = contentType;
         this.data = data;
         this.accessKey = newKey();
-        setPreview(BlurHash.of(data));
+        setSize(PhotoSize.of(data));
     }
 
     static String newKey() {
@@ -61,14 +58,12 @@ public class ReviewPhoto {
 
     public Long getId() { return id; }
     public String getAccessKey() { return accessKey; }
-    public String getBlurhash() { return blurhash; }
     public Integer getWidth() { return width; }
     public Integer getHeight() { return height; }
 
-    void setPreview(BlurHash.Preview preview) {
-        this.blurhash = preview.hash();
-        this.width = preview.width();
-        this.height = preview.height();
+    void setSize(int[] size) {
+        this.width = size[0];
+        this.height = size[1];
     }
     public Review getReview() { return review; }
     public String getContentType() { return contentType; }
