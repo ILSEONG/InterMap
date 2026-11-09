@@ -32,8 +32,14 @@ export interface BBox {
   maxLng: number
 }
 
+// 가게 좌표를 고친 뒤 폰에 남은 예전 응답(HTTP 캐시)을 안 쓰게 URL에 붙이는 판 번호.
+// 좌표를 다시 크게 고치면 올린다.
+const COORDS_VERSION = '2'
+
 export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]> {
-  const params = bbox ? `?${new URLSearchParams(Object.entries(bbox).map(([k, v]) => [k, String(v)]))}` : ''
+  const params = bbox
+    ? `?${new URLSearchParams([...Object.entries(bbox).map(([k, v]) => [k, String(v)]), ['v', COORDS_VERSION]])}`
+    : ''
   const res = await fetch(`${API_BASE}/api/restaurants${params}`)
   if (!res.ok) throw new Error(`음식점 목록 조회 실패 (${res.status})`)
   return res.json()
@@ -425,7 +431,7 @@ export async function deleteAvatar(): Promise<void> {
 }
 
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
-  const params = new URLSearchParams(Object.entries({ ...bbox, zoom }).map(([k, v]) => [k, String(v)]))
+  const params = new URLSearchParams(Object.entries({ ...bbox, zoom, v: COORDS_VERSION }).map(([k, v]) => [k, String(v)]))
   const res = await fetch(`${API_BASE}/api/restaurants/summary?${params}`)
   if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
   return res.json()
