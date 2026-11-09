@@ -116,15 +116,24 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
 // 서버는 영업 중인 가게만 준다 (폐업은 목록에서 빠진다)
 function mergeRecords(prev: Restaurant[], records: RestaurantRecord[]): Restaurant[] {
   // 이동(idle)마다 수천 건이 들어오므로 매 건 find로 훑지 않고 이름+주소 인덱스로 찾는다
-  const seen = new Set<string>()
-  for (const r of prev) seen.add(`${r.name}|${r.address}`)
+  const seen = new Map<string, number>()
+  prev.forEach((r, i) => seen.set(`${r.name}|${r.address}`, i))
   const merged = [...prev]
   let changed = false
   for (const record of records) {
-    if (seen.has(`${record.name}|${record.roadAddress}`) || seen.has(`${record.name}|${record.address}`)) continue
+    const at = seen.get(`${record.name}|${record.roadAddress}`) ?? seen.get(`${record.name}|${record.address}`)
+    if (at !== undefined) {
+      // 이미 그린 가게라도 서버 좌표가 바뀌었으면(지오코딩 보정) 새 자리로 옮긴다
+      const old = merged[at]
+      if (old.lat !== record.lat || old.lng !== record.lng) {
+        merged[at] = { ...old, lat: record.lat, lng: record.lng }
+        changed = true
+      }
+      continue
+    }
     const added = toRestaurant(record)
     merged.push(added)
-    seen.add(`${added.name}|${added.address}`)
+    seen.set(`${added.name}|${added.address}`, merged.length - 1)
     changed = true
   }
   // 달라진 게 없으면 이전 배열을 그대로 돌려줘서 재군집·마커 재생성을 막는다
