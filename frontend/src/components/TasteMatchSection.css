@@ -1,0 +1,393 @@
+/* 친구 프로필 속 "나와의 입맛 궁합" */
+.taste {
+  margin: 22px 0 0;
+  padding: 18px 18px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow:
+    0 1px 0 var(--line),
+    0 6px 20px rgba(20, 20, 30, 0.06);
+}
+
+.taste__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.taste__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.taste__how {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.taste__score {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 10px 0 0;
+}
+
+.taste__percent {
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--accent);
+}
+
+.taste__headline {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.taste__chip {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.taste__lead {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.taste__chart {
+  margin-top: 14px;
+}
+
+.taste__legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.taste__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.taste__legend .taste__dot {
+  position: static;
+  margin: 0;
+  width: 8px;
+  height: 8px;
+}
+
+.taste__legend-note {
+  margin-left: auto;
+}
+
+.taste__row {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-top: 1px solid var(--line);
+}
+
+.taste__genre {
+  flex: none;
+  width: 78px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.taste__track {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  margin: 0 8px;
+}
+
+.taste__line {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--ink);
+  opacity: 0.25;
+}
+
+.taste__dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+}
+
+.taste__dot--me {
+  background: var(--ink);
+}
+
+.taste__dot--you {
+  background: var(--accent);
+}
+
+/* 별점이 똑같으면 점 하나를 반반 */
+.taste__dot--same {
+  background: linear-gradient(90deg, var(--ink) 50%, var(--accent) 50%);
+}
+
+.taste__axis {
+  position: relative;
+  height: 20px;
+  margin: 0 8px 0 94px;
+  border-top: 1px solid var(--line);
+  font-size: 10.5px;
+  color: var(--ink-soft);
+}
+
+.taste__axis span {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+}
+
+.taste__share {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 24px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.taste__empty-title {
+  margin: 12px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  word-break: keep-all;
+}
+
+.taste__progress {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.taste__step {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--fill);
+}
+
+.taste__step--on {
+  background: var(--accent);
+}
+
+.taste__progress-label {
+  margin: 6px 0 0;
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.taste-list {
+  margin: 18px 0 0;
+}
+
+.taste-list__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 6px 4px;
+}
+
+.taste-list__head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  word-break: keep-all;
+}
+
+.taste-list__head span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.taste-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.taste-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.taste-list__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.taste-list__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.taste-list__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.taste-list__sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.taste-list__ratings {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.taste-list__ratings--one {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.taste-list__ratings .rating-star {
+  color: var(--star);
+  margin-left: 2px;
+}
+
+.taste-list__badge {
+  flex: none;
+  width: 58px;
+  padding: 3px 0;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.taste-list__badge--same {
+  background: #e3f5ee;
+  color: #127a62;
+}
+
+.taste-list__badge--near {
+  background: #eef1f6;
+  color: #3d4d6a;
+}
+
+.taste-list__badge--diff {
+  background: #fff1e0;
+  color: #b5541c;
+}
+
+.taste-list__more {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.taste-how__steps {
+  margin: 0;
+  padding: 0 4px 0 22px;
+}
+
+.taste-how__steps li {
+  padding: 8px 0;
+  font-size: 15px;
+}
+
+.taste-how__steps li::marker {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.taste-how__steps p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.taste-how__steps .taste-how__table {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--fill);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.taste-how .modal-sheet__actions {
+  padding: 0 20px calc(18px + env(safe-area-inset-bottom));
+}
+
+.taste-how .modal-sheet__btn {
+  background: var(--fill);
+  color: var(--ink);
+}

@@ -1,0 +1,22 @@
+/* 프로필(46) 위에 뜨도록 — 기본 modal-layer(70)와 같지만 명시해 둔다 */
+.modal-layer.taste-card-layer {
+  z-index: 70;
+}
+
+/* 카드 미리보기 — 시트 남은 칸 안에 9:16을 유지하며 최대로 (결산 카드와 같은 계산) */
+.taste-card__preview {
+  display: block;
+  width: min(100cqw, calc(100cqh * 9 / 16));
+  aspect-ratio: 9 / 16;
+  border-radius: 24px;
+  box-shadow: 0 14px 36px rgba(17, 17, 17, 0.18);
+  transition: opacity 0.2s ease;
+}
+
+.recap-sheet__body--loading .taste-card__preview {
+  opacity: 0.55;
+}
+
+.taste-card__placeholder.recap-flip--loading {
+  background: #efe9df;
+}
