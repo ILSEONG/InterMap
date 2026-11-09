@@ -1,0 +1,298 @@
+/* 상단 — 검색칸 한 줄 + 칩 한 줄 (검색 중엔 결과 패널이 그 아래) */
+.app__chrome > .topbar {
+  position: relative;
+  /* 아래 스토리 줄(자체 레이어)보다 위 — 계정·필터 메뉴가 그 위로 펼쳐진다 */
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* 빈 여백이 지도 터치를 가로채지 않게 — 실제 컨트롤에만 */
+  pointer-events: none;
+}
+
+.topbar > * {
+  pointer-events: auto;
+}
+
+.topbar__search {
+  /* 계정 메뉴가 아래 칩 줄 위로 펼쳐지게 */
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  padding: 0 6px 0 18px;
+  border-radius: 28px;
+  background: var(--glass-strong);
+  /* 지도 canvas와 같은 표면에 래스터되면 Android WebView에서 pan마다 같이 깜빡인다 — 자체 GPU 레이어 */
+  transform: translateZ(0);
+  transition: box-shadow 140ms ease;
+}
+
+.topbar__search:has(.topbar__input:focus) {
+  box-shadow: var(--glass-shadow), inset 0 0 0 2px var(--accent);
+}
+
+.topbar__glyph {
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+
+/* 평소 — 누르면 검색이 열린다 */
+.topbar__open {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  text-align: left;
+  cursor: pointer;
+}
+
+.topbar__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 0 0 4px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.topbar__input::placeholder {
+  color: var(--ink-soft);
+}
+
+.topbar__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.topbar__icon-btn {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.topbar__icon-btn--soft {
+  color: var(--ink-soft);
+}
+
+.topbar__anchor {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* 내 계정 — 검색칸 오른쪽 끝 동그라미 */
+.topbar__me {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 22px;
+  background: var(--fill);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.topbar__avatar {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.topbar__me:has(.topbar__avatar) {
+  background: transparent;
+}
+
+/* 칩 줄 — 넘치면 가로로 민다 */
+.topbar__chips {
+  display: flex;
+  gap: 8px;
+  margin: -4px -12px -8px;
+  padding: 4px 12px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.topbar__chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* 메뉴가 칩 줄(overflow) 안에서 잘리지 않게 — 필터 메뉴가 열려 있으면 줄 자르기를 푼다 */
+.topbar__chips:has(.topbar__menu) {
+  overflow: visible;
+}
+
+.topbar__chip {
+  position: relative;
+  flex: 0 0 auto;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 15px;
+  border: none;
+  border-radius: 20px;
+  background: var(--glass-strong);
+  box-shadow: 0 2px 10px rgba(20, 20, 30, 0.12), inset 0 0 0 1px rgba(60, 60, 67, 0.06);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, scale 90ms ease;
+}
+
+.topbar__chip:active {
+  scale: 0.96;
+}
+
+.topbar__chip--on {
+  background: #fff1f4;
+  box-shadow: 0 2px 10px rgba(20, 20, 30, 0.12), inset 0 0 0 1.5px var(--accent);
+  color: var(--accent-ink);
+}
+
+.topbar__chip--dark {
+  background: var(--ink);
+  box-shadow: 0 2px 10px rgba(20, 20, 30, 0.2);
+  color: #fff;
+}
+
+.topbar__chevron {
+  margin-right: -3px;
+}
+
+.topbar__dot {
+  width: 6px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* 계정·필터 메뉴 */
+.topbar__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 24px;
+  /* 불투명 흰 면 — 반투명이면 뒤 스토리 줄이 글자와 겹쳐 보인다 */
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  box-shadow: 0 14px 36px rgba(20, 20, 30, 0.16);
+  z-index: 20;
+  animation: topbar-menu-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transform-origin: top left;
+}
+
+/* 필터 칩은 줄 오른쪽 끝에 있어 메뉴를 오른쪽에 맞춘다 (왼쪽에 맞추면 화면 밖으로 잘린다) */
+.topbar__chips .topbar__menu {
+  left: auto;
+  right: 0;
+  transform-origin: top right;
+}
+
+.topbar__menu--right {
+  top: calc(100% + 12px);
+  left: auto;
+  right: -6px;
+  transform-origin: top right;
+}
+
+.topbar__menu button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.topbar__menu button:hover,
+.topbar__menu button:active {
+  background: var(--fill);
+}
+
+.topbar__menu .topbar__menu-item--active {
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.topbar__menu-label {
+  margin: 0;
+  padding: 8px 14px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+/* 검색 결과 — 위에서 아래로 펼쳐지므로 키보드 위까지 쓴다 */
+.topbar .search-results {
+  max-height: max(160px, calc(100dvh - var(--kb) - 210px));
+}
+
+@keyframes topbar-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar__menu {
+    animation: none;
+  }
+}

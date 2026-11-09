@@ -25,6 +25,8 @@ interface MapCanvasProps {
   // 지도 위를 가리는 것들을 뺀, 실제로 보이는 세로 범위(px). sheet=true면 가게 시트가 열린 상태 기준.
   // 가게로 이동할 때 핀을 화면 정가운데가 아니라 이 범위의 가운데에 둔다 (위 헤더·스토리, 아래 시트·패널에 가리지 않게)
   visibleArea?: (sheet: boolean) => { top: number; bottom: number }
+  // 가게 시트가 열려 있는지 — 닫히면 고른 가게를 시트 없는 화면의 가운데로 다시 옮긴다
+  sheetOpen?: boolean
   // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역과 줌을 알려준다 — 뷰포트 단위 데이터 로딩용.
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
   // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
@@ -134,6 +136,7 @@ export default function MapCanvas({
   onPick,
   focus,
   visibleArea,
+  sheetOpen = false,
   onViewportChange,
   onMyLocation,
 }: MapCanvasProps) {
@@ -516,6 +519,26 @@ export default function MapCanvas({
   }, [focusedId, visiblePins, groups, mapReady, starPins])
 
   // 검색 결과에서 고른 가게가 화면 밖일 수 있어 그 가게로 지도만 옮긴다.
+  // 시트가 닫히면 핀이 화면 아래쪽으로 치우쳐 보인다 — 보이는 지도의 가운데로 옮긴다.
+  // 시트를 연 채 지도를 끌어 다른 데를 보고 있었다면(핀이 시트 위 가운데에 없으면) 그대로 둔다.
+  const wasSheetOpenRef = useRef(sheetOpen)
+  useEffect(() => {
+    const was = wasSheetOpenRef.current
+    wasSheetOpenRef.current = sheetOpen
+    const map = mapRef.current
+    if (!was || sheetOpen || !mapReady || !map || !window.naver) return
+    const id = focusedRef.current
+    const target = id ? restaurantsRef.current.find((r) => r.id === id) : undefined
+    if (!target) return
+    const area = visibleAreaRef.current?.(true)
+    const width = mapDivRef.current?.clientWidth || window.innerWidth
+    const at = map.getProjection().fromCoordToOffset(new window.naver.maps.LatLng(target.lat, target.lng))
+    const expectedY = area ? (area.top + area.bottom) / 2 : (mapDivRef.current?.clientHeight || window.innerHeight) / 2
+    if (Math.abs(at.x - width / 2) > 80 || Math.abs(at.y - expectedY) > 80) return
+    panToVisible(target.lat, target.lng, zoomOf(map), false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetOpen, mapReady, panToVisible])
+
   useEffect(() => {
     if (!mapReady || !focus) return
     focusRestaurant(restaurantsRef.current.find((r) => r.id === focus.id) ?? focus, !!focus.sheet)

@@ -7,6 +7,7 @@ import Avatar from './Avatar'
 import { RatingStar } from './Stars'
 import './ModalSheet.css'
 import './FollowingBoard.css'
+import { markBoardSeen, readBoardSeen } from '../lib/boardSeen'
 
 interface FollowingBoardProps {
   people: Person[]
@@ -27,17 +28,7 @@ const SORTS: [Sort, string][] = [
   ['name', '이름순'],
 ]
 
-// 마지막으로 현황판을 연 때 — 그 뒤에 올라온 후기를 "새 후기"로 센다
-const SEEN_KEY = 'intermap.boardSeen'
 const WEEK = 7 * 24 * 3_600_000
-
-function readSeen(): number {
-  try {
-    return Number(localStorage.getItem(SEEN_KEY)) || 0
-  } catch {
-    return 0
-  }
-}
 
 interface Row {
   person: Person
@@ -52,17 +43,10 @@ interface Row {
 export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenProfile, onFindPeople, hidden, onClose }: FollowingBoardProps) {
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
-  // 처음 열 땐 기준이 없으니 하루 안에 올라온 후기를 새 후기로 본다
-  const [seenAt] = useState(() => readSeen() || Date.now() - 24 * 3_600_000)
+  const [seenAt] = useState(readBoardSeen)
 
   // 열었으면 지금까지의 후기는 본 것으로 — 다음에 열 때부터 그 뒤 후기만 새 후기
-  useEffect(() => {
-    try {
-      localStorage.setItem(SEEN_KEY, String(Date.now()))
-    } catch {
-      // 저장 못 해도 다음에 하루치를 새 후기로 보일 뿐
-    }
-  }, [])
+  useEffect(markBoardSeen, [])
 
   useEffect(() => {
     if (hidden) return

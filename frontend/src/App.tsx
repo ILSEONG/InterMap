@@ -2,11 +2,11 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { clearQueryCache, refresh, setQueryOwner, useServerState } from './lib/query'
 import { useDebounced } from './lib/useDebounced'
 import { closeTopLayer } from './lib/backLayer'
+import { readBoardSeen } from './lib/boardSeen'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
-import Header from './components/Header'
+import TopBar from './components/TopBar'
 import SearchResults from './components/SearchResults'
-import SearchDock from './components/SearchDock'
 import FollowingBoard from './components/FollowingBoard'
 import PersonPanel, { PersonMapChip } from './components/PersonPanel'
 import type { PersonPlace } from './components/PersonPanel'
@@ -372,6 +372,14 @@ export default function App() {
     () => social?.following.map((p) => ({ id: p.id, name: p.alias ?? p.nickname })) ?? null,
     [social],
   )
+  // 팔로잉 현황 칩의 빨간 점 — 현황판을 마지막으로 연 뒤 팔로우한 사람이 새 후기를 올렸다.
+  // 현황판을 열면 본 것으로 기록되니 열고 닫을 때(boardOpen) 다시 센다
+  const boardHasNew = useMemo(() => {
+    if (!social || boardOpen) return false
+    const ids = new Set(social.following.map((p) => p.id))
+    const seenAt = readBoardSeen()
+    return rawReviews.some((rv) => ids.has(rv.author.id) && Date.parse(rv.createdAt) > seenAt)
+  }, [social, rawReviews, boardOpen])
   // 언팔로우·로그아웃으로 목록에서 빠지면 선택도 자동 해제
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
   // 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕로 해제.
@@ -555,6 +563,8 @@ export default function App() {
     const scrollToInput = (e: FocusEvent) => {
       const el = e.target as HTMLElement | null
       if (!el?.matches?.('input, textarea')) return
+      // 위에 붙은 검색칸은 키보드에 가리지 않는다 — 끌어오면 화면이 쓸데없이 밀린다
+      if (el.closest('.topbar')) return
       window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
     }
     applyKeyboard()
@@ -794,15 +804,32 @@ export default function App() {
     return foundUsers.filter((u) => !shown.has(u.id))
   }, [foundUsers, personPicks])
 
+  // 하단 독(사람 패널·투표 바) 높이를 --dock-h로 알린다 — 현재 위치 버튼이 그 위에 선다
+  const bottomDockRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const root = document.documentElement
+    const el = bottomDockRef.current
+    if (!el) {
+      root.style.setProperty('--dock-h', '0px')
+      return
+    }
+    const measure = () => root.style.setProperty('--dock-h', `${el.offsetHeight > 0 ? el.offsetHeight + 10 : 0}px`)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [searching])
+
   // 지도에서 실제로 보이는 세로 범위 — 위는 헤더·스토리·사람 칩 아래, 아래는 가게 시트(열릴 때)나 하단 독·패널 위
   const visibleArea = useCallback((sheet: boolean) => {
     let top = 0
-    document.querySelectorAll('.app-header, .story-strip, .person-map-chip').forEach((el) => {
+    document.querySelectorAll('.topbar__search, .topbar__chips, .story-strip, .person-map-chip').forEach((el) => {
       const r = el.getBoundingClientRect()
       if (r.height > 0) top = Math.max(top, r.bottom)
     })
-    const dock = document.querySelector('.search-dock')
-    const bottom = sheet ? restaurantSheetTop() : dock ? dock.getBoundingClientRect().top : window.innerHeight
+    const dock = document.querySelector('.bottom-dock')
+    const dockTop = dock && dock.getBoundingClientRect().height > 0 ? dock.getBoundingClientRect().top : window.innerHeight
+    const bottom = sheet ? restaurantSheetTop() : dockTop
     return { top: top + 8, bottom: Math.max(top + 80, bottom - 8) }
   }, [])
   // 매 렌더마다 새 함수를 넘기면 MapCanvas가 마커를 통째로 다시 그린다.
@@ -1108,18 +1135,62 @@ export default function App() {
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
         visibleArea={visibleArea}
+        sheetOpen={selectedRestaurant !== null}
         onViewportChange={loadViewport}
         onMyLocation={handleMyLocation}
       />
 
       <div className="app__chrome">
-        <Header
+        <TopBar
           nickname={session?.nickname ?? null}
+          avatar={session?.avatar ?? null}
+          userId={session?.id ?? null}
           onLogin={() => setAuthMode('start')}
           onLogout={handleLogout}
           onMyPage={() => setMyPageOpen(true)}
-          following={followingPeople}
-          selectedPersonId={selectedPerson?.id ?? null}
+          searching={searching}
+          onOpenSearch={() => {
+            // 검색을 열면 친구 선택(TOP 5 칩)은 접는다
+            setPersonId(null)
+            setResultsOpen(true)
+            setSearching(true)
+          }}
+          onCloseSearch={() => {
+            setQuery('')
+            setResultsOpen(true)
+            setSearching(false)
+          }}
+          query={query}
+          onQueryChange={(value) => {
+            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다
+            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) setReviewFilter('all')
+            setQuery(value)
+            setResultsOpen(true)
+          }}
+          onSubmit={() => setResultsOpen(false)}
+          onSearchFocus={() => setResultsOpen(true)}
+          searchMode={searchMode}
+          onSearchModeChange={setSearchMode}
+          results={
+            query.trim() && resultsOpen ? (
+              <SearchResults
+                results={searchResults}
+                topPicks={personPicks}
+                people={otherUsers}
+                onFollow={follow}
+                followingIds={followingIds}
+                groups={groups}
+                // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
+                tooShort={!searchActive}
+                minLength={MIN_QUERY_LENGTH}
+                highlight={deferredQuery.trim()}
+                onPick={focusFromSearch}
+              />
+            ) : undefined
+          }
+          showBoard={followingPeople !== null}
+          boardHasNew={boardHasNew}
+          personSelected={selectedPerson !== null}
           onOpenBoard={() => setBoardOpen(true)}
           favMode={favMode}
           onToggleFavMode={() => {
@@ -1129,6 +1200,9 @@ export default function App() {
             }
             setFavMode((prev) => !prev)
           }}
+          reviewFilter={reviewFilter}
+          onReviewFilterChange={setReviewFilter}
+          showReviewFilter={!!session && !personPins}
         />
         {!searching && (
           <StoryStrip
@@ -1157,75 +1231,30 @@ export default function App() {
             onOpenBoard={() => setBoardOpen(true)}
           />
         )}
-        <SearchDock
-          searching={searching}
-          onOpenSearch={() => {
-            // 검색을 열면 친구 선택(TOP 5 칩)은 접는다
-            setPersonId(null)
-            setResultsOpen(true)
-            setSearching(true)
-          }}
-          onCloseSearch={() => {
-            setQuery('')
-            setResultsOpen(true)
-            setSearching(false)
-          }}
-          query={query}
-          onQueryChange={(value) => {
-            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다
-            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) setReviewFilter('all')
-            setQuery(value)
-            setResultsOpen(true)
-          }}
-          onSubmit={() => setResultsOpen(false)}
-          onSearchFocus={() => setResultsOpen(true)}
-          searchMode={searchMode}
-          onSearchModeChange={setSearchMode}
-          reviewFilter={reviewFilter}
-          onReviewFilterChange={setReviewFilter}
-          showReviewFilter={!!session && !personPins}
-          extra={
-            personView || pollCart.length > 0 ? (
-              <>
-                {personView && (
-                  <PersonPanel
-                    key={personView.person.id}
-                    person={personView.person}
-                    places={personView.places}
-                    reviewCount={personView.reviewCount}
-                    tag={personView.tag}
-                    onPick={(restaurant) => {
-                      setSelectedId(restaurant.id)
-                      focusFromSearch(restaurant, true)
-                    }}
-                    onOpenProfile={() => openProfile(personView.person.id)}
-                  />
-                )}
-                {pollCart.length > 0 && (
-                  <PollCartBar count={pollCart.length} onOpen={openComposer} onClear={() => setPollCart([])} />
-                )}
-              </>
-            ) : undefined
-          }
-          results={
-            query.trim() && resultsOpen ? (
-              <SearchResults
-                results={searchResults}
-                topPicks={personPicks}
-                people={otherUsers}
-                onFollow={follow}
-                followingIds={followingIds}
-                groups={groups}
-                // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
-                tooShort={!searchActive}
-                minLength={MIN_QUERY_LENGTH}
-                highlight={deferredQuery.trim()}
-                onPick={focusFromSearch}
-              />
-            ) : undefined
-          }
-        />
       </div>
+
+      {/* 하단 — 친구 한 명 보기 패널, 투표 후보 바 (검색은 위로 옮겼다) */}
+      {!searching && (
+        <div className="bottom-dock" ref={bottomDockRef}>
+          {personView && (
+            <PersonPanel
+              key={personView.person.id}
+              person={personView.person}
+              places={personView.places}
+              reviewCount={personView.reviewCount}
+              tag={personView.tag}
+              onPick={(restaurant) => {
+                setSelectedId(restaurant.id)
+                focusFromSearch(restaurant, true)
+              }}
+              onOpenProfile={() => openProfile(personView.person.id)}
+            />
+          )}
+          {pollCart.length > 0 && (
+            <PollCartBar count={pollCart.length} onOpen={openComposer} onClear={() => setPollCart([])} />
+          )}
+        </div>
+      )}
 
       <RestaurantSheet
         restaurant={selectedRestaurant}
