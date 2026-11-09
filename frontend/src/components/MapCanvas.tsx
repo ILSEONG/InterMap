@@ -21,7 +21,10 @@ interface MapCanvasProps {
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
   // lat·lng: 필터에 걸려 목록에 없는 가게여도 그 자리로는 옮긴다
-  focus?: { id: string; lat: number; lng: number }
+  focus?: { id: string; lat: number; lng: number; sheet?: boolean }
+  // 지도 위를 가리는 것들을 뺀, 실제로 보이는 세로 범위(px). sheet=true면 가게 시트가 열린 상태 기준.
+  // 가게로 이동할 때 핀을 화면 정가운데가 아니라 이 범위의 가운데에 둔다 (위 헤더·스토리, 아래 시트·패널에 가리지 않게)
+  visibleArea?: (sheet: boolean) => { top: number; bottom: number }
   // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역과 줌을 알려준다 — 뷰포트 단위 데이터 로딩용.
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
   // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
@@ -130,6 +133,7 @@ export default function MapCanvas({
   starPins = false,
   onPick,
   focus,
+  visibleArea,
   onViewportChange,
   onMyLocation,
 }: MapCanvasProps) {
@@ -252,17 +256,42 @@ export default function MapCanvas({
     }
   }, [mapReady, onMyLocation])
 
-  // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
-  const focusRestaurant = useCallback((restaurant: Pick<Restaurant, 'id' | 'lat' | 'lng'>) => {
+  const visibleAreaRef = useRef(visibleArea)
+  visibleAreaRef.current = visibleArea
+
+  // 이 좌표가 (zoom에서) 화면의 "보이는 범위 가운데"에 오도록 지도를 옮긴다.
+  // 화면 정가운데에 두면 아래 절반을 덮는 가게 시트나 사람 패널 밑에 핀이 깔린다.
+  // 웹 메르카토르 픽셀로 세로만 밀어 중심 좌표를 구한다 (zoom은 이미지 지도 기준 — zoomOf와 같은 척도)
+  const panToVisible = useCallback((lat: number, lng: number, zoom: number, sheet: boolean) => {
     const map = mapRef.current
     if (!map || !window.naver) return
-
-    setFocusedId(restaurant.id)
-    const target = new window.naver.maps.LatLng(restaurant.lat, restaurant.lng)
-    // 요약 모드(줌 ≤15)에서는 개별 핀이 안 그려지므로 핀이 보이는 줌까지 당겨서 간다
-    if (zoomOf(map) <= SUMMARY_MAX_ZOOM) map.morph(target, toMapZoom(SUMMARY_MAX_ZOOM + 1), PAN_TRANSITION)
-    else map.panTo(target, PAN_TRANSITION)
+    const area = visibleAreaRef.current?.(sheet)
+    const height = mapDivRef.current?.clientHeight || window.innerHeight
+    const shift = area ? height / 2 - (area.top + area.bottom) / 2 : 0
+    const scale = 256 * 2 ** zoom
+    const sin = Math.sin((lat * Math.PI) / 180)
+    const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale + shift
+    const n = Math.PI - (2 * Math.PI * y) / scale
+    const centerLat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
+    const center = new window.naver.maps.LatLng(centerLat, lng)
+    if (Math.abs(zoomOf(map) - zoom) > 0.01) map.morph(center, toMapZoom(zoom), PAN_TRANSITION)
+    else map.panTo(center, PAN_TRANSITION)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 고른 가게를 보이는 범위 가운데로. 확대 레벨은 사용자가 보던 그대로 둔다.
+  const focusRestaurant = useCallback(
+    (restaurant: Pick<Restaurant, 'id' | 'lat' | 'lng'>, sheet = false) => {
+      const map = mapRef.current
+      if (!map || !window.naver) return
+      setFocusedId(restaurant.id)
+      // 요약 모드(줌 ≤16)에서는 개별 핀이 안 그려지므로 핀이 보이는 줌까지 당겨서 간다
+      const zoom = zoomOf(map) <= SUMMARY_MAX_ZOOM ? SUMMARY_MAX_ZOOM + 1 : zoomOf(map)
+      panToVisible(restaurant.lat, restaurant.lng, zoom, sheet)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [panToVisible],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -381,11 +410,11 @@ export default function MapCanvas({
           }
         }
         // 목록에서 이미 골랐으니 한 번 더 탭하게 하지 않고 상세를 바로 연다
-        map.morph(new window.naver.maps.LatLng(restaurant.lat, restaurant.lng), toMapZoom(targetZoom), PAN_TRANSITION)
+        panToVisible(restaurant.lat, restaurant.lng, targetZoom, true)
         onPick(restaurant)
       })
     },
-    [groups, onPick],
+    [groups, onPick, panToVisible],
   )
 
   // 목록이 바뀔 때 마커를 전부 다시 만들면 검색어 한 글자마다 지도가 끊긴다.
@@ -439,10 +468,12 @@ export default function MapCanvas({
           return
         }
         // 한 곳뿐이면 목록을 거칠 이유가 없다. 어느 핀을 골랐는지 링으로 남기고
-        // 지도는 그 핀을 정가운데로 옮긴다.
+        // 지도는 그 핀을 (열리는 시트 위쪽) 보이는 범위 가운데로 옮긴다.
         if (pin.items.length === 1) {
           setFocusedId(pin.items[0].id)
-          mapRef.current?.panTo(new naver.maps.LatLng(pin.lat, pin.lng), PAN_TRANSITION)
+          // 상세 시트가 열리니 시트 위쪽 보이는 범위 가운데로
+          const map = mapRef.current
+          if (map) panToVisible(pin.lat, pin.lng, zoomOf(map), true)
           onPick(pin.items[0])
           return
         }
@@ -464,7 +495,7 @@ export default function MapCanvas({
       })
       markers.set(pin.key, marker)
     })
-  }, [visiblePins, groups, mapReady, onPick, openPinList, starPins])
+  }, [visiblePins, groups, mapReady, onPick, openPinList, panToVisible, starPins])
 
   // 강조 표시는 바뀐 핀만 다시 그린다 (전체 재생성 방지).
   useEffect(() => {
@@ -487,7 +518,7 @@ export default function MapCanvas({
   // 검색 결과에서 고른 가게가 화면 밖일 수 있어 그 가게로 지도만 옮긴다.
   useEffect(() => {
     if (!mapReady || !focus) return
-    focusRestaurant(restaurantsRef.current.find((r) => r.id === focus.id) ?? focus)
+    focusRestaurant(restaurantsRef.current.find((r) => r.id === focus.id) ?? focus, !!focus.sheet)
   }, [focus, mapReady, focusRestaurant])
 
   return (

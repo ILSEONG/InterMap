@@ -83,7 +83,7 @@ export default function PersonPanel({
         <Avatar className={`person-panel__avatar tone-${Math.abs(person.id) % 4}`} src={person.avatar} name={person.name} />
         <div className="person-panel__who">
           <p className="person-panel__name">
-            {person.name}
+            <span className="person-panel__name-text">{person.name}</span>
             {person.mutual && <span className="person-panel__tag">맞팔</span>}
           </p>
           <p className="person-panel__sub">

@@ -15,6 +15,7 @@ import MapCanvas from './components/MapCanvas'
 import AuthModal from './components/AuthModal'
 import type { AuthMode } from './components/AuthModal'
 import RestaurantSheet from './components/RestaurantSheet'
+import { restaurantSheetTop } from './lib/sheetGeometry'
 import MyPage from './components/MyPage'
 import ProfileSheet from './components/ProfileSheet'
 import ReportSheet from './components/ReportSheet'
@@ -212,7 +213,7 @@ export default function App() {
   }, [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
-  const [focusTarget, setFocusTarget] = useState<{ id: string; lat: number; lng: number } | null>(null)
+  const [focusTarget, setFocusTarget] = useState<{ id: string; lat: number; lng: number; sheet?: boolean } | null>(null)
   // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
   const [authMode, setAuthMode] = useState<AuthMode | null>(null)
   const [session, setSession] = useState<AuthSession | null>(() => {
@@ -810,13 +811,25 @@ export default function App() {
     return foundUsers.filter((u) => !shown.has(u.id))
   }, [foundUsers, personPicks])
 
+  // 지도에서 실제로 보이는 세로 범위 — 위는 헤더·스토리·사람 칩 아래, 아래는 가게 시트(열릴 때)나 하단 독·패널 위
+  const visibleArea = useCallback((sheet: boolean) => {
+    let top = 0
+    document.querySelectorAll('.app-header, .story-strip, .person-map-chip').forEach((el) => {
+      const r = el.getBoundingClientRect()
+      if (r.height > 0) top = Math.max(top, r.bottom)
+    })
+    const dock = document.querySelector('.search-dock')
+    const bottom = sheet ? restaurantSheetTop() : dock ? dock.getBoundingClientRect().top : window.innerHeight
+    return { top: top + 8, bottom: Math.max(top + 80, bottom - 8) }
+  }, [])
   // 매 렌더마다 새 함수를 넘기면 MapCanvas가 마커를 통째로 다시 그린다.
   const pickRestaurant = useCallback((restaurant: Restaurant) => setSelectedId(restaurant.id), [])
   // 검색 결과 선택은 지도만 옮긴다. 상세는 지도에서 핀을 눌러 연다.
   // 고르고 나면 결과 목록이 지도를 가리지 않도록 검색어를 비운다.
   // 결과 하나를 고르면 목록만 닫고 키워드는 남긴다 — 지도는 계속 그 키워드로 걸러진 채 그 가게로 이동
-  const focusFromSearch = useCallback((restaurant: Restaurant) => {
-    setFocusTarget({ id: restaurant.id, lat: restaurant.lat, lng: restaurant.lng })
+  // sheet: 이어서 가게 시트가 열린다 — 지도는 핀을 시트 위쪽에 둔다
+  const focusFromSearch = useCallback((restaurant: Restaurant, sheet = false) => {
+    setFocusTarget({ id: restaurant.id, lat: restaurant.lat, lng: restaurant.lng, sheet })
     setResultsOpen(false)
   }, [])
 
@@ -855,7 +868,7 @@ export default function App() {
       setMyPageOpen(false)
       revealOnMap(target)
       setSelectedId(target.id)
-      focusFromSearch(target)
+      focusFromSearch(target, true)
     },
     [reviewedRestaurants, focusFromSearch, revealOnMap],
   )
@@ -966,6 +979,23 @@ export default function App() {
       : (foundUsers.find((u) => u.id === profileUserId)?.nickname ??
         rawReviews.find((rv) => rv.author.id === profileUserId)?.author.name ??
         '사용자')
+
+  // 프로필을 열 때 앱이 이미 아는 값 — 서버 응답 전에도 프로필을 같은 모양으로 그려서 깜빡이지 않게
+  const profileKnown = useMemo(() => {
+    if (!social || profileUserId === null) return undefined
+    const following = social.following.find((p) => p.id === profileUserId)
+    const follower = social.followers.find((p) => p.id === profileUserId)
+    const person = following ?? follower
+    return {
+      nickname: person?.nickname ?? profileName,
+      alias: person?.alias ?? null,
+      avatar: person?.avatar ?? null,
+      following: !!following,
+      followsMe: !!follower,
+      // 팔로우 중이면 후기를 다 받아 와 있다 — 아니면 서버가 셀 때까지 모른다
+      reviewCount: following ? reviews.filter((rv) => rv.author.id === profileUserId && !rv.author.owner).length : -1,
+    }
+  }, [social, profileUserId, profileName, reviews])
 
   // 신고 접수 — 그 글을 바로 화면에서 뺀다 (서버도 다음 목록부터 나에게 안 준다)
   const handleReported = useCallback((target: ReportTarget) => {
@@ -1094,6 +1124,7 @@ export default function App() {
         starPins={favMode}
         onPick={pickRestaurant}
         focus={focusTarget ?? undefined}
+        visibleArea={visibleArea}
         onViewportChange={loadViewport}
         onMyLocation={handleMyLocation}
       />
@@ -1182,7 +1213,7 @@ export default function App() {
                     tag={personView.tag}
                     onPick={(restaurant) => {
                       setSelectedId(restaurant.id)
-                      focusFromSearch(restaurant)
+                      focusFromSearch(restaurant, true)
                     }}
                     onOpenProfile={() => openProfile(personView.person.id)}
                   />
@@ -1277,6 +1308,7 @@ export default function App() {
           key={profileUserId}
           userId={profileUserId}
           fallbackName={profileName}
+          known={profileKnown}
           restaurants={reviewedRestaurants}
           myUserId={session.id}
           myName={session.nickname}
@@ -1293,7 +1325,7 @@ export default function App() {
             setMyPageOpen(false)
             revealOnMap(restaurant)
             setSelectedId(restaurant.id)
-            focusFromSearch(restaurant)
+            focusFromSearch(restaurant, true)
           }}
           onClose={() => setProfileStack([])}
         />

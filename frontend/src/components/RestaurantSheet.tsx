@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useBackLayer } from '../lib/backLayer'
+import { sheetDefaultHeight } from '../lib/sheetGeometry'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import ReviewCard from './ReviewCard'
@@ -48,7 +49,6 @@ const DRAG_SLOP = 6
 const CLOSE_DISTANCE = 80
 // 이 속도(px/ms) 이상으로 쓸면 거리와 상관없이 그 방향 높이로 (지도 앱 시트들이 0.3~0.5 정도)
 const FLICK = 0.35
-const defaultHeight = () => Math.round(window.innerHeight * 0.5 - 28)
 
 export default function RestaurantSheet({
   restaurant,
@@ -99,7 +99,7 @@ export default function RestaurantSheet({
     return () => observer.disconnect()
   }, [])
 
-  const offsetOf = (s: Snap) => (s === 'full' ? 0 : Math.max(0, fullHeight - defaultHeight()))
+  const offsetOf = (s: Snap) => (s === 'full' ? 0 : Math.max(0, fullHeight - sheetDefaultHeight()))
   const offset = offsetOf(snap)
 
   // 끌어서 닫으면 마지막으로 끌던 위치가 DOM에 남는다(React는 이전 값과 같다고 보고 안 고친다) — 열 때 맞춰 둔다

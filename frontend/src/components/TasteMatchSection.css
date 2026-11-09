@@ -59,6 +59,7 @@
 
 .taste__chip {
   display: inline-block;
+  white-space: nowrap;
   margin-top: 8px;
   padding: 5px 11px;
   border-radius: 999px;
@@ -316,6 +317,7 @@
 
 .taste-list__badge {
   flex: none;
+  white-space: nowrap;
   width: 58px;
   padding: 3px 0;
   border-radius: 999px;
