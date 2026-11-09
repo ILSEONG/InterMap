@@ -37,6 +37,10 @@ public class Restaurant {
     // LOCALDATA 관리번호 — 최초 매칭 후 저장해두면 이후 동기화는 정확 매칭
     private String localDataMgtNo;
 
+    // 좌표 출처. null = 인허가 좌표 그대로(아직 안 고침), true = 네이버 지오코딩으로 고침, false = 고치려 했지만 실패.
+    // 인허가 좌표는 지번(필지) 기준이라 가게 자리와 수십~수백 m 어긋나고, 한강공원처럼 하천 필지면 강 한가운데 찍힌다.
+    private Boolean geocoded;
+
     protected Restaurant() {
     }
 
@@ -59,6 +63,7 @@ public class Restaurant {
     public Status getStatus() { return status; }
     public Instant getStatusCheckedAt() { return statusCheckedAt; }
     public String getLocalDataMgtNo() { return localDataMgtNo; }
+    public Boolean getGeocoded() { return geocoded; }
 
     public void markStatus(Status status, String mgtNo) {
         this.status = status;

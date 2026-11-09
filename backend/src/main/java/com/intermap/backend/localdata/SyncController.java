@@ -3,6 +3,7 @@ package com.intermap.backend.localdata;
 import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.restaurant.GeocodeBackfill;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -25,11 +26,14 @@ public class SyncController {
     private final StatusSyncService syncService;
     private final RestaurantImportService importService;
     private final AuthController auth;
+    private final GeocodeBackfill geocode;
 
-    public SyncController(StatusSyncService syncService, RestaurantImportService importService, AuthController auth) {
+    public SyncController(StatusSyncService syncService, RestaurantImportService importService, AuthController auth,
+                          GeocodeBackfill geocode) {
         this.syncService = syncService;
         this.importService = importService;
         this.auth = auth;
+        this.geocode = geocode;
     }
 
     private boolean isAdmin(String authorization) {
@@ -57,6 +61,8 @@ public class SyncController {
     public ResponseEntity<?> importRestaurants(@RequestHeader(value = "Authorization", required = false) String authorization,
                                                @RequestParam String localCode) {
         if (!isAdmin(authorization)) return forbidden();
-        return ResponseEntity.ok(importService.importOpenRestaurants(localCode));
+        RestaurantImportService.Result result = importService.importOpenRestaurants(localCode);
+        geocode.start(); // 새로 들어온 가게 좌표를 네이버 기준으로 고친다
+        return ResponseEntity.ok(result);
     }
 }
