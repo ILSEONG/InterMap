@@ -59,13 +59,23 @@ public class ReviewController {
     public record UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds) {
     }
 
-    // 사진 하나의 id와 주소 키 (ReviewPhoto.accessKey)
-    record Photo(Long id, String key) {
+    // 사진 하나의 id, 주소 키 (ReviewPhoto.accessKey), 흐린 미리보기 코드와 가로/세로 비율 (모르면 null)
+    record Photo(Long id, String key, String blurhash, Double ratio) {
+        static Photo of(Long id, String key, String blurhash, Integer width, Integer height) {
+            Double ratio = width == null || height == null || height == 0 ? null : Math.round(width * 1000.0 / height) / 1000.0;
+            return new Photo(id, key, blurhash == null || blurhash.isEmpty() ? null : blurhash, ratio);
+        }
+
+        static Photo of(ReviewPhotoRepository.Ref ref) {
+            return of(ref.getId(), ref.getAccessKey(), ref.getBlurhash(), ref.getWidth(), ref.getHeight());
+        }
     }
 
     // photoUrls는 photoIds와 같은 순서의 사진 주소(API 경로, 키 포함). photoIds는 수정 때 남길 사진을 고르는 데 쓴다.
+    // photoBlurhashes·photoRatios도 같은 순서 — 사진이 받아지기 전에 그릴 흐린 미리보기 코드와 가로/세로 비율 (없으면 null)
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
-                       Instant createdAt, List<Long> photoIds, List<String> photoUrls) {
+                       Instant createdAt, List<Long> photoIds, List<String> photoUrls,
+                       List<String> photoBlurhashes, List<Double> photoRatios) {
         static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
             AppUser a = r.getAuthor();
             return new Item(r.getId(),
@@ -74,7 +84,9 @@ public class ReviewController {
                     new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
                     r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
                     photos.stream().map(Photo::id).toList(),
-                    photos.stream().map(p -> "/api/photos/" + p.id() + "/" + p.key()).toList());
+                    photos.stream().map(p -> "/api/photos/" + p.id() + "/" + p.key()).toList(),
+                    photos.stream().map(Photo::blurhash).toList(),
+                    photos.stream().map(Photo::ratio).toList());
         }
     }
 
@@ -134,7 +146,7 @@ public class ReviewController {
         Map<Long, List<Photo>> photosByReview = new HashMap<>();
         Map<String, Restaurant> places = new HashMap<>();
         for (ReviewPhotoRepository.Ref ref : photos.findAllRefs()) {
-            photosByReview.computeIfAbsent(ref.getReviewId(), k -> new ArrayList<>()).add(new Photo(ref.getId(), ref.getAccessKey()));
+            photosByReview.computeIfAbsent(ref.getReviewId(), k -> new ArrayList<>()).add(Photo.of(ref));
         }
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
         return repository.findAllByOrderByCreatedAtDesc().stream()
@@ -214,7 +226,7 @@ public class ReviewController {
         List<Photo> kept = new ArrayList<>();
         List<Long> dropped = new ArrayList<>();
         for (ReviewPhotoRepository.Ref ref : photos.findRefsByReviewId(id)) {
-            if (keep.contains(ref.getId())) kept.add(new Photo(ref.getId(), ref.getAccessKey()));
+            if (keep.contains(ref.getId())) kept.add(Photo.of(ref));
             else dropped.add(ref.getId());
         }
         List<MultipartFile> uploads = nonEmpty(files);
@@ -286,7 +298,7 @@ public class ReviewController {
     private Photo savePhoto(Review review, MultipartFile f) throws IOException {
         byte[] data = f.getBytes();
         ReviewPhoto saved = photos.save(new ReviewPhoto(review, AvatarController.imageType(data), data));
-        return new Photo(saved.getId(), saved.getAccessKey());
+        return Photo.of(saved.getId(), saved.getAccessKey(), saved.getBlurhash(), saved.getWidth(), saved.getHeight());
     }
 
     private boolean overPhotoLimit(AppUser user, int count) {

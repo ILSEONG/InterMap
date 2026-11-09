@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchRecap } from '../lib/api'
 import type { Recap } from '../lib/api'
 import { RECAP_THEMES, defaultThemeId, drawRecapCards, recapAltText } from '../lib/recapCard'
-import { peek, remember } from '../lib/swr'
+import { cacheKey, memory, queryClient, readCache, writeCache } from '../lib/query'
 import { shareImages } from '../lib/share'
 import { kstMonth, monthLabel } from '../lib/time'
 import { ShareIcon } from './PollIcons'
@@ -37,18 +37,21 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
 type Card = { front: Blob; back: Blob; frontUrl: string; backUrl: string }
 type Blobs = { front: Blob; back: Blob }
 const toCard = (b: Blobs): Card => ({ ...b, frontUrl: URL.createObjectURL(b.front), backUrl: URL.createObjectURL(b.back) })
-// 그린 카드 기억 키 — 테마와 결산 내용이 같으면 같은 카드
+// 그린 카드 기억 키 — 테마와 결산 내용이 같으면 같은 카드 (Blob이라 메모리에만)
 const cardKey = (r: Recap, theme: string) => `recapCard:${theme}:${JSON.stringify(r)}`
+// 결산 숫자는 기기에도 남긴다 (lib/query가 'recap' 키를 저장)
+const recapKey = (month: string) => cacheKey('recap', month)
+const knownRecap = (month: string) => readCache<Recap>(recapKey(month))
 
 export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetProps) {
   const [month, setMonth] = useState(initialMonth ?? kstMonth())
-  // 전에 본 달이면 기억해 둔 결산·카드로 바로 그린다 — 새 값은 뒤에서 받아, 내용이 달라졌을 때만 바꾼다 (lib/swr)
+  // 전에 본 달이면 기억해 둔 결산·카드로 바로 그린다 — 새 값은 뒤에서 받아, 내용이 달라졌을 때만 바꾼다 (lib/query)
   const [initial] = useState(() => {
-    const r = peek<Recap>(`recap:${month}`, true)
+    const r = knownRecap(month)
     if (!r) return null
     if (r.places === 0) return { recap: r, card: null, key: null }
     const key = cardKey(r, defaultThemeId(month))
-    const blobs = peek<Blobs>(key)
+    const blobs = memory.get(key) as Blobs | undefined
     return blobs ? { recap: r, card: toCard(blobs), key } : null
   })
   // 서버에서 막 받은 결산
@@ -86,16 +89,18 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
       setKnownMonths((prev) => [...new Set([...prev, ...r.months])])
       if (r.places === 0) setView({ recap: r, card: null })
     }
-    const known = peek<Recap>(`recap:${month}`, true)
+    const known = knownRecap(month)
     if (known && known !== fetched) show(known)
-    fetchRecap(month)
+    // 같은 달을 동시에 여러 번 불러도 요청은 한 번, 실패하면 두 번까지 다시 시도
+    queryClient
+      .fetchQuery({ queryKey: [...recapKey(month), 'fresh'], queryFn: () => fetchRecap(month), staleTime: 0, gcTime: 0, retry: 2 })
       .then((next) => {
         if (cancelled) return
         // 서버는 요청한 달을 돌려준다 — 화면 비교는 요청한 달 기준으로
         const recapForMonth = { ...next, month }
         // 기억해 둔 것과 내용이 같으면 그대로 둔다 (카드를 다시 그리지 않게)
         if (known && JSON.stringify(known) === JSON.stringify(recapForMonth)) return
-        remember(`recap:${month}`, recapForMonth, true)
+        writeCache(recapKey(month), recapForMonth)
         show(recapForMonth)
       })
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -116,11 +121,11 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
       return
     }
     let cancelled = false
-    const cached = peek<Blobs>(key)
+    const cached = memory.get(key) as Blobs | undefined
     const blobs = cached
       ? Promise.resolve(cached)
       : drawRecapCards(fetched, theme).then((b) => {
-          remember(key, b)
+          memory.set(key, b)
           return b
         })
     blobs

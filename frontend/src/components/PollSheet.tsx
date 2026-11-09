@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { closePoll, deletePoll, fetchPoll, pollLink, votePoll } from '../lib/api'
-import { peek, remember } from '../lib/swr'
+import { cacheKey, readCache, writeCache } from '../lib/query'
 import type { AuthSession, PollOptionView, PollView } from '../lib/api'
 import { shareLink } from '../lib/share'
 import { timeLeft } from '../lib/time'
@@ -69,11 +69,11 @@ const sameSet = (a: Set<number>, b: number[]) => a.size === b.length && b.every(
 // "어디 갈래?" 투표 화면 — 링크로 들어온 친구(비회원 포함)와 만든 사람이 같이 쓴다.
 // 괜찮은 곳을 여러 개 고를 수 있고, 다시 고르면 바뀐다. 마감되면 가장 많이 골린 곳이 결정된다.
 export default function PollSheet({ token, session, onLogin, onChanged, initial, onClose }: PollSheetProps) {
-  // 방금 만든 투표나 전에 본 투표면 바로 그린다 — 새 값은 뒤에서 받아 바꾼다 (lib/swr)
-  const [poll, setPollState] = useState<PollView | null>(() => initial ?? peek<PollView>(`poll:${token}`) ?? null)
+  // 방금 만든 투표나 전에 본 투표면 바로 그린다 — 새 값은 뒤에서 받아 바꾼다 (lib/query)
+  const [poll, setPollState] = useState<PollView | null>(() => initial ?? readCache<PollView>(cacheKey('poll', token)) ?? null)
   const setPoll = useCallback(
     (next: PollView) => {
-      remember(`poll:${token}`, next)
+      writeCache(cacheKey('poll', token), next)
       setPollState(next)
     },
     [token],

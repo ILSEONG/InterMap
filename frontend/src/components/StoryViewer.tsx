@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Comment, Review, Story } from '../data/model'
 import { photoUrl, restaurantKey } from '../lib/api'
+import { blurUrl } from '../lib/blurhash'
 import { useOpenProfile } from '../lib/openProfile'
 import { timeAgo } from '../lib/time'
 import Avatar from './Avatar'
+import BlurPhoto from './BlurPhoto'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import './StoryViewer.css'
@@ -109,6 +111,7 @@ export default function StoryViewer({
             // 이웃 평가가 이 후기 하나뿐이면 위 별점과 같은 숫자라 굳이 다시 보이지 않는다
             const showNeighbors = neighbors.some((r) => r.id !== review.id)
             const photoPath = review.photoUrls[0]
+            const blur = blurUrl(review.photoBlurhashes?.[0])
             return (
               <article
                 key={review.id}
@@ -116,11 +119,12 @@ export default function StoryViewer({
                 aria-label={`${owner.name}의 후기 · ${review.restaurant.name}`}
               >
                 {photoPath !== undefined ? (
-                  <div className="story-viewer__media story-viewer__media--photo">
+                  // 사진이 오기 전엔 그 사진의 흐린 미리보기로 화면을 채워 둔다 (검은 화면 대신)
+                  <div className="story-viewer__media story-viewer__media--photo" style={blur ? { backgroundImage: `url(${blur})` } : undefined}>
                     {/* 슬라이드 전부를 한 번에 받지 않게 — 화면 근처에 온 것만 */}
                     {/* 사진 전체가 보이게(잘리지 않게) 가운데 두고, 남는 칸은 같은 사진을 흐리게 깔아 채운다 */}
-                    <img className="story-viewer__backdrop" src={photoUrl(photoPath)} alt="" aria-hidden="true" loading="lazy" decoding="async" />
-                    <img className="story-viewer__photo" src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
+                    <BlurPhoto className="story-viewer__backdrop" src={photoUrl(photoPath)} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+                    <BlurPhoto className="story-viewer__photo" src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="story-viewer__media story-viewer__media--empty" aria-hidden="true">
