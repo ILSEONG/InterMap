@@ -20,16 +20,7 @@
   background: var(--fill);
 }
 
-/* 이웃 후기가 있는 가게 */
-.place-row--reviewed {
-  background: var(--accent-tint);
-}
-
-.place-row--reviewed:hover,
-.place-row--reviewed:focus-visible,
-.place-row--reviewed:active {
-  background: rgba(217, 54, 90, 0.18);
-}
+/* 이웃 후기가 있는 가게 — 줄 바탕은 그대로 두고 아이콘 색으로만 구분 (분홍은 검색어 글자에만) */
 
 .place-row__icon {
   flex: 0 0 auto;
@@ -44,7 +35,6 @@
 }
 
 .place-row--reviewed .place-row__icon {
-  background: #fff;
   color: var(--accent-ink);
 }
 

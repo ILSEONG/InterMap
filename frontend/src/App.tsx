@@ -1023,7 +1023,24 @@ export default function App() {
             setFavMode((prev) => !prev)
           }}
         />
-        {!searching && <StoryStrip stories={stories} onOpen={setOpenStory} recap={recapChip} />}
+        {!searching && (
+          <StoryStrip
+            stories={stories}
+            onOpen={setOpenStory}
+            recap={recapChip}
+            // 팔로우가 셋 미만이면 끝에 "+ 친구 찾기" — 사람 검색을 연다
+            onFindFriends={
+              session && social && social.following.length < 3
+                ? () => {
+                    setPersonId(null)
+                    setSearchMode('person')
+                    setResultsOpen(true)
+                    setSearching(true)
+                  }
+                : undefined
+            }
+          />
+        )}
         {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
         {selectedPerson && (
           <PersonChip

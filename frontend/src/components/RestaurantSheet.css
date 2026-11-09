@@ -999,26 +999,6 @@ button.comment__author:active {
   padding-top: 18px;
 }
 
-/* 수정 중 안내 줄 */
-.review-form__editing-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 6px 6px 6px 14px;
-  border-radius: 22px;
-  background: var(--accent-tint);
-}
-
-.review-form__editing {
-  flex: 1;
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--accent-ink);
-}
-
 /* 별점 카드 */
 .review-form__rate {
   border-radius: var(--radius-lg);

@@ -151,6 +151,8 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
 
   const [step, setStep] = useState<Step>('start')
   const [email, setEmail] = useState('')
+  // 처음 화면에선 이메일 입력칸을 접어 두고 글자 링크만 — 누르면 펼친다
+  const [emailOpen, setEmailOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [nickname, setNickname] = useState('')
@@ -646,9 +648,11 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
                 </button>
               ))}
             </div>
-            <div className="auth-modal__divider">
-              <span>또는</span>
-            </div>
+            {!emailOpen && !email ? (
+              <button type="button" className="auth-modal__email-link" onClick={() => setEmailOpen(true)}>
+                이메일로 계속하기
+              </button>
+            ) : (
             <form className="auth-modal__form auth-modal__form--start" onSubmit={continueWithEmail}>
               {fieldBox(
                 'mail',
@@ -663,6 +667,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="이메일 주소"
                   autoComplete="username"
+                  autoFocus
                   required
                 />,
               )}
@@ -671,6 +676,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
                 {submitLabel('이메일로 계속하기')}
               </button>
             </form>
+            )}
             <p className="auth-modal__foot">로그인 또는 회원가입</p>
           </>
         )

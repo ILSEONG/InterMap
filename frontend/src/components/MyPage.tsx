@@ -20,6 +20,7 @@ import type { Review } from '../data/model'
 import Avatar from './Avatar'
 import type { PolicyPage } from './PolicyViewer'
 import './MyPage.css'
+import { RatingStar } from './Stars'
 
 interface MyPageProps {
   open: boolean
@@ -53,6 +54,66 @@ const MIN_SEARCH_LENGTH = 1
 
 // 아바타 바탕색 4가지 — 사람마다 id로 고정해서 목록에서 구분되게 한다
 const toneOf = (id: number) => `tone-${Math.abs(id) % 4}`
+
+// 내가 쓴 후기 줄 앞 장르 칩 — "음식점>일식" → "일". 같은 장르는 늘 같은 색
+function genreOf(category: string): { letter: string; tone: string } {
+  const name = category.split('>').pop()?.trim() || category
+  let hash = 0
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) | 0
+  return { letter: name.slice(0, 1) || '·', tone: `tone-${Math.abs(hash) % 4}` }
+}
+
+// 팔로잉 줄 오른쪽 "…" — 누르면 언팔로우 메뉴 (줄마다 회색 버튼을 늘어놓지 않고, 실수로 누르는 일도 줄인다)
+function MoreMenu({ label, disabled, onUnfollow }: { label: string; disabled: boolean; onUnfollow: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  return (
+    <span className="my-page__more" ref={ref}>
+      <button
+        type="button"
+        className="my-page__more-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`${label} 더보기`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="19" cy="12" r="1.8" />
+        </svg>
+      </button>
+      {open && (
+        <span className="my-page__more-menu" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            disabled={disabled}
+            onClick={() => {
+              setOpen(false)
+              onUnfollow()
+            }}
+          >
+            언팔로우
+          </button>
+        </span>
+      )}
+    </span>
+  )
+}
 
 function CloseIcon() {
   return (
@@ -349,17 +410,15 @@ export default function MyPage({
               <p className="my-page__empty">아직 남긴 후기가 없어요.</p>
             ) : (
               <ol className="my-page__card my-page__reviews">
-                {sortedReviews.map((r, i) => (
+                {sortedReviews.map((r) => (
                   <li key={r.id}>
-                    <button
-                      type="button"
-                      className={`my-page__review${i < 3 ? ' my-page__review--top' : ''}`}
-                      onClick={() => onOpenReview(r)}
-                    >
-                      <span className={`my-page__rank my-page__rank--${Math.min(i + 1, 4)}`}>{i + 1}</span>
+                    <button type="button" className="my-page__review" onClick={() => onOpenReview(r)}>
+                      <span className={`my-page__genre ${genreOf(r.restaurant.category).tone}`} aria-hidden="true">
+                        {genreOf(r.restaurant.category).letter}
+                      </span>
                       <span className="my-page__review-name">{r.restaurant.name}</span>
                       <span className="my-page__review-rating">
-                        <span aria-hidden="true">★</span>
+                        <RatingStar />
                         <span className="my-page__sr">별점 </span>
                         {r.rating.toFixed(1)}
                       </span>
@@ -468,15 +527,7 @@ export default function MyPage({
               people={social?.following ?? []}
               empty="아직 팔로우한 사람이 없어요. 위에서 닉네임으로 찾아보세요."
               renderAction={(p, label) => (
-                <button
-                  type="button"
-                  className="my-page__action"
-                  onClick={() => run(unfollowUser(p.id), `${label}님을 언팔로우했어요`)}
-                  disabled={busy}
-                  aria-label={`${label} 언팔로우`}
-                >
-                  언팔로우
-                </button>
+                <MoreMenu label={label} disabled={busy} onUnfollow={() => run(unfollowUser(p.id), `${label}님을 언팔로우했어요`)} />
               )}
             />
             <PersonList

@@ -453,8 +453,9 @@ function SheetBody({
           <button
             type="button"
             className="restaurant-sheet__icon-btn restaurant-sheet__icon-btn--sm"
-            onClick={() => setView('detail')}
-            aria-label="상세로 돌아가기"
+            // 수정 중이면 고친 내용을 버리고 돌아간다 (예전 '수정 취소' 버튼 역할)
+            onClick={() => (editing ? cancelEdit() : setView('detail'))}
+            aria-label={editing ? '수정 취소하고 돌아가기' : '상세로 돌아가기'}
           >
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 6l-6 6 6 6" />
@@ -473,15 +474,6 @@ function SheetBody({
 
         <div className="restaurant-sheet__scroll" ref={scrollRef}>
           <div className="review-form" ref={formRef}>
-            {editing && (
-              <div className="review-form__editing-bar">
-                <p className="review-form__editing">내가 남긴 후기, 고친 뒤 수정 완료를 눌러주세요</p>
-                <button type="button" className="review-form__cancel" onClick={cancelEdit} disabled={submitting}>
-                  수정 취소
-                </button>
-              </div>
-            )}
-
             <div className="review-form__rate">
               <span id={`${ids}-rate`} className="review-form__rate-label">
                 별점

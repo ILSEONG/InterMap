@@ -7,6 +7,7 @@ import { PLAY_STORE_URL, isAndroidWeb, pollIntentUrl } from '../lib/deepLink'
 import { BallotIcon, CheckIcon, CrownIcon, PinIcon, ShareIcon } from './PollIcons'
 import './ModalSheet.css'
 import './Poll.css'
+import { RatingStar } from './Stars'
 
 interface PollSheetProps {
   token: string
@@ -275,7 +276,8 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
                           <span className="poll-option__name">{o.name}</span>
                           {o.rating !== null && (
                             <span className="poll-option__rating">
-                              <span aria-hidden="true">★</span> {o.rating.toFixed(1)}
+                              <RatingStar />
+                              {o.rating.toFixed(1)}
                               <span className="poll-option__rating-count">이웃 후기 {o.reviewCount}개</span>
                             </span>
                           )}

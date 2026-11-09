@@ -173,3 +173,14 @@ button:active {
   border-radius: 50%;
   display: block;
 }
+
+/* 숫자 옆 작은 별 (Stars.tsx의 RatingStar) — 글자 기호 ★ 대신 */
+.rating-star {
+  display: inline-block;
+  flex: none;
+  width: 0.92em;
+  height: 0.92em;
+  margin-right: 0.15em;
+  vertical-align: -0.1em;
+  fill: currentColor;
+}
