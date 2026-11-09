@@ -51,9 +51,9 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
     @Modifying
     @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = true where r.id = :id")
-    void relocate(Long id, double lat, double lng);
+    int relocate(Long id, double lat, double lng);
 
     @Modifying
     @Query("update Restaurant r set r.geocoded = false where r.id = :id")
-    void markGeocodeFailed(Long id);
+    int markGeocodeFailed(Long id);
 }

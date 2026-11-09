@@ -147,7 +147,7 @@ public class GeocodeBackfill implements ApplicationRunner {
         Long id = (Long) row[0];
         double lat = ((Number) row[3]).doubleValue();
         double lng = ((Number) row[4]).doubleValue();
-        Optional<double[]> found;
+        final Optional<double[]> found;
         try {
             found = locate((String) row[1], (String) row[2], lat, lng);
         } catch (NaverGeocoder.Unavailable e) {
@@ -156,13 +156,12 @@ public class GeocodeBackfill implements ApplicationRunner {
         } catch (RuntimeException e) {
             return Outcome.ERROR;
         }
-        if (found.isPresent()) {
-            double[] p = found.get();
-            tx.executeWithoutResult(s -> repository.relocate(id, p[0], p[1]));
-            return Outcome.MOVED;
-        }
-        tx.executeWithoutResult(s -> repository.markGeocodeFailed(id));
-        return Outcome.FAILED;
+        Integer changed = found.isPresent()
+            ? tx.execute(s -> repository.relocate(id, found.get()[0], found.get()[1]))
+            : tx.execute(s -> repository.markGeocodeFailed(id));
+        // 0행이면 고치지 못한 것 — 같은 행을 끝없이 다시 잡지 않게 오류로 센다
+        if (changed == null || changed == 0) return Outcome.ERROR;
+        return found.isPresent() ? Outcome.MOVED : Outcome.FAILED;
     }
 
     // 도로명(건물) 먼저, 없으면 지번. 인허가 좌표에서 너무 멀면 엉뚱한 곳을 잡은 것이라 버린다.

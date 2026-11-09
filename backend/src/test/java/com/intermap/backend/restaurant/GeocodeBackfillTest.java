@@ -3,7 +3,6 @@ package com.intermap.backend.restaurant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Map;
@@ -13,13 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+// 트랜잭션으로 감싸지 않는다 — 보정은 별도 스레드·트랜잭션에서 돌아서 커밋 안 된 행을 못 고친다. 끝나면 지운다.
 @SpringBootTest(properties = "admin.password=test-admin-password")
-@Transactional
 class GeocodeBackfillTest {
 
     @Autowired RestaurantRepository repository;
     @Autowired TransactionTemplate tx;
-    @Autowired jakarta.persistence.EntityManager em;
 
     private static GeocodeBackfill.Geocoder fake(Map<String, double[]> answers) {
         return new GeocodeBackfill.Geocoder() {
@@ -49,7 +47,6 @@ class GeocodeBackfillTest {
         )), 0);
 
         assertTrue(backfill.fill() >= 2);
-        em.clear();
 
         Restaurant r = repository.findById(river.getId()).orElseThrow();
         assertEquals(37.5283, r.getLat(), 1e-9);
@@ -66,6 +63,8 @@ class GeocodeBackfillTest {
 
         // 한 번 처리한 가게는 다시 묻지 않는다
         assertEquals(0, backfill.fill());
+
+        repository.deleteAllById(java.util.List.of(river.getId(), lotOnly.getId(), far.getId(), unknown.getId()));
     }
 
     @Test
