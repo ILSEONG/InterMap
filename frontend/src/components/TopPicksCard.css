@@ -60,7 +60,7 @@
 }
 
 .top-picks__row--first {
-  background: var(--accent-tint);
+  background: rgba(118, 118, 128, 0.08);
 }
 
 .top-picks__row:active {
@@ -68,7 +68,7 @@
 }
 
 .top-picks__row--first:active {
-  background: rgba(217, 54, 90, 0.2);
+  background: var(--fill);
 }
 
 @media (hover: hover) {
@@ -77,7 +77,7 @@
   }
 
   .top-picks__row--first:hover {
-    background: rgba(217, 54, 90, 0.18);
+    background: var(--fill);
   }
 }
 
@@ -102,7 +102,7 @@
 }
 
 .top-picks__row--first .top-picks__rank {
-  background: var(--accent);
+  background: var(--ink);
   color: #fff;
 }
 

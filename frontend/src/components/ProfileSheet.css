@@ -311,10 +311,12 @@ button.profile-sheet__stat:active {
 
 /* 아직 안 팔로우 — 포인트 색. 팔로잉 중 — 회색 (다시 누르면 언팔로우) */
 .profile-sheet__follow {
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
   flex: 1;
   min-width: 0;
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: var(--ink);
 }
 
 .profile-sheet__follow:active {
@@ -322,7 +324,8 @@ button.profile-sheet__stat:active {
 }
 
 .profile-sheet__follow--on {
-  background: rgba(118, 118, 128, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.18);
+  background: #fff;
   color: var(--ink);
 }
 

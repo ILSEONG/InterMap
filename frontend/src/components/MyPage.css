@@ -283,14 +283,15 @@
 
 /* 닉네임을 고쳤을 때만 칸 안 오른쪽에 뜨는 저장 버튼 — 칸 반경 24 - 여백 2 = 22 */
 .my-page__save {
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
   flex: none;
   height: 44px;
   margin-right: -14px;
   padding: 0 16px;
-  border: none;
   border-radius: 22px;
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: var(--ink);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -496,8 +497,10 @@
 }
 
 .my-page__action--primary {
-  background: var(--accent);
-  color: #fff;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
+  background: #fff;
+  color: var(--ink);
 }
 
 .my-page__action--primary:active {
@@ -684,9 +687,10 @@
 
 .my-page__leave-cancel,
 .my-page__leave-confirm {
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
   flex: 1;
   min-height: 50px;
-  border: none;
   border-radius: 25px;
   font-size: 15px;
   font-weight: 700;
@@ -831,4 +835,344 @@
 
 .my-page__more-menu button:active {
   background: var(--fill);
+}
+
+/* ───────── 내 정보 (새 배치) ───────── */
+
+.my-page--me {
+  background: #fff;
+}
+
+.my-page--me .my-page__header {
+  margin-top: 10px;
+  padding: 0 8px;
+}
+
+.my-page--me .my-page__close,
+.my-page__back {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.my-page__back + .my-page__title {
+  margin-left: 2px;
+  font-size: 18px;
+}
+
+.my-page--me .my-page__scroll {
+  padding: 0 18px max(22px, env(safe-area-inset-bottom));
+}
+
+.my-page__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.my-page__big-title {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+/* 사진(카메라 배지) + 이름 + 닉네임 바꾸기 */
+.my-page__me {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.my-page__me-photo {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.my-page--me .my-page__avatar--me {
+  width: 64px;
+  height: 64px;
+  font-size: 24px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.my-page__me-camera {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 0 0 2px #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.my-page__me-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.my-page__me-name {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.my-page__me-edit {
+  min-height: 32px;
+  margin: -2px 0 -4px;
+  padding: 0;
+  border: none;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.my-page__edit {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.my-page--me .my-page__field {
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.1);
+  box-shadow: none;
+}
+
+.my-page__photo-remove-text {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* 내 후기 · 팔로잉 · 팔로워 — 회색 칸 셋 */
+.my-page__counts {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.08);
+}
+
+.my-page__count-cell {
+  min-height: 64px;
+  padding: 10px 0;
+  border: none;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.my-page__count-cell + .my-page__count-cell {
+  box-shadow: inset 1px 0 0 var(--line);
+}
+
+.my-page__count-cell b {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 묶음 사이 굵은 회색 띠 — 시트 끝까지 */
+.my-page__band {
+  height: 8px;
+  margin: 20px -18px 4px;
+  background: rgba(118, 118, 128, 0.08);
+}
+
+/* 한 줄 항목 — 월간 결산, 사람 찾기, 차단한 사용자 */
+.my-page__row {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-page__row:active {
+  opacity: 0.6;
+}
+
+.my-page__row-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(118, 118, 128, 0.1);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.my-page__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.my-page__row-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.my-page__row-sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.my-page__row-chevron {
+  flex: none;
+  color: var(--ink-soft);
+}
+
+/* 어디 갈래? 투표 · 내 후기 */
+.my-page__group {
+  margin-top: 12px;
+}
+
+.my-page__group-title {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.my-page__group-title span {
+  color: var(--ink-soft);
+}
+
+.my-page__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.my-page__list > li + li {
+  border-top: 1px solid var(--line);
+}
+
+.my-page--me .my-page__review {
+  min-height: 58px;
+  padding: 6px 0;
+  border-radius: 0;
+  background: none;
+}
+
+.my-page__review-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.my-page--me .my-page__review-name {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.my-page__review-sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.my-page--me .my-page__review-rating {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.my-page--me .my-page__review-rating .rating-star {
+  color: var(--accent);
+}
+
+.my-page--me .my-page__poll-state {
+  min-width: 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+
+/* 아래 글자 링크 — 이용약관 · 개인정보처리방침 · 로그아웃 · 회원 탈퇴 */
+.my-page--me .my-page__footer {
+  margin-top: 18px;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.my-page--me .my-page__links {
+  flex-wrap: wrap;
+  gap: 0 14px;
+}
+
+.my-page--me .my-page__links button {
+  min-height: 40px;
+  padding: 0;
+  border-radius: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
 }

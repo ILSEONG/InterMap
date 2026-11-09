@@ -85,13 +85,14 @@
 }
 
 .search-results__follow {
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  box-shadow: none;
   flex: 0 0 auto;
   height: 44px;
   padding: 0 18px;
-  border: none;
   border-radius: 22px;
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: var(--ink);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
