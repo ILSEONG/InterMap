@@ -14,6 +14,9 @@ const DAMPING = 13
 // 손가락을 이만큼 안 움직였으면 끌기가 아니라 누르기
 const TAP_SLOP = 6
 
+// 180°의 홀수 배면 뒷면 (각도는 0·180에 묶이지 않고 이어진다)
+const isBack = (angle: number) => Math.abs(Math.round(angle / 180)) % 2 === 1
+
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
 // 월간 결산 카드 — 누르거나 좌우로 끌어서 앞·뒤를 넘긴다.
@@ -33,7 +36,7 @@ export default function RecapFlipCard({ frontUrl, backUrl, alt, flipped, onFlipp
     const lift = Math.abs(Math.sin((angle * Math.PI) / 180))
     el.style.transform = `translateZ(0) rotateY(${angle}deg) scale(${1 + 0.05 * lift})`
     el.style.setProperty('--lift', lift.toFixed(3))
-    // 빛줄기는 넘기는 방향으로 카드 면을 가로지른다
+    // 빛줄기는 넘기는 방향으로 카드 면을 가로지른다 (음수 각도도 0~100%로)
     el.style.setProperty('--sheen-x', `${(((angle % 180) + 180) % 180) / 1.8}%`)
   }
 
@@ -71,10 +74,13 @@ export default function RecapFlipCard({ frontUrl, backUrl, alt, flipped, onFlipp
     }
   }
 
-  // 밖에서(달·테마를 바꿔) 앞뒤가 바뀌면 그쪽으로
+  // 앞뒤가 바뀌면(누르기·키보드) 지금 각도에서 같은 방향(앞으로)으로 반 바퀴 더.
+  // 각도는 0·180에 묶지 않고 계속 이어진다 — 360°면 다시 앞면, -180°면 뒷면
   useEffect(() => {
     if (drag.current) return
-    animateTo(flipped ? 180 : 0)
+    const m = motion.current
+    const showingBack = isBack(m.target)
+    if (showingBack !== flipped) animateTo(m.target + 180)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flipped])
 
@@ -109,10 +115,8 @@ export default function RecapFlipCard({ frontUrl, backUrl, alt, flipped, onFlipp
     if (!d.moved && Math.abs(dx) < TAP_SLOP) return
     d.moved = true
     const width = root.getBoundingClientRect().width || 1
-    // 카드 폭만큼 끌면 반 바퀴. 양 끝을 넘으면 고무줄처럼 덜 따라온다
-    let angle = d.startAngle + (dx / width) * 180
-    if (angle < 0) angle = angle * 0.3
-    if (angle > 180) angle = 180 + (angle - 180) * 0.3
+    // 카드 폭만큼 끌면 반 바퀴 — 어느 면에서든 왼쪽·오른쪽 어느 쪽으로도 넘어간다
+    const angle = d.startAngle + (dx / width) * 180
     const dt = (e.timeStamp - d.lastT) / 1000
     if (dt > 0) d.v = 0.3 * d.v + 0.7 * ((((e.clientX - d.lastX) / width) * 180) / dt)
     d.lastX = e.clientX
@@ -134,10 +138,14 @@ export default function RecapFlipCard({ frontUrl, backUrl, alt, flipped, onFlipp
       onFlippedChange(!flipped)
       return
     }
-    // 놓는 순간의 속도까지 더해 가까운 면으로
-    const projected = motion.current.angle + d.v * 0.18
-    const toBack = projected > 90
-    animateTo(toBack ? 180 : 0, d.v)
+    // 놓는 순간의 속도까지 더해 가장 가까운 면(180° 배수)으로. 한 번에 반 바퀴까지만 넘긴다
+    const m = motion.current
+    const projected = m.angle + d.v * 0.18
+    let target = Math.round(projected / 180) * 180
+    const base = Math.round(d.startAngle / 180) * 180
+    target = Math.min(Math.max(target, base - 180), base + 180)
+    animateTo(target, d.v)
+    const toBack = isBack(target)
     if (toBack !== flipped) onFlippedChange(toBack)
   }
 

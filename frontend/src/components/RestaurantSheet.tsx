@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useBackLayer } from '../lib/backLayer'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import ReviewCard from './ReviewCard'
@@ -23,7 +24,7 @@ interface RestaurantSheetProps {
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: number) => void
+  onAddComment: (reviewId: number, text: string, parentId?: number) => Promise<boolean>
   onDeleteComment: (reviewId: number, commentId: number) => void
   // 이 가게를 찜했는지 + 별 버튼 토글
   favored: boolean
@@ -135,20 +136,30 @@ export default function RestaurantSheet({
     pendingHeightRef.current = null
     setDragging(false)
     if (!drag) return
-    // 위로 튕기면 끝까지 펼친다 (transition이 다시 켜져 부드럽게 올라감)
+    const max = window.innerHeight * 0.92
+    // 끌면서 DOM에 직접 쓴 높이와 React 상태를 같이 맞춘다. 상태가 이미 같은 값이면 React가 아무것도
+    // 안 해서 끌던 높이에 멈춰 버리므로 DOM에도 직접 쓴다 (transition이 다시 켜져 부드럽게 간다)
+    const settle = (h: number) => {
+      const px = Math.round(h)
+      if (sheetRef.current) sheetRef.current.style.height = `${px}px`
+      setHeight(px)
+    }
+    const next = drag.startHeight + (drag.startY - e.clientY)
+    // 손잡이를 누르기만 했으면 그대로 (기본 높이를 px로 못 박지 않게)
+    if (Math.abs(drag.startY - e.clientY) < 4 && Math.abs(drag.velocity) <= FLICK_VELOCITY) return
+    // 위로 튕기면 끝까지 펼친다
     if (drag.velocity > FLICK_VELOCITY) {
-      setHeight(window.innerHeight * 0.92)
+      settle(max)
       return
     }
     // 아래로 튕기거나 최소 높이 아래로 끌어내리면 닫는다.
-    const next = drag.startHeight + (drag.startY - e.clientY)
     if (drag.velocity < -FLICK_VELOCITY || next < MIN_SHEET_HEIGHT) {
-      // 드래그로 만진 인라인 높이를 지운다 — 남겨두면 React가 모르는 값이라 다음에 열 때 그 높이로 열린다
-      if (sheetRef.current) sheetRef.current.style.height = ''
+      // 닫히는 동안 높이가 기본값으로 튀지 않게 지금 높이를 상태로 남긴다 — 다음에 열 때 위에서 기본 높이로 되돌린다
+      setHeight(Math.round(Math.min(Math.max(next, MIN_SHEET_HEIGHT), max)))
       onClose()
       return
     }
-    setHeight(Math.min(Math.max(next, MIN_SHEET_HEIGHT), window.innerHeight * 0.92))
+    settle(Math.min(Math.max(next, MIN_SHEET_HEIGHT), max))
   }
 
   // 후기 쓰기 화면으로 넘어가면 시트를 거의 끝까지 펼친다 (입력칸·사진이 다 들어오도록)
@@ -225,7 +236,7 @@ interface SheetBodyProps {
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: number) => void
+  onAddComment: (reviewId: number, text: string, parentId?: number) => Promise<boolean>
   onDeleteComment: (reviewId: number, commentId: number) => void
   // 이 가게를 찜했는지 + 별 버튼 토글
   favored: boolean
@@ -443,6 +454,8 @@ function SheetBody({
 
   // 이미 후기를 남긴 가게는 수정으로만 폼이 열린다
   const writing = view === 'write' && !(myReview && !editing)
+  // 안드로이드 뒤로가기: 후기 쓰기 화면이면 시트를 닫지 않고 상세로 돌아간다
+  useBackLayer(writing, () => (editing ? cancelEdit() : setView('detail')))
   const photoCount = keepPhotoIds.length + draftPhotos.length
 
   if (writing) {

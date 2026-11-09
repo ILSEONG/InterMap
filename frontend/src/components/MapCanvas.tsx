@@ -20,7 +20,8 @@ interface MapCanvasProps {
   onPick: (restaurant: Restaurant) => void
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
-  focus?: { id: string }
+  // lat·lng: 필터에 걸려 목록에 없는 가게여도 그 자리로는 옮긴다
+  focus?: { id: string; lat: number; lng: number }
   // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역과 줌을 알려준다 — 뷰포트 단위 데이터 로딩용.
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
   // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
@@ -245,7 +246,7 @@ export default function MapCanvas({
   }, [mapReady, onMyLocation])
 
   // 고른 가게를 지도 정중앙으로. 확대 레벨은 사용자가 보던 그대로 둔다.
-  const focusRestaurant = useCallback((restaurant: Restaurant) => {
+  const focusRestaurant = useCallback((restaurant: Pick<Restaurant, 'id' | 'lat' | 'lng'>) => {
     const map = mapRef.current
     if (!map || !window.naver) return
 
@@ -465,8 +466,7 @@ export default function MapCanvas({
   // 검색 결과에서 고른 가게가 화면 밖일 수 있어 그 가게로 지도만 옮긴다.
   useEffect(() => {
     if (!mapReady || !focus) return
-    const target = restaurantsRef.current.find((r) => r.id === focus.id)
-    if (target) focusRestaurant(target)
+    focusRestaurant(restaurantsRef.current.find((r) => r.id === focus.id) ?? focus)
   }, [focus, mapReady, focusRestaurant])
 
   return (

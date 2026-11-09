@@ -1,4 +1,6 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
+import { useDebounced } from '../lib/useDebounced'
+import { useBackLayer } from '../lib/backLayer'
 import type { ReactNode } from 'react'
 import type { AuthSession, BlockedPerson, Person, SocialData, UserItem } from '../lib/api'
 import {
@@ -66,6 +68,7 @@ function genreOf(category: string): { letter: string; tone: string } {
 // 팔로잉 줄 오른쪽 "…" — 누르면 언팔로우 메뉴 (줄마다 회색 버튼을 늘어놓지 않고, 실수로 누르는 일도 줄인다)
 function MoreMenu({ label, disabled, onUnfollow }: { label: string; disabled: boolean; onUnfollow: () => void }) {
   const [open, setOpen] = useState(false)
+  useBackLayer(open, () => setOpen(false))
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     if (!open) return
@@ -168,7 +171,9 @@ export default function MyPage({
     toastTimer.current = window.setTimeout(() => setToast(null), 1500)
   }
 
-  // 열릴 때마다 입력값을 현재 세션 기준으로 되돌린다
+  // 열릴 때마다 입력값을 현재 세션 기준으로 되돌린다.
+  // 열려 있는 동안 닉네임을 저장하면 session.nickname이 바뀌는데, 그때 다시 돌리면
+  // "닉네임을 바꿨어요"가 한 프레임 만에 지워지고 검색어·차단 목록도 접힌다 — 열릴 때만
   useEffect(() => {
     if (!open) return
     setNickname(session.nickname)
@@ -179,7 +184,8 @@ export default function MyPage({
     setBlocked(null)
     setLeaving(false)
     setLeaveChecked(false)
-  }, [open, session.nickname])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -208,8 +214,9 @@ export default function MyPage({
   }, [open, blocksOpen, blocked])
 
   // 닉네임 검색 — 팔로우할 사람 찾기
+  const serverQuery = useDebounced(deferredQuery)
   useEffect(() => {
-    const keyword = deferredQuery.trim()
+    const keyword = serverQuery.trim()
     if (!open || keyword.length < MIN_SEARCH_LENGTH) {
       setFound([])
       return
@@ -223,7 +230,7 @@ export default function MyPage({
     return () => {
       cancelled = true
     }
-  }, [open, deferredQuery])
+  }, [open, serverQuery])
 
   if (!open) return null
 

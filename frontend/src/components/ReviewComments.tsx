@@ -7,7 +7,8 @@ interface ReviewCommentsProps {
   comments: Comment[]
   // 로그인 사용자 id — 내 댓글에만 삭제 버튼이 보인다
   myUserId?: number
-  onAdd: (text: string, parentId?: number) => void
+  // 성공하면 true — 실패하면 입력을 지우지 않는다 (네트워크 오류·하루 한도에 쓴 글이 날아가지 않게)
+  onAdd: (text: string, parentId?: number) => Promise<boolean>
   onDelete: (commentId: number) => void
 }
 
@@ -51,10 +52,13 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete }: 
     if (comments.length === 0) setWriting(true)
   }
 
-  function submit() {
-    if (!draft.trim()) return
-    onAdd(draft.trim())
-    stopWriting()
+  const [sending, setSending] = useState(false)
+  async function submit() {
+    if (!draft.trim() || sending) return
+    setSending(true)
+    const ok = await onAdd(draft.trim())
+    setSending(false)
+    if (ok) stopWriting()
   }
 
   // 펼친 상태에서도 개수를 보여준다 (펼침 여부는 aria-expanded와 화살표로)
@@ -108,14 +112,14 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete }: 
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') submit()
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit()
                   if (e.key === 'Escape') cancelWriting()
                 }}
                 placeholder="이 후기에 댓글 남기기"
                 aria-label="댓글 입력"
                 autoFocus
               />
-              <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim()}>
+              <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim() || sending}>
                 <SendIcon />
                 <span className="comment__send-label">등록</span>
               </button>
@@ -131,7 +135,7 @@ interface CommentItemProps {
   comment: Comment
   replies: Comment[]
   myUserId?: number
-  onReply: (text: string) => void
+  onReply: (text: string) => Promise<boolean>
   onDelete: (commentId: number) => void
 }
 
@@ -144,10 +148,13 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
     setReplying(false)
   }
 
-  function submit() {
-    if (!draft.trim()) return
-    onReply(draft.trim())
-    close()
+  const [sending, setSending] = useState(false)
+  async function submit() {
+    if (!draft.trim() || sending) return
+    setSending(true)
+    const ok = await onReply(draft.trim())
+    setSending(false)
+    if (ok) close()
   }
 
   function remove() {
@@ -192,14 +199,14 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') submit()
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit()
                 if (e.key === 'Escape') close()
               }}
               placeholder={`${comment.authorName}님에게 답글`}
               aria-label="답글 입력"
               autoFocus
             />
-            <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim()}>
+            <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim() || sending}>
               <SendIcon />
               <span className="comment__send-label">등록</span>
             </button>

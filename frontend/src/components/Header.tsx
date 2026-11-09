@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useBackLayer } from '../lib/backLayer'
 import StarIcon from './StarIcon'
 import './Header.css'
 
@@ -39,6 +40,9 @@ export default function Header({
 }: HeaderProps) {
   const [accountOpen, setAccountOpen] = useState(false)
   const [friendsOpen, setFriendsOpen] = useState(false)
+  // 펼친 메뉴는 안드로이드 뒤로가기로 먼저 닫힌다
+  useBackLayer(accountOpen, () => setAccountOpen(false))
+  useBackLayer(friendsOpen, () => setFriendsOpen(false))
   const accountRef = useRef<HTMLDivElement>(null)
   const friendsRef = useRef<HTMLDivElement>(null)
 

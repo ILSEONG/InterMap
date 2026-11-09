@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
+import { useBackLayer } from '../lib/backLayer'
 import { canReport, useModeration } from '../lib/moderation'
 import { timeAgo } from '../lib/time'
 import { STAR_SHAPE } from './Stars'
@@ -29,6 +30,9 @@ export default function ReviewCard({ review, onEdit }: { review: Review; onEdit?
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [lightbox])
+
+  // 안드로이드 뒤로가기는 사진부터 닫는다 (아래 가게 시트가 먼저 닫히고 사진만 남지 않게)
+  useBackLayer(lightbox !== null, () => setLightbox(null))
 
   const owner = review.author.owner
 
