@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   checkNickname,
   login,
@@ -13,6 +13,9 @@ import {
 } from '../lib/api'
 import type { AuthSession, SocialTicket } from '../lib/api'
 import './AuthModal.css'
+import { FcGoogle } from 'react-icons/fc'
+import { RiKakaoTalkFill } from 'react-icons/ri'
+import { SiNaver } from 'react-icons/si'
 
 // start: 소셜 버튼 + 이메일 입력. 이메일이 기존 회원이면 로그인, 아니면 가입으로 이어진다.
 // social: 소셜 최초 인증 뒤 닉네임+약관만 받는 가입 화면
@@ -100,27 +103,27 @@ function Icon({ name, size = 20, strokeWidth = 2 }: { name: keyof typeof ICONS; 
   )
 }
 
-// 소셜 버튼 앞 글리프 — 네이버 N, 카카오 말풍선, Google 선 G (공식 로고 아님)
+// 소셜 버튼 앞 로고 — 아이콘 라이브러리(react-icons)의 브랜드 로고.
+// 네이버는 초록 네모 안 흰 N, 카카오는 노란 네모 안 검은 말풍선(각 사 로그인 버튼 안내 형태), Google은 컬러 G
 function SocialIcon({ id }: { id: (typeof SOCIAL_PROVIDERS)[number]['id'] }) {
   if (id === 'naver') {
     return (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M5 4h4.6l4.8 7.4V4H19v16h-4.6L9.6 12.6V20H5z" />
-      </svg>
+      <span className="auth-modal__social-icon auth-modal__social-icon--naver" aria-hidden="true">
+        <SiNaver size={12} />
+      </span>
     )
   }
   if (id === 'kakao') {
     return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 5.9L6.5 20l3.6-2.3c.6.1 1.2.1 1.9.1 5 0 9-3.1 9-6.9S17 4 12 4z" />
-      </svg>
+      <span className="auth-modal__social-icon auth-modal__social-icon--kakao" aria-hidden="true">
+        <RiKakaoTalkFill size={18} />
+      </span>
     )
   }
   return (
-    <svg {...STROKE} width={20} height={20} strokeWidth={2.2}>
-      <path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4" />
-      <path d="M12.5 12h7" />
-    </svg>
+    <span className="auth-modal__social-icon" aria-hidden="true">
+      <FcGoogle size={22} />
+    </span>
   )
 }
 
@@ -174,24 +177,31 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
 
   const provider = SOCIAL_PROVIDERS.find((p) => p.id === social?.provider)?.name ?? 'SNS'
 
-  // 열고 닫을 때 전부 초기화. 소셜 가입은 provider가 준 닉네임을 미리 채워준다 (수정 가능)
-  useEffect(() => {
-    setStep('start')
-    setPassword('')
-    setCode('')
-    setAge(false)
-    setTerms(false)
-    setPrivacy(false)
-    setMarketing(false)
-    setExisting(false)
-    setCodeHint(null)
-    setNickHint(null)
-    setCodeSent(false)
-    setError(null)
-    setDone(null)
-    setEmail(open && shown === 'link' ? (social?.email ?? '') : '')
-    setNickname(open && shown === 'social' ? (social?.nickname ?? '') : '')
-  }, [open, shown, social])
+  // 열 때(또는 열린 채로 화면 종류가 바뀔 때) 전부 초기화. 소셜 가입은 provider가 준 닉네임을 미리 채워준다 (수정 가능).
+  // 닫을 때는 건드리지 않는다 — 닫히는 0.26초 동안 첫 화면으로 튀어 깜빡이지 않게.
+  // 렌더 중에 맞춰서 여는 첫 프레임부터 깨끗한 화면이 나온다 (effect면 한 프레임 이전 화면이 보인다)
+  const [resetFor, setResetFor] = useState<{ open: boolean; shown: typeof shown; social: typeof social } | null>(null)
+  if (!resetFor || resetFor.open !== open || resetFor.shown !== shown || resetFor.social !== social) {
+    setResetFor({ open, shown, social })
+    if (open) {
+      setStep('start')
+      setEmailOpen(false)
+      setPassword('')
+      setCode('')
+      setAge(false)
+      setTerms(false)
+      setPrivacy(false)
+      setMarketing(false)
+      setExisting(false)
+      setCodeHint(null)
+      setNickHint(null)
+      setCodeSent(false)
+      setError(null)
+      setDone(null)
+      setEmail(shown === 'link' ? (social?.email ?? '') : '')
+      setNickname(shown === 'social' ? (social?.nickname ?? '') : '')
+    }
+  }
 
   function run<T>(request: Promise<T>, then: (value: T) => void) {
     if (busy) return

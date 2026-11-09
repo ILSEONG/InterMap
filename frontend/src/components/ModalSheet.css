@@ -15,6 +15,11 @@
   animation: modal-fade 200ms ease;
 }
 
+/* 한 창에서 다른 창으로 바로 넘어갈 때 — 배경은 이미 어두우니 다시 페이드하지 않는다 */
+.modal-layer--handoff {
+  animation: none;
+}
+
 .modal-sheet {
   width: 100%;
   max-width: 480px;

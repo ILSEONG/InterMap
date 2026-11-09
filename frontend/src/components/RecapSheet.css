@@ -85,6 +85,17 @@
   container-type: size;
 }
 
+/* 다른 달을 받는 동안 — 이전 카드를 그대로 두고 살짝만 흐리게 */
+.recap-sheet__body .recap-flip,
+.recap-sheet__body .recap-empty {
+  transition: opacity 0.2s ease;
+}
+
+.recap-sheet__body--loading .recap-flip,
+.recap-sheet__body--loading .recap-empty {
+  opacity: 0.55;
+}
+
 .recap-flip {
   display: block;
   width: min(100cqw, calc(100cqh * 9 / 16));

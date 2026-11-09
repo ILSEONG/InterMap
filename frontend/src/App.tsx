@@ -1,4 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useDebounced } from './lib/useDebounced'
+import { closeTopLayer } from './lib/backLayer'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import Header from './components/Header'
@@ -80,7 +82,9 @@ const MIN_QUERY_LENGTH = 2
 
 function toRestaurant(record: RestaurantRecord): Restaurant {
   return {
-    id: `db-${record.id}`,
+    // id는 이름+주소 키로 — 후기로 먼저 그린 가게(아래 reviewedRestaurants)가 뷰포트로 다시 들어와도
+    // 같은 id라서 열어 둔 시트·강조 핀이 풀리지 않는다 (mergeRecords가 같은 키를 걸러 유일하다)
+    id: `p-${record.name}|${record.roadAddress || record.address}`,
     name: record.name,
     category: record.category || '음식점',
     address: record.roadAddress || record.address,
@@ -130,16 +134,23 @@ export default function App() {
   const [cellStore, setCellStore] = useState<{ zoom: number; cellDeg: number; byKey: Map<string, ClusterCell> } | null>(null)
   // 같은 타일을 연달아 요청하지 않기 위한 마지막 요청 키
   const lastFetchKey = useRef('')
+  // 가장 최근에 요청한 줌 — 줌을 빨리 바꾸면 이전 줌 응답이 늦게 와서 격자를 덮어쓰지 않게
+  const lastFetchZoom = useRef(0)
 
   // 전체를 한 번에 받는 대신, 지도가 멈출 때마다 보이는 영역만 받아 누적한다.
   // 한 번 본 영역의 가게는 목록에 남으므로 검색·필터는 본 영역 기준으로 동작한다.
   // 줌이 낮으면(넓은 영역) 개별 가게 대신 서버 격자 요약만 받는다.
-  const loadViewport = useCallback((bbox: BBox, zoom: number) => {
+  const fetchViewport = useCallback((bbox: BBox, zoom: number) => {
     const snapped = snapBBox(bbox)
     const cellMode = zoom <= SUMMARY_MAX_ZOOM
     const key = `${cellMode ? `s${zoom}` : 'r'}:${snapped.minLat},${snapped.minLng},${snapped.maxLat},${snapped.maxLng}`
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
+    lastFetchZoom.current = zoom
+    // 실패하면 같은 타일을 다시 받을 수 있게 키를 푼다 (콜드 스타트·잠깐 끊김 뒤 빈 지도 방지)
+    const forget = () => {
+      if (lastFetchKey.current === key) lastFetchKey.current = ''
+    }
     if (cellMode) {
       // zoom-2로 요청하면 서버 셀 한 변이 4배(104px)가 된다 — 셀 핀(38px 원, 네 자리면 더 넓다)이
       // 서로 겹치지 않고, 밀집 지역에서 마커 수백 개가 깔려 모바일 WebView가 깜빡이는 것도 막는다
@@ -149,6 +160,7 @@ export default function App() {
           // 서버와 같은 격자 인덱스로 키를 만들어 누적한다. 같은 셀은 최신 응답으로
           // 덮어써서 bbox 경계에 걸려 잘렸던 건수를 교정한다. 줌이 바뀌면 격자가
           // 달라지므로 처음부터 다시 쌓는다.
+          if (lastFetchZoom.current !== zoom) return
           const cellDeg = (360 * 26) / (256 * 2 ** cellZoom)
           setCellStore((prev) => {
             const byKey = prev && prev.zoom === zoom ? new Map(prev.byKey) : new Map<string, ClusterCell>()
@@ -156,15 +168,25 @@ export default function App() {
             return { zoom, cellDeg, byKey }
           })
         })
-        .catch(() => {})
+        .catch(forget)
     } else {
       fetchRestaurants(snapped)
         .then((records) => setRestaurants((prev) => mergeRecords(prev, records)))
-        .catch(() => {
-          // 백엔드 미기동 시 빈 지도
-        })
+        // 백엔드 미기동 시 빈 지도 — 다음 멈춤에서 다시 받는다
+        .catch(forget)
     }
   }, [])
+  // 지금 필터로 보일 수 있을 때만 받는다 — 기본 "후기 있는 곳만"이면 후기 없는 가게·요약 셀은 화면에 안 나오는데
+  // 멈출 때마다 받으면 그만큼 데이터·재계산만 늘어난다. 필터를 바꾸면 마지막으로 멈춘 자리부터 받는다
+  const lastViewport = useRef<{ bbox: BBox; zoom: number } | null>(null)
+  const viewportNeeded = useRef(true)
+  const loadViewport = useCallback(
+    (bbox: BBox, zoom: number) => {
+      lastViewport.current = { bbox, zoom }
+      if (viewportNeeded.current) fetchViewport(bbox, zoom)
+    },
+    [fetchViewport],
+  )
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
   // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
   const [groupColors] = useState<Record<GroupId, string>>({
@@ -187,7 +209,7 @@ export default function App() {
   }, [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
-  const [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null)
+  const [focusTarget, setFocusTarget] = useState<{ id: string; lat: number; lng: number } | null>(null)
   // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
   const [authMode, setAuthMode] = useState<AuthMode | null>(null)
   const [session, setSession] = useState<AuthSession | null>(() => {
@@ -199,6 +221,9 @@ export default function App() {
   })
   // 로그아웃이면 주인장 후기만 받아 이웃 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
   const reviewFilter = session ? reviewFilterChoice : 'all'
+  // 데이터 다시 받기의 기준 — 세션 객체가 아니라 토큰. 시작할 때 /api/auth/me로 세션 객체를 새로 갈아 끼우거나
+  // 닉네임·사진을 바꿔도 같은 사람이면 후기·댓글·찜·팔로우를 처음부터 다시 받지 않는다
+  const sessionToken = session?.token ?? null
   // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
   const [socialLink, setSocialLink] = useState<SocialTicket | null>(null)
   const handleAuthed = useCallback((next: AuthSession) => {
@@ -289,7 +314,7 @@ export default function App() {
   // 하단 독이 검색 모드인지 (검색 버튼 → 입력창)
   const [searching, setSearching] = useState(false)
   useEffect(() => {
-    if (!session) {
+    if (!sessionToken) {
       // 로그아웃하면 이웃 후기는 바로 지우고, 아래에서 주인장 후기만 다시 받는다
       setRawReviews([])
       setReviewComments({})
@@ -318,7 +343,7 @@ export default function App() {
         // 못 받으면 댓글 없는 상태로 동작
       })
     // 찜 목록도 같이 (로그인했을 때만)
-    if (session) {
+    if (sessionToken) {
       fetchFavorites()
         .then((places) => {
           if (!cancelled) setFavorites(new Set(places.map(restaurantKey)))
@@ -330,7 +355,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [session, contentVersion])
+  }, [sessionToken, contentVersion])
   // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
   const [social, setSocial] = useState<SocialData | null>(null)
   const [myPageOpen, setMyPageOpen] = useState(false)
@@ -345,7 +370,7 @@ export default function App() {
   // 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕로 해제.
   const personPins = selectedPerson !== null
   useEffect(() => {
-    if (!session) {
+    if (!sessionToken) {
       setSocial(null)
       setMyPageOpen(false)
       return
@@ -361,7 +386,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [session, contentVersion])
+  }, [sessionToken, contentVersion])
   // 팔로우한 사람(+나, 주인장)의 후기만 남기고, 내가 붙인 이름을 작성자 이름 자리에 씌운다.
   // 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다. social을 못 받았으면 필터 없이 동작.
   const reviews = useMemo(() => {
@@ -399,8 +424,8 @@ export default function App() {
       const place = list[0].restaurant
       if (loaded.has(key) || place.lat == null || place.lng == null) continue
       merged.push({
-        // ponytail: 뷰포트로 같은 가게가 들어오면 id가 db-로 바뀌어 선택이 풀린다. 문제 되면 선택을 키로 추적할 것
-        id: `rv-${key}`,
+        // 뷰포트로 같은 가게가 들어와도 같은 id (toRestaurant와 같은 식)
+        id: `p-${key}`,
         name: place.name,
         category: place.category,
         address: place.address,
@@ -513,6 +538,8 @@ export default function App() {
 
   // 입력은 즉시 반영하고 지도 마커 재생성처럼 무거운 작업만 뒤로 미룬다.
   const deferredQuery = useDeferredValue(query)
+  // 서버 검색은 입력이 멈췄을 때만 (useDeferredValue는 렌더만 미루고 요청 수는 줄이지 않는다)
+  const serverQuery = useDebounced(deferredQuery)
   // 검색 결과 목록 표시 여부. 입력 중엔 열리고, Enter나 결과 선택으로 닫힌다 — 키워드와 지도 필터는 남는다.
   const [resultsOpen, setResultsOpen] = useState(true)
   const searchActive = deferredQuery.trim().length >= MIN_QUERY_LENGTH
@@ -558,6 +585,8 @@ export default function App() {
   // 리스너는 한 번만 등록하고 최신 상태는 ref로 읽는다 — 상태마다 재등록하면 네이티브 리스너가 붙었다 떨어졌다 한다.
   const handleBackRef = useRef<() => boolean>(() => false)
   handleBackRef.current = () => {
+    // 사진 크게 보기·펼친 메뉴처럼 컴포넌트 안의 작은 레이어가 먼저 (lib/backLayer)
+    if (closeTopLayer()) return true
     if (policyPage) return setPolicyPage(null), true
     if (reportTarget) return setReportTarget(null), true
     if (recapMonth) return setRecapMonth(null), true
@@ -587,9 +616,9 @@ export default function App() {
   // 가게 이름 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
   // 받은 건 누적 목록에 합쳐두고 필터·핀은 기존 경로를 그대로 탄다.
   useEffect(() => {
-    if (!searchActive || searchMode !== 'restaurant') return
+    if (!searchActive || searchMode !== 'restaurant' || serverQuery.trim().length < MIN_QUERY_LENGTH) return
     let cancelled = false
-    searchRestaurants(deferredQuery.trim())
+    searchRestaurants(serverQuery.trim())
       .then((records) => {
         if (!cancelled) setRestaurants((prev) => mergeRecords(prev, records))
       })
@@ -599,7 +628,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [searchActive, searchMode, deferredQuery])
+  }, [searchActive, searchMode, serverQuery])
   const selectedRestaurant = useMemo(
     () => reviewedRestaurants.find((r) => r.id === selectedId) ?? null,
     [reviewedRestaurants, selectedId],
@@ -644,6 +673,13 @@ export default function App() {
   }, [cellStore, reviewFilter, reviewedRestaurants])
 
   // 찜 모드: 후기·검색 필터와 무관하게 찜한 가게 전부
+  // 후기 없는 가게가 보일 수 있는 상태: '전체'·'후기 없음' 필터, 찜 모드(후기 없는 찜 가게도 있다)
+  const needViewport = reviewFilter !== 'with' || favMode
+  useEffect(() => {
+    viewportNeeded.current = needViewport
+    if (needViewport && lastViewport.current) fetchViewport(lastViewport.current.bbox, lastViewport.current.zoom)
+  }, [needViewport, fetchViewport])
+
   const favRestaurants = useMemo(
     () => reviewedRestaurants.filter((r) => favorites.has(restaurantKey(r))),
     [reviewedRestaurants, favorites],
@@ -672,12 +708,12 @@ export default function App() {
   // 서버 사용자 검색으로 인터맵 사용자 전체에서 찾아 목록에 같이 보여준다 (거기서 바로 팔로우).
   const [foundUsers, setFoundUsers] = useState<UserItem[]>([])
   useEffect(() => {
-    if (!session || searchMode !== 'person' || !searchActive) {
+    if (!session || searchMode !== 'person' || !searchActive || serverQuery.trim().length < MIN_QUERY_LENGTH) {
       setFoundUsers([])
       return
     }
     let cancelled = false
-    searchUsers(deferredQuery.trim())
+    searchUsers(serverQuery.trim())
       .then((list) => {
         if (!cancelled) setFoundUsers(list)
       })
@@ -687,7 +723,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [session, searchMode, searchActive, deferredQuery])
+  }, [session, searchMode, searchActive, serverQuery])
 
   // 후기·댓글·검색 결과에서 누른 사람의 프로필 개요. 내 프로필이면 마이페이지로 보낸다.
   // 프로필의 팔로잉·팔로워 목록에서 또 다른 사람으로 들어갈 수 있어 화면을 쌓아 둔다 (lib/profileStack).
@@ -712,13 +748,27 @@ export default function App() {
   )
 
   // 팔로우 — 서버가 돌려준 새 소셜 목록으로 맞춘다 (그 사람 후기·스토리가 바로 보이기 시작한다)
-  const follow = useCallback(async (userId: number) => {
-    try {
-      setSocial(await followUser(userId))
-    } catch (e) {
-      alert((e as Error).message)
-    }
-  }, [])
+  // 서버는 팔로우한 사람 후기·댓글만 주므로, 새로 팔로우하면 후기·댓글을 다시 받아야 핀·스토리에 나타난다
+  // 마이페이지·프로필 시트에서 팔로우한 경우도 같은 길로 (새로 팔로우한 사람이 있을 때만 다시 받는다)
+  const applySocial = useCallback(
+    (next: SocialData) => {
+      const before = new Set(social?.following.map((p) => p.id) ?? [])
+      setSocial(next)
+      if (next.following.some((p) => !before.has(p.id))) refreshContent()
+    },
+    [social, refreshContent],
+  )
+  const follow = useCallback(
+    async (userId: number) => {
+      try {
+        applySocial(await followUser(userId))
+      } catch (e) {
+        alert((e as Error).message)
+      }
+    },
+    [applySocial],
+  )
+  const followingIds = useMemo(() => new Set(social?.following.map((p) => p.id) ?? []), [social])
 
   // 사람 검색이면 이름이 걸린 사람마다 별점 높은 가게 TOP 5를 요약해 보여준다
   const personPicks = useMemo(() => {
@@ -744,9 +794,22 @@ export default function App() {
   // 고르고 나면 결과 목록이 지도를 가리지 않도록 검색어를 비운다.
   // 결과 하나를 고르면 목록만 닫고 키워드는 남긴다 — 지도는 계속 그 키워드로 걸러진 채 그 가게로 이동
   const focusFromSearch = useCallback((restaurant: Restaurant) => {
-    setFocusTarget({ id: restaurant.id })
+    setFocusTarget({ id: restaurant.id, lat: restaurant.lat, lng: restaurant.lng })
     setResultsOpen(false)
   }, [])
+
+  // 지도에서 보여 줄 가게가 지금 필터에 걸려 숨으면 걸리는 필터만 푼다
+  // ("후기 없는 곳만", 찜 모드, 친구 한 명 고르기, 검색어)
+  const revealOnMap = useCallback(
+    (target: Restaurant) => {
+      if (reviewFilterChoice === 'without' && target.reviews.length > 0) setReviewFilter('all')
+      if (reviewFilterChoice === 'with' && target.reviews.length === 0) setReviewFilter('all')
+      if (favMode && !favorites.has(restaurantKey(target))) setFavMode(false)
+      if (personId !== null && !target.reviews.some((rv) => rv.author.id === personId)) setPersonId(null)
+      if (!visibleRestaurants.some((r) => r.id === target.id) && query.trim().length >= MIN_QUERY_LENGTH) setQuery('')
+    },
+    [reviewFilterChoice, favMode, favorites, personId, visibleRestaurants, query],
+  )
 
   // 스토리의 "지도에서 보기" — 후기가 가리키는 가게를 찾아 스토리를 닫고 지도를 옮긴다
   const focusFromStory = useCallback(
@@ -755,11 +818,10 @@ export default function App() {
       const target = reviewedRestaurants.find((r) => restaurantKey(r) === key)
       if (!target) return
       setOpenStory(null)
-      // "후기 없는 곳만" 필터면 후기가 있는 이 가게가 지도에서 숨는다 — 전체로 바꿔서 보여준다
-      if (reviewFilterChoice === 'without') setReviewFilter('all')
+      revealOnMap(target)
       focusFromSearch(target)
     },
-    [reviewedRestaurants, focusFromSearch, reviewFilterChoice],
+    [reviewedRestaurants, focusFromSearch, revealOnMap],
   )
 
   // 마이페이지 "내가 쓴 후기" — 눌러서 그 가게 시트를 연다 (수정은 시트의 수정 버튼으로)
@@ -769,10 +831,11 @@ export default function App() {
       const target = reviewedRestaurants.find((r) => restaurantKey(r) === key)
       if (!target) return
       setMyPageOpen(false)
+      revealOnMap(target)
       setSelectedId(target.id)
       focusFromSearch(target)
     },
-    [reviewedRestaurants, focusFromSearch],
+    [reviewedRestaurants, focusFromSearch, revealOnMap],
   )
 
   // 후기는 서버에 저장된다. 로그인 안 했으면 로그인 창을 띄운다. 사진은 줄여서 함께 올린다.
@@ -820,10 +883,10 @@ export default function App() {
   }
 
   // 후기별 댓글 등록 — 서버에 저장하고 돌아온 걸 상태에 붙인다
-  async function addComment(reviewId: number, text: string, parentId?: number) {
+  async function addComment(reviewId: number, text: string, parentId?: number): Promise<boolean> {
     if (!session) {
       setAuthMode('start')
-      return
+      return false
     }
     try {
       const saved = await postComment(reviewId, text, parentId)
@@ -834,8 +897,10 @@ export default function App() {
           { id: saved.id, authorId: saved.author.id, authorName: saved.author.name, text: saved.text, parentId: saved.parentId },
         ],
       }))
+      return true
     } catch (e) {
       alert((e as Error).message)
+      return false
     }
   }
 
@@ -936,9 +1001,15 @@ export default function App() {
     setSelectedId(null)
     setComposerOpen(true)
   }, [session])
+  const [createdPoll, setCreatedPoll] = useState<PollView | null>(null)
+  // 시트를 닫으면 버린다 — 나중에 같은 투표를 다시 열 땐 새로 받고 배경도 정상적으로 페이드
+  useEffect(() => {
+    if (!openPoll) setCreatedPoll(null)
+  }, [openPoll])
   const handlePollCreated = useCallback((poll: PollView) => {
     setPollCart([])
     setComposerOpen(false)
+    setCreatedPoll(poll)
     setOpenPoll(poll.token)
     setPollVersion((v) => v + 1)
   }, [])
@@ -1089,6 +1160,7 @@ export default function App() {
                 topPicks={personPicks}
                 people={otherUsers}
                 onFollow={follow}
+                followingIds={followingIds}
                 groups={groups}
                 // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
                 tooShort={!searchActive}
@@ -1129,7 +1201,7 @@ export default function App() {
           open={myPageOpen}
           session={session}
           social={social}
-          onSocialChange={setSocial}
+          onSocialChange={applySocial}
           onSessionChange={handleAuthed}
           myReviews={rawReviews.filter((rv) => rv.author.id === session.id)}
           onOpenReview={openMyReview}
@@ -1161,17 +1233,23 @@ export default function App() {
 
       {session && profileUserId !== null && (
         <ProfileSheet
+          // 사람이 바뀌면 새로 — 이전 사람 이름·팔로우 상태가 한 프레임 보이거나 늦은 응답이 섞이지 않게
+          key={profileUserId}
           userId={profileUserId}
           fallbackName={profileName}
           restaurants={reviewedRestaurants}
           myUserId={session.id}
           list={profileTop?.list ?? null}
           onListChange={setProfileList}
-          onSocialChange={setSocial}
+          onSocialChange={applySocial}
           onBlockChange={refreshContent}
           // 프로필은 가게 시트의 후기에서 열리기도 한다 — 지도만 옮기면 뒤에 있던 시트가 예전 가게로 남으므로 시트도 바꾼다
           onPick={(restaurant) => {
             setProfileStack([])
+            // 스토리·마이페이지에서 연 프로필이면 그 위층들도 닫아야 시트와 지도가 보인다
+            setOpenStory(null)
+            setMyPageOpen(false)
+            revealOnMap(restaurant)
             setSelectedId(restaurant.id)
             focusFromSearch(restaurant)
           }}
@@ -1212,7 +1290,9 @@ export default function App() {
       )}
       {openPoll && (
         <PollSheet
+          key={openPoll}
           token={openPoll}
+          initial={createdPoll?.token === openPoll ? createdPoll : undefined}
           session={session}
           onLogin={() => {
             // 로그인 창은 투표 시트 아래 층이라 시트를 닫고 띄운다

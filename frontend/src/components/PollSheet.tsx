@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { closePoll, deletePoll, fetchPoll, pollLink, votePoll } from '../lib/api'
 import type { AuthSession, PollOptionView, PollView } from '../lib/api'
 import { shareLink } from '../lib/share'
@@ -16,6 +16,9 @@ interface PollSheetProps {
   onLogin: () => void
   // 투표를 지우거나 마감하면 — 마이페이지 목록을 다시 받게
   onChanged?: () => void
+  // 방금 만든 투표 — 만들기 창에서 바로 넘어올 때. 다시 받는 동안 빈 시트가 보이지 않고,
+  // 뒤 배경도 다시 페이드하지 않는다 (만들기 창 배경이 그대로 이어지는 것처럼)
+  initial?: PollView
   onClose: () => void
 }
 
@@ -64,8 +67,8 @@ const sameSet = (a: Set<number>, b: number[]) => a.size === b.length && b.every(
 
 // "어디 갈래?" 투표 화면 — 링크로 들어온 친구(비회원 포함)와 만든 사람이 같이 쓴다.
 // 괜찮은 곳을 여러 개 고를 수 있고, 다시 고르면 바뀐다. 마감되면 가장 많이 골린 곳이 결정된다.
-export default function PollSheet({ token, session, onLogin, onChanged, onClose }: PollSheetProps) {
-  const [poll, setPoll] = useState<PollView | null>(null)
+export default function PollSheet({ token, session, onLogin, onChanged, initial, onClose }: PollSheetProps) {
+  const [poll, setPoll] = useState<PollView | null>(initial ?? null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [picks, setPicks] = useState<Set<number>>(new Set())
   const [name, setName] = useState(readName)
@@ -100,12 +103,15 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
 
   // 진행 중이면 주기적으로 다른 사람 선택을 받아 온다 (화면이 보일 때만)
   const closed = poll?.closed ?? false
+  // 투표·마감을 보낼 때마다 올린다 — 그 전에 출발한 새로고침 응답이 늦게 와서 방금 한 투표를 되돌리지 않게
+  const writes = useRef(0)
   useEffect(() => {
     if (!poll || closed) return
     const timer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
+      const seq = writes.current
       fetchPoll(token)
-        .then((next) => apply(next, !touched))
+        .then((next) => seq === writes.current && apply(next, !touched))
         .catch(() => {})
     }, REFRESH_MS)
     return () => window.clearInterval(timer)
@@ -148,6 +154,7 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
     try {
       const trimmed = name.trim()
       if (!session) saveName(trimmed)
+      writes.current++
       const next = await votePoll(poll.token, [...picks], session ? undefined : trimmed)
       apply(next, true)
       setTouched(false)
@@ -177,6 +184,7 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
     setBusy(true)
     setError(null)
     try {
+      writes.current++
       apply(await closePoll(poll.token), true)
       setTouched(false)
       onChanged?.()
@@ -203,7 +211,7 @@ export default function PollSheet({ token, session, onLogin, onChanged, onClose 
   const winnerOptions = poll?.options.filter((o) => winners.has(o.id)) ?? []
 
   return (
-    <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={`modal-layer${initial ? ' modal-layer--handoff' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet poll-sheet poll-sheet--view" role="dialog" aria-modal="true" aria-labelledby="poll-title">
         <header className="modal-sheet__header">
           <span className="poll-sheet__badge" aria-hidden="true">

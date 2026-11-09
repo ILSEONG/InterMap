@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Comment, Review, Story } from '../data/model'
 import { photoUrl, restaurantKey } from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
@@ -21,7 +21,7 @@ interface StoryViewerProps {
   comments: Record<number, Comment[]>
   // 내 댓글 판별용 로그인 사용자 id
   myUserId?: number
-  onAddComment: (reviewId: number, text: string, parentId?: number) => void
+  onAddComment: (reviewId: number, text: string, parentId?: number) => Promise<boolean>
   onDeleteComment: (reviewId: number, commentId: number) => void
   // 찜한 가게 키("이름|주소") 모음 + 별 버튼 토글
   favorites: Set<string>
@@ -65,7 +65,25 @@ export default function StoryViewer({
     trackRef.current?.children[start]?.scrollIntoView({ inline: 'center', block: 'nearest' })
   }, [start, story])
 
-  if (!story) return null
+  // 보고 있던 사람을 차단·신고해서 그 사람 후기가 빠지면 남의 슬라이드나 빈 화면이 남지 않게 닫는다
+  useEffect(() => {
+    if (story && start < 0) onClose()
+  }, [story, start, onClose])
+
+  // 가게별 이웃 후기 — 넘길 때마다 슬라이드마다 전체 후기를 훑지 않게 한 번만 묶는다
+  const neighborsByKey = useMemo(() => {
+    const map = new Map<string, Review[]>()
+    for (const r of allReviews) {
+      if (r.author.owner) continue
+      const key = restaurantKey(r.restaurant)
+      const list = map.get(key)
+      if (list) list.push(r)
+      else map.set(key, [r])
+    }
+    return map
+  }, [allReviews])
+
+  if (!story || start < 0) return null
 
   const current = slides[Math.min(active, slides.length - 1)]
   const ownerSlides = current ? slides.filter((s) => s.story.id === current.story.id) : []
@@ -86,7 +104,7 @@ export default function StoryViewer({
           {slides.map(({ story: owner, review }) => {
             const key = restaurantKey(review.restaurant)
             const favored = favorites.has(key)
-            const neighbors = allReviews.filter((r) => !r.author.owner && restaurantKey(r.restaurant) === key)
+            const neighbors = neighborsByKey.get(key) ?? []
             const avg = neighbors.reduce((sum, r) => sum + r.rating, 0) / (neighbors.length || 1)
             // 이웃 평가가 이 후기 하나뿐이면 위 별점과 같은 숫자라 굳이 다시 보이지 않는다
             const showNeighbors = neighbors.some((r) => r.id !== review.id)
@@ -99,7 +117,8 @@ export default function StoryViewer({
               >
                 {photoPath !== undefined ? (
                   <div className="story-viewer__media story-viewer__media--photo">
-                    <img src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} />
+                    {/* 슬라이드 전부를 한 번에 받지 않게 — 화면 근처에 온 것만 */}
+                    <img src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="story-viewer__media story-viewer__media--empty" aria-hidden="true">

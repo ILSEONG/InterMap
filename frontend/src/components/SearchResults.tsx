@@ -18,6 +18,8 @@ interface SearchResultsProps {
   // 사람 검색일 때 아직 팔로우하지 않아 후기가 안 보이는 인터맵 사용자들
   people?: UserItem[]
   onFollow?: (userId: number) => void
+  // 이미 팔로우한 사람 — 버튼을 '팔로잉'으로
+  followingIds?: Set<number>
   groups: FriendGroup[]
   tooShort: boolean
   minLength: number
@@ -32,6 +34,7 @@ export default function SearchResults({
   topPicks,
   people = [],
   onFollow,
+  followingIds,
   groups,
   tooShort,
   minLength,
@@ -87,9 +90,13 @@ export default function SearchResults({
                     <Highlight text={u.nickname} query={highlight} />
                   </span>
                 </button>
-                <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
-                  팔로우
-                </button>
+                {followingIds?.has(u.id) ? (
+                  <span className="search-results__follow search-results__follow--on">팔로잉</span>
+                ) : (
+                  <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
+                    팔로우
+                  </button>
+                )}
               </li>
             ))}
           </ul>
