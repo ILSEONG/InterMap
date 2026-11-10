@@ -27,6 +27,8 @@ interface MapCanvasProps {
   visibleArea?: (sheet: boolean) => { top: number; bottom: number }
   // 가게 시트가 열려 있는지 — 닫히면 고른 가게를 시트 없는 화면의 가운데로 다시 옮긴다
   sheetOpen?: boolean
+  // 하단 독(이웃 패널·투표 바) 높이 — 바뀌면 보이는 범위가 바뀐다
+  dockHeight?: number
   // 지도 이동이 멈출 때마다 (여유 포함된) 보이는 영역과 줌을 알려준다 — 뷰포트 단위 데이터 로딩용.
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
   // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
@@ -139,6 +141,7 @@ export default function MapCanvas({
   focus,
   visibleArea,
   sheetOpen = false,
+  dockHeight = 0,
   onViewportChange,
   onMyLocation,
   onMapTap,
@@ -547,26 +550,29 @@ export default function MapCanvas({
     }
   }, [focusedId, visiblePins, groups, mapReady, starPins])
 
-  // 검색 결과에서 고른 가게가 화면 밖일 수 있어 그 가게로 지도만 옮긴다.
-  // 시트가 닫히면 핀이 화면 아래쪽으로 치우쳐 보인다 — 보이는 지도의 가운데로 옮긴다.
-  // 시트를 연 채 지도를 끌어 다른 데를 보고 있었다면(핀이 시트 위 가운데에 없으면) 그대로 둔다.
-  const wasSheetOpenRef = useRef(sheetOpen)
+  // 무엇이 뜨고 닫히든 고른 핀은 늘 "보이는 지도 범위"의 가운데에 둔다.
+  // 가게 시트가 닫히거나(시트 위 → 상단 바 아래~화면 아래), 이웃 패널·투표 바가 뜨고 닫혀 아래 경계가 바뀌면 다시 가운데로.
+  // 시트가 열릴 때는 핀을 누른 쪽(focusRestaurant 등)이 이미 시트 위 가운데로 옮기므로 여기선 안 한다.
+  // 핀이 화면 밖에 있으면(지도를 끌어 다른 데를 보는 중) 그대로 둔다.
+  const layoutRef = useRef({ sheetOpen, dockHeight })
   useEffect(() => {
-    const was = wasSheetOpenRef.current
-    wasSheetOpenRef.current = sheetOpen
+    const prev = layoutRef.current
+    layoutRef.current = { sheetOpen, dockHeight }
     const map = mapRef.current
-    if (!was || sheetOpen || !mapReady || !map || !window.naver) return
+    if (!mapReady || !map || !window.naver) return
+    const closed = prev.sheetOpen && !sheetOpen
+    const dockChanged = !sheetOpen && prev.dockHeight !== dockHeight
+    if (!closed && !dockChanged) return
     const id = focusedRef.current
     const target = id ? restaurantsRef.current.find((r) => r.id === id) : undefined
     if (!target) return
-    const area = visibleAreaRef.current?.(true)
     const width = mapDivRef.current?.clientWidth || window.innerWidth
+    const height = mapDivRef.current?.clientHeight || window.innerHeight
     const at = map.getProjection().fromCoordToOffset(new window.naver.maps.LatLng(target.lat, target.lng))
-    const expectedY = area ? (area.top + area.bottom) / 2 : (mapDivRef.current?.clientHeight || window.innerHeight) / 2
-    if (Math.abs(at.x - width / 2) > 80 || Math.abs(at.y - expectedY) > 80) return
+    if (at.x < 0 || at.x > width || at.y < 0 || at.y > height) return
     panToVisible(target.lat, target.lng, zoomOf(map), false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheetOpen, mapReady, panToVisible])
+  }, [sheetOpen, dockHeight, mapReady, panToVisible])
 
   useEffect(() => {
     if (!mapReady || !focus) return

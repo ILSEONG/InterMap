@@ -799,14 +799,20 @@ export default function App() {
 
   // 하단 독(사람 패널·투표 바) 높이를 --dock-h로 알린다 — 현재 위치 버튼이 그 위에 선다
   const bottomDockRef = useRef<HTMLDivElement | null>(null)
+  // 하단 독 높이 — 바뀌면 지도가 보이는 범위가 바뀌므로 MapCanvas가 고른 핀을 다시 가운데로
+  const [dockHeight, setDockHeight] = useState(0)
   useEffect(() => {
     const root = document.documentElement
     const el = bottomDockRef.current
     if (!el) {
       root.style.setProperty('--dock-h', '0px')
+      setDockHeight(0)
       return
     }
-    const measure = () => root.style.setProperty('--dock-h', `${el.offsetHeight > 0 ? el.offsetHeight + 10 : 0}px`)
+    const measure = () => {
+      root.style.setProperty('--dock-h', `${el.offsetHeight > 0 ? el.offsetHeight + 10 : 0}px`)
+      setDockHeight(el.offsetHeight)
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(el)
@@ -1130,6 +1136,7 @@ export default function App() {
         focus={focusTarget ?? undefined}
         visibleArea={visibleArea}
         sheetOpen={selectedRestaurant !== null}
+        dockHeight={dockHeight}
         onViewportChange={loadViewport}
         onMyLocation={handleMyLocation}
         // 지도 빈 곳을 누르면 떠 있는 하단 시트(가게 시트·이웃 패널)를 전부 닫는다
