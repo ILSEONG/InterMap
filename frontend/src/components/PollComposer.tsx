@@ -4,6 +4,7 @@ import type { PollCandidate, PollView } from '../lib/api'
 import { BallotIcon } from './PollIcons'
 import './ModalSheet.css'
 import './Poll.css'
+import SheetGrip from './SheetGrip'
 
 interface PollComposerProps {
   // 가게 시트에서 담아 둔 후보 (App이 들고 있다 — 시트를 닫았다 열어도 남게)
@@ -68,6 +69,7 @@ export default function PollComposer({ candidates, onCandidatesChange, favorites
   return (
     <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall poll-sheet" role="dialog" aria-modal="true" aria-labelledby="poll-composer-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 id="poll-composer-title" className="modal-sheet__title">
             투표 만들기

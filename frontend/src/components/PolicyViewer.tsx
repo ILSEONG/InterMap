@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import './ModalSheet.css'
+import SheetGrip from './SheetGrip'
 
 export type PolicyPage = 'privacy' | 'terms' | 'account-deletion'
 
@@ -22,6 +23,7 @@ export default function PolicyViewer({ page, onClose }: { page: PolicyPage; onCl
   return (
     <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall" role="dialog" aria-modal="true" aria-label={TITLES[page]}>
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 className="modal-sheet__title">{TITLES[page]}</h2>
           <button type="button" className="modal-sheet__icon-btn" onClick={onClose} aria-label="닫기">

@@ -10,6 +10,7 @@ import RecapFlipCard from './RecapFlipCard'
 import './ModalSheet.css'
 import './Poll.css'
 import './RecapSheet.css'
+import SheetGrip from './SheetGrip'
 
 interface RecapSheetProps {
   // 처음 보여 줄 달 ("2026-10"). 없으면 이번 달
@@ -213,6 +214,7 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
   return (
     <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall recap-sheet" role="dialog" aria-modal="true" aria-labelledby="recap-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 id="recap-title" className="modal-sheet__title">
             월간 결산

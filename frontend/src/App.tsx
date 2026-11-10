@@ -1131,7 +1131,6 @@ export default function App() {
           avatar={session?.avatar ?? null}
           userId={session?.id ?? null}
           onLogin={() => setAuthMode('start')}
-          onLogout={handleLogout}
           onMyPage={() => setMyPageOpen(true)}
           searching={searching}
           onOpenSearch={() => {
