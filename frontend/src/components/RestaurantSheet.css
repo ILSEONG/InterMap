@@ -640,6 +640,9 @@
   flex: 0 0 auto;
   height: 64px;
   min-width: 48px;
+  /* 비율을 모르는 사진(서버가 아직 못 잰 옛 사진)은 정사각 칸으로 — 다 받은 뒤 폭이 바뀌며 옆 사진을 밀지 않게.
+     비율을 알면 ReviewCard가 인라인 aspect-ratio로 덮어쓴다 */
+  aspect-ratio: 1;
   max-width: 100%;
   padding: 0;
   border: none;

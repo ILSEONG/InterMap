@@ -71,6 +71,8 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
           # 투표 링크에 쓰는 웹 주소 (없으면 lib/api.ts 기본값)
           VITE_WEB_BASE_URL: ${{ vars.VITE_WEB_BASE_URL }}
+          # 앱에선 폰트 파일이 기기 안에 있다 — 기본 글꼴로 그렸다 바꾸며 글자 폭이 흔들리지 않게 웹폰트를 기다린다 (vite.config.ts)
+          FONT_DISPLAY: block
         run: npm run build 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
       - id: sync

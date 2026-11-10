@@ -1188,7 +1188,8 @@ export default function App() {
               />
             ) : undefined
           }
-          showBoard={followingPeople !== null}
+          // 팔로우 정보가 늦게 와도 칩이 나중에 끼어들어 옆 칩을 밀지 않게, 로그인했으면 처음부터 둔다
+          showBoard={!!session}
           boardHasNew={boardHasNew}
           personSelected={selectedPerson !== null}
           onOpenBoard={() => setBoardOpen(true)}
