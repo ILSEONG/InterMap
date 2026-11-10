@@ -17,6 +17,7 @@ import type { OtherPlace } from './TasteMatchSection'
 import TopPicksCard from './TopPicksCard'
 import './MyPage.css'
 import './ProfileSheet.css'
+import SheetGrip from './SheetGrip'
 
 interface ProfileSheetProps {
   userId: number
@@ -195,10 +196,10 @@ export default function ProfileSheet({
         at: rv.createdAt,
       }))
   }, [profile?.following, reviews, userId])
-  const tabs: ['taste' | 'visited' | 'top', string][] = [
-    ...(showTaste ? ([['taste', '입맛 궁합']] as ['taste', string][]) : []),
-    ['visited', `다녀온 곳 ${visited.length}`],
-    ['top', '별점 TOP 5'],
+  const tabs: ['taste' | 'visited' | 'top', string, number][] = [
+    ...(showTaste ? ([['taste', '입맛 궁합', 0]] as ['taste', string, number][]) : []),
+    ['visited', '다녀온 곳', visited.length],
+    ['top', '별점 TOP 5', 0],
   ]
   const activeTab = tab && tabs.some(([v]) => v === tab) ? tab : tabs[0][0]
   const cardInput = useMemo(() => (match?.ready ? { myName, theirName: name, match } : null), [match, myName, name])
@@ -210,6 +211,7 @@ export default function ProfileSheet({
   return (
     <div className="my-page-layer my-page-layer--profile">
       <div className="my-page my-page--profile" role="dialog" aria-label={`${name}님 프로필`}>
+        <SheetGrip onClose={() => (listKind ? setListKind(null) : onClose())} />
         {/* 위 줄 — 뒤로(닫기) · 이름 · ⋯(차단) */}
         <div className="profile-sheet__top">
           <button
@@ -387,7 +389,7 @@ export default function ProfileSheet({
                   {profile.following ? (
                     <>
                       <div className="profile-sheet__tabs" role="tablist" aria-label={`${name}님 보기`}>
-                        {tabs.map(([value, label]) => (
+                        {tabs.map(([value, label, count]) => (
                           <button
                             key={value}
                             type="button"
@@ -397,6 +399,7 @@ export default function ProfileSheet({
                             onClick={() => setTab(value)}
                           >
                             {label}
+                            {count > 0 && <span className="tab-count">{count > 99 ? '99+' : count}</span>}
                           </button>
                         ))}
                       </div>

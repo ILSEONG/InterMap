@@ -9,6 +9,7 @@ import { BallotIcon, CheckIcon, CrownIcon, PinIcon, ShareIcon } from './PollIcon
 import './ModalSheet.css'
 import './Poll.css'
 import { RatingStar } from './Stars'
+import SheetGrip from './SheetGrip'
 
 interface PollSheetProps {
   token: string
@@ -222,6 +223,7 @@ export default function PollSheet({ token, session, onLogin, onChanged, initial,
   return (
     <div className={`modal-layer${initial ? ' modal-layer--handoff' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet poll-sheet poll-sheet--view" role="dialog" aria-modal="true" aria-labelledby="poll-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <span className="poll-sheet__badge" aria-hidden="true">
             <BallotIcon size={20} />

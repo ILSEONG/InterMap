@@ -25,6 +25,7 @@ import Avatar from './Avatar'
 import type { PolicyPage } from './PolicyViewer'
 import './MyPage.css'
 import { RatingStar } from './Stars'
+import SheetGrip from './SheetGrip'
 
 interface MyPageProps {
   open: boolean
@@ -337,6 +338,7 @@ export default function MyPage({
   return (
     <div className="my-page-layer">
       <div className="my-page my-page--me" role="dialog" aria-label="내 정보">
+        <SheetGrip onClose={onClose} />
         <header className="my-page__header">
           {view !== 'main' && (
             <button type="button" className="my-page__back" onClick={() => setView('main')} aria-label="내 정보로 돌아가기">
@@ -568,11 +570,11 @@ export default function MyPage({
               <div className="my-page__tabs" role="tablist" aria-label="내 기록">
                 {(
                   [
-                    ['reviews', `나의 후기 ${myReviews.length}`],
-                    ['recap', '이 달의 결산'],
-                    ['polls', `어디 갈래?${polls && polls.length > 0 ? ` ${polls.length}` : ''}`],
+                    ['reviews', '나의 후기', myReviews.length],
+                    ['recap', '이 달의 결산', 0],
+                    ['polls', '어디 갈래?', polls?.length ?? 0],
                   ] as const
-                ).map(([value, label]) => (
+                ).map(([value, label, count]) => (
                   <button
                     key={value}
                     type="button"
@@ -582,6 +584,7 @@ export default function MyPage({
                     onClick={() => setTab(value)}
                   >
                     {label}
+                    {count > 0 && <span className="tab-count">{count > 99 ? '99+' : count}</span>}
                   </button>
                 ))}
               </div>

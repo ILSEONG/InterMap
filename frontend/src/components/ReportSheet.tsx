@@ -4,6 +4,7 @@ import type { ReportReason } from '../lib/api'
 import type { ReportTarget } from '../lib/moderation'
 import './ModalSheet.css'
 import './ReportSheet.css'
+import SheetGrip from './SheetGrip'
 
 interface ReportSheetProps {
   target: ReportTarget
@@ -67,6 +68,7 @@ export default function ReportSheet({ target, onReported, onBlocked, onClose }: 
   return (
     <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-sheet-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 id="report-sheet-title" className="modal-sheet__title">
             {done ? '신고했어요' : `${what} 신고`}

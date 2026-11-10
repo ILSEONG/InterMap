@@ -6,6 +6,7 @@ import { RatingStar } from './Stars'
 import { ShareIcon } from './PollIcons'
 import './ModalSheet.css'
 import './TasteMatchSection.css'
+import SheetGrip from './SheetGrip'
 
 export interface OtherPlace {
   key: string
@@ -214,6 +215,7 @@ export default function TasteMatchSection({ name, match, others, canShare, onPic
       {howOpen && (
         <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && setHowOpen(false)}>
           <div className="modal-sheet taste-how" role="dialog" aria-modal="true" aria-labelledby="taste-how-title">
+            <SheetGrip onClose={() => setHowOpen(false)} />
             <header className="modal-sheet__header">
               <h2 id="taste-how-title" className="modal-sheet__title">
                 입맛 궁합은 이렇게 계산해요

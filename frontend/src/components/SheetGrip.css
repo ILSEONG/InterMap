@@ -1,0 +1,35 @@
+/* 시트 맨 위 손잡이 — 끌 수 있는 곳은 여기뿐이라 손가락이 잡기 쉽게 시트 폭 전체, 높이 28px */
+.sheet-grip {
+  flex: none;
+  height: 28px;
+  margin-bottom: -10px;
+  display: flex;
+  justify-content: center;
+  padding-top: 9px;
+  touch-action: none;
+  cursor: grab;
+  position: relative;
+  z-index: 2;
+}
+
+.sheet-grip:active {
+  cursor: grabbing;
+}
+
+.sheet-grip__bar {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(60, 60, 67, 0.28);
+}
+
+/* 손잡이 아래 머리 줄은 위 여백을 조금 줄인다 (손잡이가 그 자리를 쓴다) */
+.sheet-grip + .modal-sheet__header {
+  padding-top: 12px;
+}
+
+/* 마이페이지·프로필은 위가 둥근 시트 — 손잡이 다음 머리 줄을 붙인다 */
+.my-page > .sheet-grip + .my-page__header,
+.my-page > .sheet-grip + .profile-sheet__top {
+  margin-top: 0;
+}

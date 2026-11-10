@@ -14,7 +14,6 @@ interface TopBarProps {
   // 사진 없을 때 아바타 바탕색 (다른 화면과 같은 id % 4 색)
   userId: number | null
   onLogin: () => void
-  onLogout: () => void
   onMyPage: () => void
 
   // 검색 — 평소엔 누르면 열리는 칸, 열리면 입력칸 + 닫기
@@ -63,10 +62,9 @@ const SEARCH_MODES: [SearchMode, string][] = [
 export default function TopBar(props: TopBarProps) {
   const { nickname, avatar, searching, query, searchMode, reviewFilter, results } = props
   const inputRef = useRef<HTMLInputElement>(null)
-  const [menu, setMenu] = useState<'account' | 'filter' | null>(null)
+  const [menu, setMenu] = useState<'filter' | null>(null)
   // 펼친 메뉴는 안드로이드 뒤로가기로 먼저 닫힌다
   useBackLayer(menu !== null, () => setMenu(null))
-  const accountRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLDivElement>(null)
   const filterMenuRef = useRef<HTMLDivElement>(null)
 
@@ -77,7 +75,7 @@ export default function TopBar(props: TopBarProps) {
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
     if (!menu) return
-    const anchors = menu === 'account' ? [accountRef] : [filterRef, filterMenuRef]
+    const anchors = [filterRef, filterMenuRef]
     const close = (e: PointerEvent) => {
       if (!anchors.some((a) => a.current?.contains(e.target as Node))) setMenu(null)
     }
@@ -160,40 +158,19 @@ export default function TopBar(props: TopBarProps) {
               <SearchGlyph />
               가게, 이웃 검색
             </button>
-            <div className="topbar__anchor" ref={accountRef}>
-              <button
-                type="button"
-                className="topbar__me"
-                onClick={() => setMenu((m) => (m === 'account' ? null : 'account'))}
-                aria-label="내 계정"
-                aria-expanded={menu === 'account'}
-              >
-                {nickname ? (
-                  <Avatar src={avatar} name={nickname} className={`topbar__avatar tone-${(props.userId ?? 0) % 4}`} />
-                ) : (
-                  <PersonIcon />
-                )}
-              </button>
-              {menu === 'account' && (
-                <div className="topbar__menu topbar__menu--right" role="menu">
-                  {nickname ? (
-                    <>
-                      <p className="topbar__menu-label">{nickname}님</p>
-                      <button type="button" role="menuitem" onClick={pick(props.onMyPage)}>
-                        마이페이지
-                      </button>
-                      <button type="button" role="menuitem" onClick={pick(props.onLogout)}>
-                        로그아웃
-                      </button>
-                    </>
-                  ) : (
-                    <button type="button" role="menuitem" onClick={pick(props.onLogin)}>
-                      로그인
-                    </button>
-                  )}
-                </div>
+            {/* 내 계정 — 누르면 바로 마이페이지(로그인 전엔 로그인). 로그아웃은 마이페이지 안에 */}
+            <button
+              type="button"
+              className="topbar__me"
+              onClick={nickname ? props.onMyPage : props.onLogin}
+              aria-label={nickname ? '마이페이지' : '로그인'}
+            >
+              {nickname ? (
+                <Avatar src={avatar} name={nickname} className={`topbar__avatar tone-${(props.userId ?? 0) % 4}`} />
+              ) : (
+                <PersonIcon />
               )}
-            </div>
+            </button>
           </>
         )}
       </div>

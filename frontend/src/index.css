@@ -217,3 +217,27 @@ button:active {
   font-weight: 700;
   color: var(--ink);
 }
+
+/* 탭 이름 옆 개수 배지 — 고른 탭은 검은 배지, 나머지는 옅은 회색 (마이페이지·프로필 탭이 같이 쓴다) */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  margin-left: 5px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  vertical-align: 1px;
+}
+
+[aria-selected='true'] > .tab-count {
+  background: var(--ink);
+  color: #fff;
+}

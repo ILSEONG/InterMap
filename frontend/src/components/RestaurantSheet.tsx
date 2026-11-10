@@ -222,7 +222,8 @@ export default function RestaurantSheet({
     let touch: { x: number; y: number; scroll: HTMLElement | null; decided: boolean; active: boolean } | null = null
     const onStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement
-      if (e.touches.length !== 1 || target.closest('input, textarea, .restaurant-sheet__footer, .review-card__photos')) {
+      // 시트는 위 손잡이로만 끈다 — 제목·본문을 끌면 본문이 스크롤된다
+      if (e.touches.length !== 1 || !target.closest('.restaurant-sheet__grab')) {
         touch = null
         return
       }

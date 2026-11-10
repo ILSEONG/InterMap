@@ -8,6 +8,7 @@ import './ModalSheet.css'
 import './Poll.css'
 import './RecapSheet.css'
 import './TasteCardSheet.css'
+import SheetGrip from './SheetGrip'
 
 interface TasteCardSheetProps {
   input: TasteCardInput
@@ -82,6 +83,7 @@ export default function TasteCardSheet({ input, onClose }: TasteCardSheetProps) 
   return (
     <div className="modal-layer taste-card-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall recap-sheet" role="dialog" aria-modal="true" aria-labelledby="taste-card-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 id="taste-card-title" className="modal-sheet__title">
             궁합 카드 공유

@@ -4,6 +4,7 @@ import type { AdminReport, ReportStatus } from '../lib/api'
 import { timeAgo } from '../lib/time'
 import './ModalSheet.css'
 import './AdminReports.css'
+import SheetGrip from './SheetGrip'
 
 const TABS: { value: ReportStatus; label: string }[] = [
   { value: 'OPEN', label: '처리 전' },
@@ -61,6 +62,7 @@ export default function AdminReports({ onChanged, onClose }: { onChanged: () => 
   return (
     <div className="modal-layer" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall" role="dialog" aria-modal="true" aria-labelledby="admin-reports-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 id="admin-reports-title" className="modal-sheet__title">
             신고 관리

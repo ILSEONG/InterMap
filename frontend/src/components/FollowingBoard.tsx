@@ -8,6 +8,7 @@ import { RatingStar } from './Stars'
 import './ModalSheet.css'
 import './FollowingBoard.css'
 import { markBoardSeen, readBoardSeen } from '../lib/boardSeen'
+import SheetGrip from './SheetGrip'
 
 interface FollowingBoardProps {
   people: Person[]
@@ -93,6 +94,7 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
   return (
     <div className="modal-layer board-layer" hidden={hidden} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet modal-sheet--tall board" role="dialog" aria-modal="true" aria-labelledby="board-title">
+        <SheetGrip onClose={onClose} />
         <header className="modal-sheet__header">
           <h2 id="board-title" className="modal-sheet__title">
             팔로잉 <span className="board__count">{people.length}</span>
