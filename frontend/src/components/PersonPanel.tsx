@@ -3,6 +3,7 @@ import type { Restaurant } from '../data/model'
 import { categoryName, iGa } from '../lib/taste'
 import { timeAgo } from '../lib/time'
 import Avatar from './Avatar'
+import SheetGrip from './SheetGrip'
 import { RatingStar } from './Stars'
 import './PersonPanel.css'
 
@@ -30,6 +31,7 @@ export default function PersonPanel({
   tag,
   onPick,
   onOpenProfile,
+  onClose,
 }: {
   person: PersonPerson
   places: PersonPlace[]
@@ -37,19 +39,28 @@ export default function PersonPanel({
   tag: string | null
   onPick: (restaurant: Restaurant) => void
   onOpenProfile: () => void
+  // 손잡이로 끌어내리면 닫는다 (이웃 지도 보기 해제)
+  onClose: () => void
 }) {
   const [tab, setTab] = useState<Tab>('recent')
-  const [open, setOpen] = useState(true)
   const list = places
     .slice()
-    .sort((a, b) => (tab === 'recent' ? Date.parse(b.at) - Date.parse(a.at) : b.rating - a.rating || Date.parse(b.at) - Date.parse(a.at)))
+    .sort((a, b) =>
+      tab === 'recent'
+        ? Date.parse(b.at) - Date.parse(a.at)
+        : b.rating - a.rating || Date.parse(b.at) - Date.parse(a.at),
+    )
     .slice(0, 3)
 
   return (
     <section className="person-panel" aria-label={`${iGa(person.name)} 다녀온 곳`}>
-      <span className="person-panel__grip" aria-hidden="true" />
+      <SheetGrip onClose={onClose} />
       <div className="person-panel__head">
-        <Avatar className={`person-panel__avatar tone-${Math.abs(person.id) % 4}`} src={person.avatar} name={person.name} />
+        <Avatar
+          className={`person-panel__avatar tone-${Math.abs(person.id) % 4}`}
+          src={person.avatar}
+          name={person.name}
+        />
         <div className="person-panel__who">
           <p className="person-panel__name">
             <span className="person-panel__name-text">{person.name}</span>
@@ -62,59 +73,44 @@ export default function PersonPanel({
         <button type="button" className="person-panel__profile" onClick={onOpenProfile}>
           프로필
         </button>
-        <button
-          type="button"
-          className="person-panel__fold"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-label={open ? '목록 접기' : '목록 펼치기'}
-        >
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? undefined : 'rotate(180deg)' }}>
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </button>
       </div>
-      {open && (
-        <>
-          <div className="person-panel__tabs" role="group" aria-label="정렬">
-            {(
-              [
-                ['recent', '최근 다녀온 곳'],
-                ['best', '별점 높은 곳'],
-              ] as [Tab, string][]
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`person-panel__tab${tab === value ? ' person-panel__tab--on' : ''}`}
-                aria-pressed={tab === value}
-                onClick={() => setTab(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <ol className="person-panel__list">
-            {list.map((p, i) => (
-              <li key={p.restaurant.id}>
-                <button type="button" className="person-panel__place" onClick={() => onPick(p.restaurant)}>
-                  <span className="person-panel__rank">{i + 1}</span>
-                  <span className="person-panel__place-text">
-                    <span className="person-panel__place-name">{p.restaurant.name}</span>
-                    <span className="person-panel__place-sub">
-                      {categoryName(p.restaurant.category) ?? '음식점'} · {timeAgo(p.at)}
-                    </span>
-                  </span>
-                  <span className="person-panel__rating">
-                    <RatingStar />
-                    {p.rating.toFixed(1)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
+      <div className="person-panel__tabs" role="group" aria-label="정렬">
+        {(
+          [
+            ['recent', '최근 다녀온 곳'],
+            ['best', '별점 높은 곳'],
+          ] as [Tab, string][]
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`person-panel__tab${tab === value ? ' person-panel__tab--on' : ''}`}
+            aria-pressed={tab === value}
+            onClick={() => setTab(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <ol className="person-panel__list">
+        {list.map((p, i) => (
+          <li key={p.restaurant.id}>
+            <button type="button" className="person-panel__place" onClick={() => onPick(p.restaurant)}>
+              <span className="person-panel__rank">{i + 1}</span>
+              <span className="person-panel__place-text">
+                <span className="person-panel__place-name">{p.restaurant.name}</span>
+                <span className="person-panel__place-sub">
+                  {categoryName(p.restaurant.category) ?? '음식점'} · {timeAgo(p.at)}
+                </span>
+              </span>
+              <span className="person-panel__rating">
+                <RatingStar />
+                {p.rating.toFixed(1)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
     </section>
   )
 }
