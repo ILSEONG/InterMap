@@ -31,6 +31,8 @@ interface MapCanvasProps {
   onViewportChange?: (viewport: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void
   // 실시간 추적 중인 내 위치가 바뀔 때마다 알려준다 — 검색 결과를 가까운 순으로 정렬하는 데 쓴다.
   onMyLocation?: (pos: { lat: number; lng: number }) => void
+  // 지도 빈 곳을 눌렀을 때 (핀·핀 목록을 누른 건 빼고) — 열린 하단 시트를 닫는 데 쓴다
+  onMapTap?: () => void
 }
 
 const CENTER = { lat: 37.5605, lng: 126.92 }
@@ -139,6 +141,7 @@ export default function MapCanvas({
   sheetOpen = false,
   onViewportChange,
   onMyLocation,
+  onMapTap,
 }: MapCanvasProps) {
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
@@ -157,6 +160,10 @@ export default function MapCanvas({
   // 지도 초기화 이펙트(의존성 없음)가 항상 최신 콜백을 부르도록 ref로 감싼다.
   const onViewportChangeRef = useRef(onViewportChange)
   onViewportChangeRef.current = onViewportChange
+  const onMapTapRef = useRef(onMapTap)
+  onMapTapRef.current = onMapTap
+  // 핀·핀 목록을 누른 시각 — 같은 탭이 지도 click으로도 올라오면 시트가 열리자마자 닫히니 걸러낸다
+  const pinTapAt = useRef(0)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
   // GL(벡터) 지도로 떴는지 — 핀 CSS를 GL에 맞게 가볍게 한다
@@ -336,7 +343,10 @@ export default function MapCanvas({
           pixelOffset: new naver.maps.Point(0, -8),
         })
         // 지도 빈 곳을 누르면 목록이 닫힌다. 포커스 링은 다음 포커스가 생길 때까지 유지.
-        naver.maps.Event.addListener(map, 'click', () => infoWindowRef.current?.close())
+        naver.maps.Event.addListener(map, 'click', () => {
+          infoWindowRef.current?.close()
+          if (performance.now() - pinTapAt.current > 400) onMapTapRef.current?.()
+        })
         // 줌·뷰포트 갱신은 이동이 멈춘 뒤(idle) 한 번만 한다.
         // 애니메이션 도중에 재군집하면 마커가 갈리면서 화면이 움찔거린다.
         const updateViewport = () => {
@@ -408,6 +418,7 @@ export default function MapCanvas({
 
       // setContent 할 때마다 새 엘리먼트라 열 때마다 붙인다.
       infoWindow.getContentElement().addEventListener('click', (event) => {
+        pinTapAt.current = performance.now()
         const row = (event.target as HTMLElement).closest('[data-place-id]')
         if (!row) return
         const restaurant = pin.items.find((r) => r.id === row.getAttribute('data-place-id'))
@@ -473,6 +484,7 @@ export default function MapCanvas({
       })
       marker.set('pinColor', iconKey)
       naver.maps.Event.addListener(marker, 'click', () => {
+        pinTapAt.current = performance.now()
         // 다른 핀의 목록이 열려 있었다면 먼저 닫는다.
         infoWindowRef.current?.close()
         // 서버 요약 셀은 개별 목록이 없다 — 확대해서 풀어주는 것만 한다.

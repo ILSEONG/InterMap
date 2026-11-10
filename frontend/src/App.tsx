@@ -1123,6 +1123,11 @@ export default function App() {
         sheetOpen={selectedRestaurant !== null}
         onViewportChange={loadViewport}
         onMyLocation={handleMyLocation}
+        // 지도 빈 곳을 누르면 떠 있는 하단 시트(가게 시트·이웃 패널)를 전부 닫는다
+        onMapTap={() => {
+          setSelectedId(null)
+          setPersonId(null)
+        }}
       />
 
       <div className="app__chrome">
@@ -1225,6 +1230,7 @@ export default function App() {
                 focusFromSearch(restaurant, true)
               }}
               onOpenProfile={() => openProfile(personView.person.id)}
+              onClose={() => setPersonId(null)}
             />
           )}
           {pollCart.length > 0 && (

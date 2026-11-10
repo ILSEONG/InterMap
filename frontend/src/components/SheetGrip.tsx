@@ -8,7 +8,7 @@ interface SheetGripProps {
 
 // 시트 맨 위 손잡이. 하단 시트는 전부 이 손잡이로만 끈다 — 본문을 끌면 본문이 스크롤된다.
 // 손잡이를 잡고 내리면 시트가 손가락을 따라 내려가고, 충분히 내리거나 아래로 튕기면 닫힌다. 아니면 제자리로.
-// 끄는 대상은 가장 가까운 시트(.modal-sheet / .my-page)라 각 시트에 첫 자식으로 넣기만 하면 된다.
+// 끄는 대상은 가장 가까운 시트(.modal-sheet / .my-page / .person-panel)라 각 시트에 첫 자식으로 넣기만 하면 된다.
 const CLOSE_DISTANCE = 96
 const FLICK = 0.6 // px/ms
 
@@ -16,7 +16,7 @@ export default function SheetGrip({ onClose }: SheetGripProps) {
   const ref = useRef<HTMLDivElement>(null)
   const drag = useRef<{ startY: number; lastY: number; lastT: number; v: number; dy: number; sheet: HTMLElement } | null>(null)
 
-  const sheetOf = () => ref.current?.closest<HTMLElement>('.modal-sheet, .my-page') ?? null
+  const sheetOf = () => ref.current?.closest<HTMLElement>('.modal-sheet, .my-page, .person-panel') ?? null
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     const sheet = sheetOf()
