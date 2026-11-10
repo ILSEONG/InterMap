@@ -177,6 +177,8 @@ export default function MyPage({
   const [view, setView] = useState<'main' | 'people' | 'blocked'>('main')
   // 닉네임·사진 고치기 칸을 펼쳤는지
   const [editOpen, setEditOpen] = useState(false)
+  // 아래 탭 — 나의 후기 / 이 달의 결산 / 어디 갈래?
+  const [tab, setTab] = useState<'reviews' | 'recap' | 'polls'>('reviews')
   const [leaveChecked, setLeaveChecked] = useState(false)
   function showToast(text: string) {
     setToast(text)
@@ -482,9 +484,6 @@ export default function MyPage({
 
           {view === 'main' && (
             <>
-              <p className="my-page__big-title" aria-hidden="true">
-                내 정보
-              </p>
               <section className="my-page__me" aria-label="프로필">
                 <button
                   type="button"
@@ -512,7 +511,15 @@ export default function MyPage({
                   }}
                 />
                 <div className="my-page__me-text">
-                  <p className="my-page__me-name">{session.nickname}</p>
+                  <p className="my-page__me-line">
+                    <span className="my-page__me-name">{session.nickname}</span>
+                    <button type="button" className="my-page__me-count" onClick={() => setView('people')}>
+                      팔로잉 <b>{social?.following.length ?? '–'}</b>
+                    </button>
+                    <button type="button" className="my-page__me-count" onClick={() => setView('people')}>
+                      팔로워 <b>{social?.followers.length ?? '–'}</b>
+                    </button>
+                  </p>
                   <button type="button" className="my-page__me-edit" onClick={() => setEditOpen((v) => !v)} aria-expanded={editOpen}>
                     닉네임 바꾸기
                     <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -557,94 +564,100 @@ export default function MyPage({
                 </div>
               )}
 
-              <div className="my-page__counts">
-                <a className="my-page__count-cell" href="#my-reviews">
-                  <b>{myReviews.length}</b>내 후기
-                </a>
-                <button type="button" className="my-page__count-cell" onClick={() => setView('people')}>
-                  <b>{social?.following.length ?? '–'}</b>팔로잉
-                </button>
-                <button type="button" className="my-page__count-cell" onClick={() => setView('people')}>
-                  <b>{social?.followers.length ?? '–'}</b>팔로워
-                </button>
+              {/* 나의 후기 · 이 달의 결산 · 어디 갈래? — 밑줄 탭 */}
+              <div className="my-page__tabs" role="tablist" aria-label="내 기록">
+                {(
+                  [
+                    ['reviews', `나의 후기 ${myReviews.length}`],
+                    ['recap', '이 달의 결산'],
+                    ['polls', `어디 갈래?${polls && polls.length > 0 ? ` ${polls.length}` : ''}`],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === value}
+                    className={`my-page__tab${tab === value ? ' my-page__tab--on' : ''}`}
+                    onClick={() => setTab(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              <div className="my-page__band" />
-
-              <button type="button" className="my-page__row my-page__row--recap" onClick={onOpenRecap}>
-                <span className="my-page__row-icon" aria-hidden="true">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="4" y="5" width="16" height="15" rx="3" />
-                    <path d="M4 10h16M9 3v4M15 3v4" />
-                  </svg>
-                </span>
-                <span className="my-page__row-text">
-                  <span className="my-page__row-title">{monthLabel(monthNow)} 결산</span>
-                  <span className="my-page__row-sub">
-                    {visitedThisMonth > 0 ? `${visitedThisMonth}곳 다녀왔어요` : '이번 달의 나를 카드로 보기'}
+              {tab === 'reviews' && (
+                <section className="my-page__group" id="my-reviews" aria-label="내 후기">
+                  {myReviews.length === 0 ? (
+                    <p className="my-page__empty">아직 남긴 후기가 없어요.</p>
+                  ) : (
+                    <ol className="my-page__list">
+                      {sortedReviews.map((r) => (
+                        <li key={r.id}>
+                          <button type="button" className="my-page__review" onClick={() => onOpenReview(r)}>
+                            <span className="my-page__review-text">
+                              <span className="my-page__review-name">{r.restaurant.name}</span>
+                              <span className="my-page__review-sub">
+                                {categoryName(r.restaurant.category) ?? '음식점'} · {timeAgo(r.createdAt)}
+                              </span>
+                            </span>
+                            <span className="my-page__review-rating">
+                              <RatingStar />
+                              <span className="my-page__sr">별점 </span>
+                              {r.rating.toFixed(1)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              )}
+              {tab === 'recap' && (
+                <button type="button" className="my-page__row my-page__row--recap" onClick={onOpenRecap}>
+                  <span className="my-page__row-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="4" y="5" width="16" height="15" rx="3" />
+                      <path d="M4 10h16M9 3v4M15 3v4" />
+                    </svg>
                   </span>
-                </span>
-                <Chevron />
-              </button>
-
-              <section className="my-page__group" aria-label="어디 갈래? 투표">
-                <h3 className="my-page__group-title">
-                  어디 갈래? 투표 {polls && polls.length > 0 && <span>{polls.length}</span>}
-                </h3>
-            {polls === null ? null : polls.length === 0 ? (
-                  <p className="my-page__empty">가게 시트의 투표 담기로 후보를 모아 링크를 보내면, 친구들이 앱 없이도 골라요.</p>
-                ) : (
-                  <ul className="my-page__list">
-                    {polls.map((p) => (
-                      <li key={p.token}>
-                        <button type="button" className="my-page__review my-page__poll" onClick={() => onOpenPoll(p.token)}>
-                          <span className={`my-page__poll-state${p.closed ? '' : ' my-page__poll-state--open'}`}>
-                            {p.closed ? '마감' : '진행 중'}
-                          </span>
-                          <span className="my-page__poll-main">
-                            <span className="my-page__review-name">{p.title}</span>
-                            <span className="my-page__poll-meta">
-                              {p.closed ? (p.leader ? `${p.leader}(으)로 결정` : '아무도 안 골랐어요') : `${timeLeft(p.closesAt)}${p.leader ? ` · ${p.leader} 앞서는 중` : ''}`}
-                              {' · '}
-                              {p.voterCount}명{p.mine ? '' : ' · 참여'}
+                  <span className="my-page__row-text">
+                    <span className="my-page__row-title">{monthLabel(monthNow)} 결산</span>
+                    <span className="my-page__row-sub">
+                      {visitedThisMonth > 0 ? `${visitedThisMonth}곳 다녀왔어요` : '이번 달의 나를 카드로 보기'}
+                    </span>
+                  </span>
+                  <Chevron />
+                </button>
+              )}
+              {tab === 'polls' && (
+                <section className="my-page__group" aria-label="어디 갈래? 투표">
+              {polls === null ? null : polls.length === 0 ? (
+                    <p className="my-page__empty">가게 시트의 투표 담기로 후보를 모아 링크를 보내면, 친구들이 앱 없이도 골라요.</p>
+                  ) : (
+                    <ul className="my-page__list">
+                      {polls.map((p) => (
+                        <li key={p.token}>
+                          <button type="button" className="my-page__review my-page__poll" onClick={() => onOpenPoll(p.token)}>
+                            <span className={`my-page__poll-state${p.closed ? '' : ' my-page__poll-state--open'}`}>
+                              {p.closed ? '마감' : '진행 중'}
                             </span>
-                          </span>
-                          <Chevron />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="my-page__group" id="my-reviews" aria-label="내 후기">
-                <h3 className="my-page__group-title">
-                  내 후기 {myReviews.length > 0 && <span>{myReviews.length}</span>}
-                </h3>
-                {myReviews.length === 0 ? (
-                  <p className="my-page__empty">아직 남긴 후기가 없어요.</p>
-                ) : (
-                  <ol className="my-page__list">
-                    {sortedReviews.map((r) => (
-                      <li key={r.id}>
-                        <button type="button" className="my-page__review" onClick={() => onOpenReview(r)}>
-                          <span className="my-page__review-text">
-                            <span className="my-page__review-name">{r.restaurant.name}</span>
-                            <span className="my-page__review-sub">
-                              {categoryName(r.restaurant.category) ?? '음식점'} · {timeAgo(r.createdAt)}
+                            <span className="my-page__poll-main">
+                              <span className="my-page__review-name">{p.title}</span>
+                              <span className="my-page__poll-meta">
+                                {p.closed ? (p.leader ? `${p.leader}(으)로 결정` : '아무도 안 골랐어요') : `${timeLeft(p.closesAt)}${p.leader ? ` · ${p.leader} 앞서는 중` : ''}`}
+                                {' · '}
+                                {p.voterCount}명{p.mine ? '' : ' · 참여'}
+                              </span>
                             </span>
-                          </span>
-                          <span className="my-page__review-rating">
-                            <RatingStar />
-                            <span className="my-page__sr">별점 </span>
-                            {r.rating.toFixed(1)}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </section>
+                            <Chevron />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
 
               <div className="my-page__band" />
 
