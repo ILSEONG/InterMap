@@ -128,7 +128,10 @@
   flex: 0 1 auto;
   max-height: 62%;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* 가로로 쓸면 바깥 트랙으로 넘겨야 다음 후기로 간다 — 세로만 가두고 가로는 막지 않는다 */
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: auto;
   scrollbar-width: none;
   padding: 2px 18px var(--sv-bottom);
   background: var(--sv-bg);
@@ -404,8 +407,14 @@
   pointer-events: none;
 }
 
-.story-viewer__chrome > * {
+/* 위 막대·작성자 줄의 빈 곳에서 쓸어도 넘어가게 — 누를 수 있는 것만 터치를 받는다 */
+.story-viewer__chrome button {
   pointer-events: auto;
+}
+
+/* 판 안 사진 줄도 가로 쓸기를 트랙으로 넘긴다 (넘칠 만큼 사진이 많을 때만 그 안에서 스크롤) */
+.story-viewer .review-card__photos {
+  overscroll-behavior-x: auto;
 }
 
 .story-viewer__progress {
