@@ -566,12 +566,15 @@ export default function MapCanvas({
       <div ref={mapDivRef} className="map-canvas__surface" />
       <button
         type="button"
-        className={`map-gps glass${locating ? ' map-gps--locating' : ''}`}
+        className={`map-gps${locating ? ' map-gps--locating' : ''}`}
         aria-label="현재 위치로 이동"
         onClick={goToMyLocation}
       >
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M20 4L4 11l7 2 2 7z" />
+        {/* 내 위치 — 조준선(동그라미 + 가운데 점 + 네 방향 눈금) */}
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="7" />
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
         </svg>
       </button>
       {mapError && (
