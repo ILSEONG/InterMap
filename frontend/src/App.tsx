@@ -6,7 +6,7 @@ import { readBoardSeen } from './lib/boardSeen'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import TopBar from './components/TopBar'
-import SearchResults from './components/SearchResults'
+import SearchResults, { type NeighborHit } from './components/SearchResults'
 import FollowingBoard from './components/FollowingBoard'
 import PersonPanel, { PersonMapChip } from './components/PersonPanel'
 import type { PersonPlace } from './components/PersonPanel'
@@ -59,7 +59,6 @@ import {
   SUMMARY_MAX_ZOOM,
   POLL_MAX_OPTIONS,
 } from './lib/api'
-import { topPicksOf } from './lib/topPicks'
 import { tasteTag } from './lib/taste'
 import { shrinkImage } from './lib/image'
 import type { AuthSession, BBox, ClusterCell, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
@@ -772,26 +771,24 @@ export default function App() {
   )
   const followingIds = useMemo(() => new Set(social?.following.map((p) => p.id) ?? []), [social])
 
-  // 사람 검색이면 이름이 걸린 사람마다 별점 높은 가게 TOP 5를 요약해 보여준다
-  const personPicks = useMemo(() => {
+  // 이웃 검색 결과 — 아는 이웃(팔로잉·팔로워)은 내가 붙인 이름이나 원래 닉네임으로, 그 밖의 인터맵 사용자는 서버 검색으로.
+  // 아는 이웃을 먼저(팔로잉 → 팔로워), 그다음 서버 결과. 같은 사람은 한 번만, 나는 뺀다.
+  const neighborHits = useMemo<NeighborHit[]>(() => {
     const keyword = deferredQuery.trim().toLowerCase()
     if (searchMode !== 'person' || keyword.length < MIN_QUERY_LENGTH) return []
-    const authors = new Map<number, { id: number; name: string }>()
-    for (const rv of reviews) if (!rv.author.owner) authors.set(rv.author.id, rv.author)
-    // 후기에 보이는 이름은 내가 붙인 이름일 수 있다 — 원래 닉네임으로도 찾히게
-    const nicknames = new Map<number, string>()
-    for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) nicknames.set(p.id, p.nickname)
-    return [...authors.values()]
-      .filter((a) => a.name.toLowerCase().includes(keyword) || !!nicknames.get(a.id)?.toLowerCase().includes(keyword))
-      .map((author) => ({ author, picks: topPicksOf(visibleRestaurants, author.id) }))
-      .filter(({ picks }) => picks.length > 0)
-  }, [searchMode, deferredQuery, reviews, visibleRestaurants, social])
-
-  // TOP 5 카드로 이미 보여준 사람은 사용자 목록에서 뺀다 (같은 사람이 두 번 나오지 않게)
-  const otherUsers = useMemo(() => {
-    const shown = new Set(personPicks.map((p) => p.author.id))
-    return foundUsers.filter((u) => !shown.has(u.id))
-  }, [foundUsers, personPicks])
+    const hits = new Map<number, NeighborHit>()
+    for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) {
+      if (hits.has(p.id)) continue
+      const name = p.alias ?? p.nickname
+      if (!name.toLowerCase().includes(keyword) && !p.nickname.toLowerCase().includes(keyword)) continue
+      hits.set(p.id, { id: p.id, name, nickname: p.nickname, avatar: p.avatar, following: p.following })
+    }
+    for (const u of foundUsers) {
+      if (hits.has(u.id) || u.id === session?.id) continue
+      hits.set(u.id, { id: u.id, name: u.nickname, nickname: u.nickname, avatar: null, following: followingIds.has(u.id) })
+    }
+    return [...hits.values()]
+  }, [searchMode, deferredQuery, social, foundUsers, followingIds, session])
 
   // 하단 독(사람 패널·투표 바) 높이를 --dock-h로 알린다 — 현재 위치 버튼이 그 위에 선다
   const bottomDockRef = useRef<HTMLDivElement | null>(null)
@@ -1161,11 +1158,10 @@ export default function App() {
           results={
             query.trim() && resultsOpen ? (
               <SearchResults
+                mode={searchMode}
                 results={searchResults}
-                topPicks={personPicks}
-                people={otherUsers}
+                neighbors={neighborHits}
                 onFollow={follow}
-                followingIds={followingIds}
                 groups={groups}
                 // 지연값 기준 — 동기값으로 풀면 키워드 없는 전체 목록(수천 행)이 먼저 동기 렌더돼 입력이 멈춘다
                 tooShort={!searchActive}

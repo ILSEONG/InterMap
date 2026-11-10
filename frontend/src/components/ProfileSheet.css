@@ -296,9 +296,9 @@ button.profile-sheet__stat:active {
 
 .profile-sheet__follow,
 .profile-sheet__rename {
-  height: 48px;
+  height: 46px;
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -310,17 +310,17 @@ button.profile-sheet__stat:active {
 }
 
 /* 아직 안 팔로우 — 포인트 색. 팔로잉 중 — 회색 (다시 누르면 언팔로우) */
+/* 팔로우 — 상단 '이웃' 칩처럼 검정 + 흰 글자 */
 .profile-sheet__follow {
-  border: 1px solid rgba(60, 60, 67, 0.18);
-  box-shadow: none;
   flex: 1;
   min-width: 0;
-  background: #fff;
-  color: var(--ink);
+  background: #16161c;
+  color: #fff;
+  transition: scale 90ms ease;
 }
 
 .profile-sheet__follow:active {
-  background: var(--accent-ink);
+  scale: 0.97;
 }
 
 .profile-sheet__follow--on {

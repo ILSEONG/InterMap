@@ -478,33 +478,32 @@
   white-space: nowrap;
 }
 
+/* 줄 오른쪽 작은 버튼 — 상단 칩과 같은 둥근 사각형(반경 10). 보조는 흰 칩 */
 .my-page__action {
   flex: none;
-  height: 44px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 14px;
   border: none;
-  border-radius: 22px;
-  background: rgba(118, 118, 128, 0.12);
-  font-size: 12px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.18);
+  font-size: 14px;
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
   cursor: pointer;
+  transition: scale 90ms ease;
 }
 
 .my-page__action:active {
-  background: var(--fill-strong);
+  scale: 0.96;
 }
 
+/* 팔로우·맞팔로우 — 상단 '이웃' 칩처럼 검정 + 흰 글자 */
 .my-page__action--primary {
-  border: 1px solid rgba(60, 60, 67, 0.18);
   box-shadow: none;
-  background: #fff;
-  color: var(--ink);
-}
-
-.my-page__action--primary:active {
-  background: var(--accent-ink);
+  background: #16161c;
+  color: #fff;
 }
 
 .my-page__action:disabled,
