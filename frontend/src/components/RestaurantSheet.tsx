@@ -104,6 +104,15 @@ export default function RestaurantSheet({
 
   const offsetOf = (s: Snap) => (s === 'full' ? 0 : Math.max(0, fullHeight - sheetDefaultHeight()))
   const offset = offsetOf(snap)
+  const footerOffset = (y: number) => Math.min(Math.max(y, 0), offsetOf('default'))
+
+  // 닫힌 뒤(내려가는 애니메이션이 끝난 뒤) 기본 높이로 돌려 둔다 — 펼친 채 닫았다 다시 열면
+  // 버튼 줄이 시트 안에서 뒤늦게 미끄러져 올라오던 것을 막고, 늘 같은 모양으로 열리게
+  useEffect(() => {
+    if (open || snap === 'default') return
+    const t = window.setTimeout(() => setSnap('default'), 360)
+    return () => window.clearTimeout(t)
+  }, [open, snap])
 
   // 끌어서 닫으면 마지막으로 끌던 위치가 DOM에 남는다(React는 이전 값과 같다고 보고 안 고친다) — 열 때 맞춰 둔다
   useLayoutEffect(() => {
@@ -122,18 +131,22 @@ export default function RestaurantSheet({
   const dragRef = useRef<{ startY: number; startOffset: number; lastY: number; lastT: number; v: number; offset: number } | null>(null)
   const frameRef = useRef<number | null>(null)
 
-  // 시트와 아래 버튼을 같은 프레임에 옮긴다 (둘 다 transform이라 레이아웃 없음)
+  // 시트와 아래 버튼을 같은 프레임에 옮긴다 (둘 다 transform이라 레이아웃 없음).
+  // 버튼 줄은 펼침~기본 높이 사이에서만 화면 아래에 붙여 둔다. 그보다 내리면(닫는 중) 시트와 같이 내려가고,
+  // 펼침보다 더 끌어올리면(고무줄) 시트 아래 끝에 붙어 같이 올라간다 — 시트 밖으로 삐져나와 잘리지 않게
   function apply(px: number) {
     const sheet = sheetRef.current
     if (!sheet) return
     const y = Math.round(px)
     sheet.style.transform = `translateY(${y}px)`
-    sheet.style.setProperty('--sheet-offset', `${y}px`)
+    sheet.style.setProperty('--sheet-offset', `${footerOffset(y)}px`)
   }
 
   function begin(y: number, t: number) {
     const start = live.current.offsetOf(live.current.snap)
     dragRef.current = { startY: y, startOffset: start, lastY: y, lastT: t, v: 0, offset: start }
+    // 상태 반영(다음 렌더)을 기다리지 않고 바로 transition을 끈다 — 첫 움직임부터 손가락을 그대로 따라오게
+    sheetRef.current?.classList.add('restaurant-sheet--dragging')
     setDragging(true)
   }
 
@@ -169,6 +182,8 @@ export default function RestaurantSheet({
     dragRef.current = null
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
     frameRef.current = null
+    // 놓자마자 transition을 되살린다 — 렌더를 기다리면 아래 settle()의 위치 변경이 애니메이션 없이 한 프레임에 튄다
+    sheetRef.current?.classList.remove('restaurant-sheet--dragging')
     setDragging(false)
     if (!d) return
     const from = live.current.snap

@@ -268,15 +268,19 @@ export default function MapCanvas({
   const panToVisible = useCallback((lat: number, lng: number, zoom: number, sheet: boolean) => {
     const map = mapRef.current
     if (!map || !window.naver) return
+    const naver = window.naver
     const area = visibleAreaRef.current?.(sheet)
     const height = mapDivRef.current?.clientHeight || window.innerHeight
+    // 핀을 화면 가운데보다 이만큼 위(+)에 둔다 — 보이는 범위(위 컨트롤 아래 ~ 시트 위)의 가운데
     const shift = area ? height / 2 - (area.top + area.bottom) / 2 : 0
-    const scale = 256 * 2 ** zoom
-    const sin = Math.sin((lat * Math.PI) / 180)
-    const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale + shift
-    const n = Math.PI - (2 * Math.PI * y) / scale
-    const centerLat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
-    const center = new window.naver.maps.LatLng(centerLat, lng)
+    // 축척은 지도에게 직접 묻는다: 지금 화면에서 위도 0.001도가 몇 px인지 재고, 목표 줌 차이만큼 배로 늘린다.
+    // (줌 숫자로 축척을 계산하면 GL 지도(512px 타일)의 줌 보정값이 어긋날 때 이동 거리가 두 배가 된다)
+    const proj = map.getProjection()
+    const a = proj.fromCoordToOffset(new naver.maps.LatLng(lat, lng))
+    const b = proj.fromCoordToOffset(new naver.maps.LatLng(lat + 0.001, lng))
+    const pxPerDeg = (Math.abs(a.y - b.y) / 0.001) * 2 ** (toMapZoom(zoom) - map.getZoom())
+    const centerLat = pxPerDeg > 0 ? lat - shift / pxPerDeg : lat
+    const center = new naver.maps.LatLng(centerLat, lng)
     if (Math.abs(zoomOf(map) - zoom) > 0.01) map.morph(center, toMapZoom(zoom), PAN_TRANSITION)
     else map.panTo(center, PAN_TRANSITION)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -368,6 +372,19 @@ export default function MapCanvas({
           setZoom(nextZoom)
           setViewport(next)
         }
+        // 만들자마자 잰 줌 보정값은 GL 지도가 아직 자리 잡기 전이라 틀릴 수 있다 — 첫 idle에서 한 번 더 잰다
+        const recheckOffset = naver.maps.Event.addListener(map, 'idle', () => {
+          naver.maps.Event.removeListener(recheckOffset)
+          const b = map.getBounds() as naver.maps.LatLngBounds
+          const w = mapDivRef.current?.clientWidth ?? 0
+          const span = b.getNE().lng() - b.getSW().lng()
+          if (w <= 0 || span <= 0) return
+          const measured = Math.round(Math.log2((w * 360) / (256 * span)) - map.getZoom())
+          if (measured === zoomOffsetRef.current || Math.abs(measured) > 2) return
+          zoomOffsetRef.current = measured
+          map.setOptions({ minZoom: 9 - measured, maxZoom: MAX_ZOOM - measured })
+          updateViewport()
+        })
         naver.maps.Event.addListener(map, 'idle', updateViewport)
         updateViewport()
         mapRef.current = map
