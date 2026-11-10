@@ -74,18 +74,23 @@ export default function StoryViewer({
   // 반쯤 지날 때까지 이전 장으로 되돌아가 위 이름이 왔다 갔다 한다 — 도착할 때까지 스크롤로는 안 바꾼다
   const autoTarget = useRef<number | null>(null)
 
+  // i번째 장으로 부드럽게. 없는 장이면 false
+  const goTo = (i: number) => {
+    const el = i >= 0 ? (trackRef.current?.children[i] as HTMLElement | undefined) : undefined
+    if (!el) return false
+    autoTarget.current = i
+    setActive(i)
+    el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    return true
+  }
+
   // 다음 장으로 (사람 경계도 그냥 넘어간다). 마지막 장이면 닫는다
   const advance = () => {
-    const next = active + 1
-    const el = trackRef.current?.children[next] as HTMLElement | undefined
-    if (!el) {
-      onClose()
-      return
-    }
-    autoTarget.current = next
-    setActive(next)
-    el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    if (!goTo(active + 1)) onClose()
   }
+
+  // 위 막대·작성자 줄은 트랙 밖에 떠 있어서 브라우저 스크롤이 트랙까지 안 간다 — 거기서 시작한 가로 쓸기는 직접 넘긴다
+  const chromeSwipe = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     if (start < 0) return
@@ -283,7 +288,23 @@ export default function StoryViewer({
           })}
         </div>
 
-        <div className="story-viewer__chrome">
+        <div
+          className="story-viewer__chrome"
+          onTouchStart={(e) => {
+            const t = e.touches[0]
+            chromeSwipe.current = t ? { x: t.clientX, y: t.clientY } : null
+          }}
+          onTouchEnd={(e) => {
+            const s = chromeSwipe.current
+            const t = e.changedTouches[0]
+            chromeSwipe.current = null
+            if (!s || !t) return
+            const dx = t.clientX - s.x
+            if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(t.clientY - s.y)) return
+            if (dx < 0) advance()
+            else goTo(active - 1)
+          }}
+        >
           {current && (
             <div
               className="story-viewer__progress"

@@ -1328,9 +1328,11 @@ export default function App() {
           // 프로필은 가게 시트의 후기에서 열리기도 한다 — 지도만 옮기면 뒤에 있던 시트가 예전 가게로 남으므로 시트도 바꾼다
           onPick={(restaurant) => {
             setProfileStack([])
-            // 스토리·마이페이지에서 연 프로필이면 그 위층들도 닫아야 시트와 지도가 보인다
+            // 스토리·마이페이지·팔로잉 현황에서 연 프로필이면 그 위층들도 닫아야 시트와 지도가 보인다
+            // (현황판은 프로필이 떠 있는 동안만 숨어 있어서, 안 닫으면 프로필이 닫히자마자 다시 뜬다)
             setOpenStory(null)
             setMyPageOpen(false)
+            setBoardOpen(false)
             revealOnMap(restaurant)
             setSelectedId(restaurant.id)
             focusFromSearch(restaurant, true)
