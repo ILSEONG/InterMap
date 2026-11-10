@@ -440,7 +440,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
     if (shown === 'social') {
       return (
         <>
-          {stepHead('pin', '거의 다 됐어요!', `${provider} 계정으로 인터맵을 시작해요. 친구들에게 보일 이름을 정해주세요.`)}
+          {stepHead('pin', '거의 다 됐어요!', `${provider} 계정으로 인터맵을 시작해요. 이웃들에게 보일 이름을 정해주세요.`)}
           <form className="auth-modal__form" onSubmit={submitSignup}>
             {nicknameField}
             {termsFields}
@@ -598,7 +598,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
         return (
           <>
             {backButton}
-            {stepHead('user', '마지막이에요!', '친구들에게 보일 이름과 로그인할 때 쓸 비밀번호를 정해주세요.')}
+            {stepHead('user', '마지막이에요!', '이웃들에게 보일 이름과 로그인할 때 쓸 비밀번호를 정해주세요.')}
             <form className="auth-modal__form" onSubmit={submitSignup}>
               {nicknameField}
               <div className="auth-modal__field">
@@ -638,7 +638,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
               </span>
               <h2 className="auth-modal__brand">인터맵</h2>
               <p className="auth-modal__tagline">
-                친구들이 다녀온 맛집,
+                이웃들이 다녀온 맛집,
                 <br />
                 지도에서 바로 확인해요.
               </p>
@@ -710,7 +710,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
             <p className="auth-modal__desc">
               <b>{done.nickname}</b>님, 인터맵에 오신 걸 환영해요.
               <br />
-              이제 후기를 남기고 친구들의 맛집을 볼 수 있어요.
+              이제 후기를 남기고 이웃들의 맛집을 볼 수 있어요.
             </p>
             <button type="button" className="auth-modal__submit auth-modal__submit--accent" onClick={() => onAuthed(done)}>
               시작하기

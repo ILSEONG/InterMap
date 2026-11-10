@@ -35,8 +35,9 @@ interface TopBarProps {
   showBoard: boolean
   // 팔로우한 사람이 마지막으로 본 뒤 새 후기를 올렸으면 빨간 점
   boardHasNew: boolean
-  // 지도에서 한 사람을 골라 보는 중이면 켜 둔다
-  personSelected: boolean
+  // 지도에서 한 이웃을 골라 보는 중이면 그 이웃 — 찜한 곳 오른쪽에 이름 칩(누르면 해제)
+  selectedPerson: { id: number; name: string; avatar?: string | null } | null
+  onClearPerson: () => void
   onOpenBoard: () => void
   // 찜 모드 — 켜면 지도에 내가 찜한 가게만 별로 나온다
   favMode: boolean
@@ -195,7 +196,7 @@ export default function TopBar(props: TopBarProps) {
             {props.showBoard && (
               <button
                 type="button"
-                className={`topbar__chip${props.personSelected ? ' topbar__chip--on' : ''}`}
+                className="topbar__chip"
                 onClick={props.onOpenBoard}
               >
                 <FriendsIcon />
@@ -217,6 +218,24 @@ export default function TopBar(props: TopBarProps) {
               >
                 <StarIcon filled={props.favMode} size={17} />
                 찜한 곳
+              </button>
+            )}
+            {props.selectedPerson && (
+              <button
+                type="button"
+                className="topbar__chip topbar__chip--dark topbar__chip--person"
+                onClick={props.onClearPerson}
+                aria-label={`${props.selectedPerson.name} 지도 닫기`}
+              >
+                <Avatar
+                  className={`topbar__chip-avatar tone-${Math.abs(props.selectedPerson.id) % 4}`}
+                  src={props.selectedPerson.avatar ?? null}
+                  name={props.selectedPerson.name}
+                />
+                <span className="topbar__chip-name">{props.selectedPerson.name}</span>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
               </button>
             )}
             {props.showReviewFilter && (

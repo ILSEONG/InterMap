@@ -20,38 +20,6 @@ interface PersonPerson {
   mutual: boolean
 }
 
-// 현황판 "지도 보기" 뒤 — 지도 위쪽 칩: "민지가 간 곳 24곳 ×" + 팔로잉 목록으로 돌아가기
-export function PersonMapChip({
-  person,
-  count,
-  onClose,
-  onOpenBoard,
-}: {
-  person: PersonPerson
-  count: number
-  onClose: () => void
-  onOpenBoard: () => void
-}) {
-  return (
-    <div className="person-map-chip">
-      <div className="person-map-chip__main glass">
-        <Avatar className={`person-map-chip__avatar tone-${Math.abs(person.id) % 4}`} src={person.avatar} name={person.name} />
-        <span className="person-map-chip__label">
-          {iGa(person.name)} 간 곳 {count}곳
-        </span>
-        <button type="button" className="person-map-chip__close" onClick={onClose} aria-label={`${person.name} 지도 닫기`}>
-          <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      </div>
-      <button type="button" className="person-map-chip__board glass" onClick={onOpenBoard}>
-        팔로잉 목록
-      </button>
-    </div>
-  )
-}
-
 type Tab = 'recent' | 'best'
 
 // 지도 아래쪽 패널 — 그 사람 요약 + 최근 다녀온 곳 / 별점 높은 곳. 가게를 누르면 지도가 그리로 간다
