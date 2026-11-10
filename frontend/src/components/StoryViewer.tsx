@@ -101,7 +101,7 @@ export default function StoryViewer({
             if (el.clientWidth > 0) setActive(Math.round(el.scrollLeft / el.clientWidth))
           }}
         >
-          {slides.map(({ story: owner, review }) => {
+          {slides.map(({ story: owner, review }, slideIndex) => {
             const key = restaurantKey(review.restaurant)
             const favored = favorites.has(key)
             const neighbors = neighborsByKey.get(key) ?? []
@@ -117,8 +117,14 @@ export default function StoryViewer({
               >
                 {photoPath !== undefined ? (
                   <div className="story-viewer__media story-viewer__media--photo">
-                    {/* 슬라이드 전부를 한 번에 받지 않게 — 화면 근처에 온 것만 */}
-                    <img className="story-viewer__photo" src={photoUrl(photoPath)} alt={`${owner.name}님이 올린 사진`} loading="lazy" decoding="async" />
+                    {/* 슬라이드 전부를 한 번에 받지 않되, 지금 장과 양옆 장은 미리 받아 넘길 때 빈 화면이 번쩍이지 않게 */}
+                    <img
+                      className="story-viewer__photo"
+                      src={photoUrl(photoPath)}
+                      alt={`${owner.name}님이 올린 사진`}
+                      loading={Math.abs(slideIndex - active) <= 1 ? 'eager' : 'lazy'}
+                      decoding="async"
+                    />
                   </div>
                 ) : (
                   <div className="story-viewer__media story-viewer__media--empty" aria-hidden="true">

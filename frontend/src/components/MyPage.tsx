@@ -163,8 +163,8 @@ export default function MyPage({
   const toastTimer = useRef<number>(undefined)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   // 차단한 사용자 — 펼칠 때 받는다
-  const [blocksOpen, setBlocksOpen] = useState(false)
-  const [blockedData, setBlocked, blocksQuery] = useServerState<BlockedPerson[]>(['blocks'], fetchBlocks, { enabled: open && blocksOpen })
+  // 마이페이지를 열 때 미리 받아 둔다 — 차단한 사용자 화면을 열 때 '불러오는 중…'이 번쩍이지 않게
+  const [blockedData, setBlocked, blocksQuery] = useServerState<BlockedPerson[]>(['blocks'], fetchBlocks, { enabled: open })
   const blocked = blockedData ?? null
   // 내가 만들었거나 참여한 투표 — 열릴 때 받는다
   // 지난번 목록으로 바로 그리고(기기에도 저장) 열 때마다 새로 받는다 — 목록이 늦게 끼어들며 아래가 밀리지 않게.
@@ -193,7 +193,6 @@ export default function MyPage({
     setNicknameMsg(null)
     setQuery('')
     setError(null)
-    setBlocksOpen(false)
     setView('main')
     setEditOpen(false)
     setLeaving(false)
@@ -656,10 +655,7 @@ export default function MyPage({
               <button
                 type="button"
                 className="my-page__row"
-                onClick={() => {
-                  setBlocksOpen(true)
-                  setView('blocked')
-                }}
+                onClick={() => setView('blocked')}
               >
                 <span className="my-page__row-title">차단한 사용자</span>
                 <Chevron />

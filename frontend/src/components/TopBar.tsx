@@ -62,21 +62,14 @@ const SEARCH_MODES: [SearchMode, string][] = [
 // 상단 — 검색칸(오른쪽 끝에 내 계정) 한 줄과, 그 아래 팔로잉 현황 · 찜한 곳 · 후기 필터 칩 한 줄.
 // 검색을 열면 칩 줄이 가게/사람 토글로 바뀌고 결과가 그 아래 펼쳐진다.
 export default function TopBar(props: TopBarProps) {
-  const {
-    nickname,
-    avatar,
-    searching,
-    query,
-    searchMode,
-    reviewFilter,
-    results,
-  } = props
+  const { nickname, avatar, searching, query, searchMode, reviewFilter, results } = props
   const inputRef = useRef<HTMLInputElement>(null)
   const [menu, setMenu] = useState<'account' | 'filter' | null>(null)
   // 펼친 메뉴는 안드로이드 뒤로가기로 먼저 닫힌다
   useBackLayer(menu !== null, () => setMenu(null))
   const accountRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLDivElement>(null)
+  const filterMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (searching) inputRef.current?.focus()
@@ -85,9 +78,9 @@ export default function TopBar(props: TopBarProps) {
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
     if (!menu) return
-    const anchor = menu === 'account' ? accountRef : filterRef
+    const anchors = menu === 'account' ? [accountRef] : [filterRef, filterMenuRef]
     const close = (e: PointerEvent) => {
-      if (!anchor.current?.contains(e.target as Node)) setMenu(null)
+      if (!anchors.some((a) => a.current?.contains(e.target as Node))) setMenu(null)
     }
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
@@ -132,14 +125,32 @@ export default function TopBar(props: TopBarProps) {
                   inputRef.current?.focus()
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
                   <circle cx="12" cy="12" r="9" />
                   <path d="M9 9l6 6M15 9l-6 6" />
                 </svg>
               </button>
             )}
             <button type="button" className="topbar__icon-btn" aria-label="검색 닫기" onClick={props.onCloseSearch}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
             </button>
@@ -158,7 +169,11 @@ export default function TopBar(props: TopBarProps) {
                 aria-label="내 계정"
                 aria-expanded={menu === 'account'}
               >
-                {nickname ? <Avatar src={avatar} name={nickname} className={`topbar__avatar tone-${(props.userId ?? 0) % 4}`} /> : <PersonIcon />}
+                {nickname ? (
+                  <Avatar src={avatar} name={nickname} className={`topbar__avatar tone-${(props.userId ?? 0) % 4}`} />
+                ) : (
+                  <PersonIcon />
+                )}
               </button>
               {menu === 'account' && (
                 <div className="topbar__menu topbar__menu--right" role="menu">
@@ -199,62 +214,86 @@ export default function TopBar(props: TopBarProps) {
           ))}
         </div>
       ) : (
-        <div className="topbar__chips">
-          {props.showBoard && (
-            <button
-              type="button"
-              className={`topbar__chip${props.personSelected ? ' topbar__chip--on' : ''}`}
-              onClick={props.onOpenBoard}
-            >
-              <FriendsIcon />
-              팔로잉 현황
-              {props.boardHasNew && <span className="topbar__dot" aria-label="새 후기 있음" />}
-            </button>
-          )}
-          <button
-            type="button"
-            className={`topbar__chip${props.favMode ? ' topbar__chip--on' : ''}`}
-            onClick={props.onToggleFavMode}
-            aria-pressed={props.favMode}
-          >
-            <StarIcon filled={props.favMode} size={17} />
-            찜한 곳
-          </button>
-          {props.showReviewFilter && (
-            <div className="topbar__anchor" ref={filterRef}>
+        <div className="topbar__chips-wrap">
+          <div className="topbar__chips">
+            {props.showBoard && (
               <button
                 type="button"
-                className={`topbar__chip${reviewFilter !== 'all' ? ' topbar__chip--dark' : ''}`}
-                onClick={() => setMenu((m) => (m === 'filter' ? null : 'filter'))}
-                aria-haspopup="menu"
-                aria-expanded={menu === 'filter'}
+                className={`topbar__chip${props.personSelected ? ' topbar__chip--on' : ''}`}
+                onClick={props.onOpenBoard}
               >
-                {FILTER_LABELS[reviewFilter]}
-                <svg className="topbar__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
+                <FriendsIcon />
+                팔로잉 현황
+                {props.boardHasNew && <span className="topbar__dot" aria-label="새 후기 있음" />}
               </button>
-              {menu === 'filter' && (
-                <div className="topbar__menu" role="menu">
-                  {(Object.keys(FILTER_LABELS) as ReviewFilter[]).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={reviewFilter === value}
-                      className={reviewFilter === value ? 'topbar__menu-item--active' : undefined}
-                      onClick={pick(() => props.onReviewFilterChange(value))}
+            )}
+            <button
+              type="button"
+              className={`topbar__chip${props.favMode ? ' topbar__chip--on' : ''}`}
+              onClick={props.onToggleFavMode}
+              aria-pressed={props.favMode}
+            >
+              <StarIcon filled={props.favMode} size={17} />
+              찜한 곳
+            </button>
+            {props.showReviewFilter && (
+              <div className="topbar__anchor" ref={filterRef}>
+                <button
+                  type="button"
+                  className={`topbar__chip${reviewFilter !== 'all' ? ' topbar__chip--dark' : ''}`}
+                  onClick={() => setMenu((m) => (m === 'filter' ? null : 'filter'))}
+                  aria-haspopup="menu"
+                  aria-expanded={menu === 'filter'}
+                >
+                  {FILTER_LABELS[reviewFilter]}
+                  <svg
+                    className="topbar__chevron"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+          {/* 칩 줄은 가로로 밀리는 스크롤 칸이라 메뉴를 그 밖에 둔다 — 안에 두면 열 때 줄 스크롤이 풀려 칩이 튄다 */}
+          {menu === 'filter' && (
+            <div className="topbar__menu topbar__menu--filter" role="menu" ref={filterMenuRef}>
+              {(Object.keys(FILTER_LABELS) as ReviewFilter[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={reviewFilter === value}
+                  className={reviewFilter === value ? 'topbar__menu-item--active' : undefined}
+                  onClick={pick(() => props.onReviewFilterChange(value))}
+                >
+                  {FILTER_LABELS[value]}
+                  {reviewFilter === value && (
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
                     >
-                      {FILTER_LABELS[value]}
-                      {reviewFilter === value && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M5 12.5l4.5 4.5L19 7.5" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                  )}
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -267,7 +306,18 @@ export default function TopBar(props: TopBarProps) {
 
 function SearchGlyph() {
   return (
-    <svg className="topbar__glyph" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      className="topbar__glyph"
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="11" cy="11" r="6.5" />
       <path d="M20 20l-4.2-4.2" />
     </svg>
@@ -276,7 +326,17 @@ function SearchGlyph() {
 
 function PersonIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />
     </svg>
@@ -285,7 +345,17 @@ function PersonIcon() {
 
 function FriendsIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="9" cy="8" r="3.5" />
       <path d="M2.5 20c1-3.2 3.5-4.8 6.5-4.8s5.5 1.6 6.5 4.8" />
       <path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.6" />

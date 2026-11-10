@@ -136,6 +136,8 @@
 
 /* 칩 줄 — 넘치면 가로로 민다 */
 .topbar__chips {
+  /* 지도 canvas와 다른 레이어로 — 안드로이드 WebView에서 지도를 움직일 때 칩이 같이 깜빡이지 않게 */
+  transform: translateZ(0);
   display: flex;
   gap: 8px;
   margin: -4px -12px -8px;
@@ -148,9 +150,9 @@
   display: none;
 }
 
-/* 메뉴가 칩 줄(overflow) 안에서 잘리지 않게 — 필터 메뉴가 열려 있으면 줄 자르기를 푼다 */
-.topbar__chips:has(.topbar__menu) {
-  overflow: visible;
+/* 칩 줄 + 그 밖에 띄우는 필터 메뉴의 기준 */
+.topbar__chips-wrap {
+  position: relative;
 }
 
 .topbar__chip {
@@ -194,11 +196,15 @@
 }
 
 .topbar__dot {
-  width: 6px;
-  height: 6px;
-  margin-left: -1px;
+  /* 칩 폭을 바꾸지 않게 오른쪽 위에 띄운다 — 늦게 생겨도 옆 칩이 밀리지 않는다 */
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--accent);
+  box-shadow: 0 0 0 1.5px #fff;
 }
 
 /* 계정·필터 메뉴 */
@@ -221,8 +227,9 @@
   transform-origin: top left;
 }
 
-/* 필터 칩은 줄 오른쪽 끝에 있어 메뉴를 오른쪽에 맞춘다 (왼쪽에 맞추면 화면 밖으로 잘린다) */
-.topbar__chips .topbar__menu {
+/* 필터 메뉴 — 칩 줄 아래, 오른쪽 끝에 맞춘다 (칩 줄이 스크롤 칸이라 그 밖에 띄운다) */
+.topbar__menu--filter {
+  top: calc(100% - 2px);
   left: auto;
   right: 0;
   transform-origin: top right;

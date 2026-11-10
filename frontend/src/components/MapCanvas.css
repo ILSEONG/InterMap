@@ -27,6 +27,9 @@
   border-radius: 25px;
   color: var(--blue);
   cursor: pointer;
+  /* 지도와 다른 레이어 (pan 중 깜빡임 방지), 아래 패널이 생기고 없어질 때 툭 튀지 않고 미끄러지게 */
+  transform: translateZ(0);
+  transition: bottom 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .map-gps--locating svg {
