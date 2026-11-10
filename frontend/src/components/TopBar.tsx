@@ -212,7 +212,7 @@ export default function TopBar(props: TopBarProps) {
             </button>
           ))}
         </div>
-      ) : (
+      ) : !nickname ? null : (
         <div className="topbar__chips-wrap">
           <div className="topbar__chips">
             {props.showBoard && (
@@ -224,21 +224,24 @@ export default function TopBar(props: TopBarProps) {
                 <FriendsIcon />
                 팔로잉 현황
                 <span
-                className={`topbar__dot${props.boardHasNew ? '' : ' topbar__dot--off'}`}
-                aria-label={props.boardHasNew ? '새 후기 있음' : undefined}
-                aria-hidden={!props.boardHasNew}
-              />
+                  className={`topbar__dot${props.boardHasNew ? '' : ' topbar__dot--off'}`}
+                  aria-label={props.boardHasNew ? '새 후기 있음' : undefined}
+                  aria-hidden={!props.boardHasNew}
+                />
               </button>
             )}
-            <button
-              type="button"
-              className={`topbar__chip${props.favMode ? ' topbar__chip--on' : ''}`}
-              onClick={props.onToggleFavMode}
-              aria-pressed={props.favMode}
-            >
-              <StarIcon filled={props.favMode} size={17} />
-              찜한 곳
-            </button>
+            {/* 찜은 로그인한 사람만 */}
+            {nickname && (
+              <button
+                type="button"
+                className={`topbar__chip${props.favMode ? ' topbar__chip--on' : ''}`}
+                onClick={props.onToggleFavMode}
+                aria-pressed={props.favMode}
+              >
+                <StarIcon filled={props.favMode} size={17} />
+                찜한 곳
+              </button>
+            )}
             {props.showReviewFilter && (
               <div className="topbar__anchor" ref={filterRef}>
                 <button
