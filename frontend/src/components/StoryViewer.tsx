@@ -70,6 +70,10 @@ export default function StoryViewer({
   const [typing, setTyping] = useState(false)
   const paused = holding || typing || pausedOutside
 
+  // 자동으로 넘기는 중인 목표 장. 부드럽게 미끄러지는 동안 스크롤 위치로 active를 다시 계산하면
+  // 반쯤 지날 때까지 이전 장으로 되돌아가 위 이름이 왔다 갔다 한다 — 도착할 때까지 스크롤로는 안 바꾼다
+  const autoTarget = useRef<number | null>(null)
+
   // 다음 장으로 (사람 경계도 그냥 넘어간다). 마지막 장이면 닫는다
   const advance = () => {
     const next = active + 1
@@ -78,8 +82,9 @@ export default function StoryViewer({
       onClose()
       return
     }
-    el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    autoTarget.current = next
     setActive(next)
+    el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
   }
 
   useEffect(() => {
@@ -119,6 +124,8 @@ export default function StoryViewer({
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => {
           // 버튼·입력칸을 누른 건 멈춤이 아니다
+          // 손가락이 닿으면 자동 넘김 이동은 사용자에게 넘긴다
+          autoTarget.current = null
           if (!(e.target as HTMLElement).closest('button, input, textarea, a')) setHolding(true)
         }}
         onPointerUp={() => setHolding(false)}
@@ -136,7 +143,14 @@ export default function StoryViewer({
           className="story-viewer__track"
           onScroll={(e) => {
             const el = e.currentTarget
-            if (el.clientWidth > 0) setActive(Math.round(el.scrollLeft / el.clientWidth))
+            if (el.clientWidth <= 0) return
+            const at = Math.round(el.scrollLeft / el.clientWidth)
+            if (autoTarget.current !== null) {
+              // 자동 넘김 도착 전엔 그대로 둔다
+              if (Math.abs(el.scrollLeft - autoTarget.current * el.clientWidth) > 2) return
+              autoTarget.current = null
+            }
+            setActive(at)
           }}
         >
           {slides.map(({ story: owner, review }, slideIndex) => {
