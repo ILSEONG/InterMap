@@ -8,7 +8,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import TopBar from './components/TopBar'
 import SearchResults, { type NeighborHit } from './components/SearchResults'
 import FollowingBoard from './components/FollowingBoard'
-import PersonPanel, { PersonMapChip } from './components/PersonPanel'
+import PersonPanel from './components/PersonPanel'
 import type { PersonPlace } from './components/PersonPanel'
 import StoryStrip from './components/StoryStrip'
 import StoryViewer from './components/StoryViewer'
@@ -809,7 +809,7 @@ export default function App() {
   // 지도에서 실제로 보이는 세로 범위 — 위는 헤더·스토리·사람 칩 아래, 아래는 가게 시트(열릴 때)나 하단 독·패널 위
   const visibleArea = useCallback((sheet: boolean) => {
     let top = 0
-    document.querySelectorAll('.topbar__search, .topbar__chips, .story-strip, .person-map-chip').forEach((el) => {
+    document.querySelectorAll('.topbar__search, .topbar__chips, .story-strip').forEach((el) => {
       const r = el.getBoundingClientRect()
       if (r.height > 0) top = Math.max(top, r.bottom)
     })
@@ -1174,7 +1174,8 @@ export default function App() {
           // 팔로우 정보가 늦게 와도 칩이 나중에 끼어들어 옆 칩을 밀지 않게, 로그인했으면 처음부터 둔다
           showBoard={!!session}
           boardHasNew={boardHasNew}
-          personSelected={selectedPerson !== null}
+          selectedPerson={personView?.person ?? null}
+          onClearPerson={() => setPersonId(null)}
           onOpenBoard={() => setBoardOpen(true)}
           favMode={favMode}
           onToggleFavMode={() => {
@@ -1207,14 +1208,6 @@ export default function App() {
           />
         )}
         {/* 스토리는 항상 헤더 바로 아래 — 칩은 그 밑에 */}
-        {personView && (
-          <PersonMapChip
-            person={personView.person}
-            count={personView.places.length}
-            onClose={() => setPersonId(null)}
-            onOpenBoard={() => setBoardOpen(true)}
-          />
-        )}
       </div>
 
       {/* 하단 — 친구 한 명 보기 패널, 투표 후보 바 (검색은 위로 옮겼다) */}

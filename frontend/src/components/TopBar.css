@@ -192,6 +192,31 @@
   color: #fff;
 }
 
+/* 지도에서 보고 있는 이웃 — 사진 + 이름 + × (누르면 해제) */
+.topbar__chip--person {
+  padding: 0 12px 0 6px;
+  gap: 7px;
+}
+
+.topbar__chip-avatar {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.topbar__chip-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .topbar__chevron {
   margin-right: -3px;
 }

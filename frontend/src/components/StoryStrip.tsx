@@ -56,7 +56,7 @@ export default function StoryStrip({ stories, onOpen, recap, onFindFriends }: St
                   </svg>
                 </span>
               </span>
-              <span className="story-chip__name">친구 찾기</span>
+              <span className="story-chip__name">이웃 찾기</span>
             </button>
           </li>
         )}
