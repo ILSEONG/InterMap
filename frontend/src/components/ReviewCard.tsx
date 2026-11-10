@@ -36,7 +36,7 @@ export default function ReviewCard({ review, onEdit, footer }: { review: Review;
   useBackLayer(lightbox !== null, () => setLightbox(null))
 
   const owner = review.author.owner
-  // 신고 — 남의 후기일 때만 (로그인했을 때만). 시트(footer 있음)에선 깃발, 스토리에선 사이렌
+  // 신고 — 남의 후기일 때만 (로그인했을 때만). 사이렌 아이콘
   const reportButton = canReport(moderation, review.author.id) ? (
     <button
       type="button"
@@ -44,19 +44,13 @@ export default function ReviewCard({ review, onEdit, footer }: { review: Review;
       onClick={() => moderation.report({ type: 'REVIEW', id: review.id, authorId: review.author.id, authorName: review.author.name, excerpt: review.text })}
       aria-label={`${review.author.name}님의 후기 신고`}
     >
-      {footer ? (
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
-        </svg>
-      ) : (
-        // 사이렌 — 반구 몸체 + 받침 + 위로 퍼지는 빛 세 줄
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7 18v-5a5 5 0 0 1 10 0v5" />
-          <path d="M4.5 18h15v3h-15z" />
-          <path d="M12 13v2" />
-          <path d="M12 3v2.5M4.6 6.1l1.8 1.6M19.4 6.1l-1.8 1.6" />
-        </svg>
-      )}
+      {/* 사이렌 — 반구 몸체 + 받침 + 위로 퍼지는 빛 세 줄 */}
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 18v-5a5 5 0 0 1 10 0v5" />
+        <path d="M4.5 18h15v3h-15z" />
+        <path d="M12 13v2" />
+        <path d="M12 3v2.5M4.6 6.1l1.8 1.6M19.4 6.1l-1.8 1.6" />
+      </svg>
     </button>
   ) : null
 
