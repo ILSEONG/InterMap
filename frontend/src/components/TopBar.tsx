@@ -92,7 +92,7 @@ export default function TopBar(props: TopBarProps) {
 
   return (
     <div className="topbar">
-      <div className="topbar__search glass">
+      <div className="topbar__search">
         {searching ? (
           <>
             <SearchGlyph />
@@ -223,7 +223,11 @@ export default function TopBar(props: TopBarProps) {
               >
                 <FriendsIcon />
                 팔로잉 현황
-                {props.boardHasNew && <span className="topbar__dot" aria-label="새 후기 있음" />}
+                <span
+                className={`topbar__dot${props.boardHasNew ? '' : ' topbar__dot--off'}`}
+                aria-label={props.boardHasNew ? '새 후기 있음' : undefined}
+                aria-hidden={!props.boardHasNew}
+              />
               </button>
             )}
             <button
