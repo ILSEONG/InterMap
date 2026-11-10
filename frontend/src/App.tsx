@@ -778,11 +778,14 @@ export default function App() {
     if (searchMode !== 'person' || keyword.length < MIN_QUERY_LENGTH) return []
     const authors = new Map<number, { id: number; name: string }>()
     for (const rv of reviews) if (!rv.author.owner) authors.set(rv.author.id, rv.author)
+    // 후기에 보이는 이름은 내가 붙인 이름일 수 있다 — 원래 닉네임으로도 찾히게
+    const nicknames = new Map<number, string>()
+    for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) nicknames.set(p.id, p.nickname)
     return [...authors.values()]
-      .filter((a) => a.name.toLowerCase().includes(keyword))
+      .filter((a) => a.name.toLowerCase().includes(keyword) || !!nicknames.get(a.id)?.toLowerCase().includes(keyword))
       .map((author) => ({ author, picks: topPicksOf(visibleRestaurants, author.id) }))
       .filter(({ picks }) => picks.length > 0)
-  }, [searchMode, deferredQuery, reviews, visibleRestaurants])
+  }, [searchMode, deferredQuery, reviews, visibleRestaurants, social])
 
   // TOP 5 카드로 이미 보여준 사람은 사용자 목록에서 뺀다 (같은 사람이 두 번 나오지 않게)
   const otherUsers = useMemo(() => {

@@ -103,7 +103,7 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            사람 찾기
+            이웃 찾기
           </button>
           <button type="button" className="modal-sheet__icon-btn board__close" onClick={onClose} aria-label="닫기">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -147,14 +147,14 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
         <div className="modal-sheet__body board__body">
           {people.length === 0 ? (
             <div className="board__empty">
-              <p className="board__empty-title">아직 팔로우한 사람이 없어요</p>
-              <p className="board__empty-text">팔로우하면 그 사람이 다녀온 가게가 지도와 스토리에 나타나요.</p>
+              <p className="board__empty-title">아직 팔로우한 이웃이 없어요</p>
+              <p className="board__empty-text">팔로우하면 그 이웃이 다녀온 가게가 지도와 스토리에 나타나요.</p>
               <button type="button" className="modal-sheet__btn modal-sheet__btn--primary" onClick={onFindPeople}>
-                사람 찾기
+                이웃 찾기
               </button>
             </div>
           ) : shown.length === 0 ? (
-            <p className="board__none">‘{query.trim()}’ 닉네임을 가진 사람이 없어요</p>
+            <p className="board__none">‘{query.trim()}’ 닉네임을 가진 이웃이 없어요</p>
           ) : (
             // 새 후기·이번 주·그 전으로 나누지 않고 한 목록으로 (정렬만 바꾼다)
             <ul className="board__list">

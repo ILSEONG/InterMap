@@ -276,7 +276,7 @@ export default function ProfileSheet({
                 <PersonList
                   title={listKind === 'following' ? '팔로잉' : '팔로워'}
                   people={lists[listKind]}
-                  empty={listKind === 'following' ? '아직 팔로우한 사람이 없어요.' : '아직 팔로워가 없어요.'}
+                  empty={listKind === 'following' ? '아직 팔로우한 이웃이 없어요.' : '아직 팔로워가 없어요.'}
                   renderAction={(p, label) =>
                     p.id === myUserId ? (
                       <span className="my-page__status">나</span>
