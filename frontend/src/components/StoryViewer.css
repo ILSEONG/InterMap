@@ -418,8 +418,31 @@
   flex: 1;
   height: 3px;
   border-radius: 2px;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.35);
   transition: background-color 200ms ease;
+}
+
+/* 지금 장 — 10초에 걸쳐 왼쪽부터 흰색으로 찬다 (다 차면 다음 장) */
+.story-viewer__fill {
+  display: block;
+  height: 100%;
+  background: #fff;
+  transform-origin: left center;
+  animation: story-fill 10s linear forwards;
+}
+
+.story-viewer__fill--paused {
+  animation-play-state: paused;
+}
+
+@keyframes story-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 .story-viewer__segment--on {

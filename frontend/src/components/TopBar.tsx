@@ -70,7 +70,8 @@ export default function TopBar(props: TopBarProps) {
   const filterMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (searching) inputRef.current?.focus()
+    // preventScroll — 초점을 줄 때 브라우저가 페이지를 몇 px 끌어올려 상단 바가 움찔하지 않게
+    if (searching) inputRef.current?.focus({ preventScroll: true })
   }, [searching])
 
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
@@ -113,31 +114,6 @@ export default function TopBar(props: TopBarProps) {
               placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '이웃 이름으로 찾기'}
               aria-label={searchMode === 'restaurant' ? '가게 이름으로 검색' : '이웃 이름으로 검색'}
             />
-            {query && (
-              <button
-                type="button"
-                className="topbar__icon-btn topbar__icon-btn--soft"
-                aria-label="검색어 지우기"
-                onClick={() => {
-                  props.onQueryChange('')
-                  inputRef.current?.focus()
-                }}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M9 9l6 6M15 9l-6 6" />
-                </svg>
-              </button>
-            )}
             <button type="button" className="topbar__icon-btn" aria-label="검색 닫기" onClick={props.onCloseSearch}>
               <svg
                 width="22"

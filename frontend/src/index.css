@@ -80,6 +80,13 @@ body,
   height: 100%;
 }
 
+/* 페이지 자체는 스크롤되지 않는다 — 입력칸에 초점이 가거나 키보드가 뜰 때 문서가 몇 px 밀려 상단 바가 움찔하지 않게.
+   스크롤은 시트·목록 안에서만 */
+html,
+body {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
