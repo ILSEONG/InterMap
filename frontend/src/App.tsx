@@ -821,6 +821,9 @@ export default function App() {
 
   // 지도에서 실제로 보이는 세로 범위 — 위는 헤더·스토리·사람 칩 아래, 아래는 가게 시트(열릴 때)나 하단 독·패널 위
   const visibleArea = useCallback((sheet: boolean) => {
+    // 아래에 아무 시트·패널도 없으면 그냥 화면 정가운데 (위 검색칸·칩은 지도 위에 떠 있을 뿐이라 빼지 않는다)
+    const dockEl = document.querySelector('.bottom-dock')
+    if (!sheet && !(dockEl && dockEl.getBoundingClientRect().height > 0)) return { top: 0, bottom: window.innerHeight }
     let top = 0
     document.querySelectorAll('.topbar__search, .topbar__chips, .story-strip').forEach((el) => {
       const r = el.getBoundingClientRect()
