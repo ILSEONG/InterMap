@@ -451,6 +451,7 @@ export default function App() {
     return list
   }, [reviews, session?.id])
   const [openStory, setOpenStory] = useState<Story | null>(null)
+  const storyIds = useMemo(() => new Set(stories.map((s) => s.id)), [stories])
 
 
   // 앱 시작 시 저장된 세션이 서버에서도 유효한지 확인. 만료·다른 기기 로그아웃이면 조용히 로그아웃 상태로.
@@ -854,6 +855,8 @@ export default function App() {
       const target = reviewedRestaurants.find((r) => restaurantKey(r) === key)
       if (!target) return
       setOpenStory(null)
+      // 현황판에서 연 스토리였으면 현황판도 닫아야 지도가 보인다
+      setBoardOpen(false)
       revealOnMap(target)
       focusFromSearch(target)
     },
@@ -1231,10 +1234,8 @@ export default function App() {
               places={personView.places}
               reviewCount={personView.reviewCount}
               tag={personView.tag}
-              onPick={(restaurant) => {
-                setSelectedId(restaurant.id)
-                focusFromSearch(restaurant, true)
-              }}
+              // 지도만 그 가게로 옮긴다 — 상세 시트는 띄우지 않는다 (핀을 누르면 그때 연다)
+              onPick={(restaurant) => focusFromSearch(restaurant)}
               onOpenProfile={() => openProfile(personView.person.id)}
               onClose={() => setPersonId(null)}
             />
@@ -1359,6 +1360,11 @@ export default function App() {
             if (latest) focusFromSearch(latest.restaurant)
           }}
           onOpenProfile={openProfile}
+          storyIds={storyIds}
+          onOpenStory={(id) => {
+            const s = stories.find((x) => x.id === id)
+            if (s) setOpenStory(s)
+          }}
           onFindPeople={() => {
             setBoardOpen(false)
             setPersonId(null)
@@ -1366,7 +1372,8 @@ export default function App() {
             setResultsOpen(true)
             setSearching(true)
           }}
-          hidden={profileUserId !== null}
+          // 위에 프로필·스토리가 열려 있으면 잠시 숨긴다 — 닫으면 현황판으로 돌아온다
+          hidden={profileUserId !== null || openStory !== null}
           onClose={() => setBoardOpen(false)}
         />
       )}

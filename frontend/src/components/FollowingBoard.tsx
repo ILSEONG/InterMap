@@ -16,6 +16,9 @@ interface FollowingBoardProps {
   reviews: Review[]
   onShowOnMap: (userId: number) => void
   onOpenProfile: (userId: number) => void
+  // 24시간 안에 후기를 올려 스토리가 있는 이웃 — 새 후기 빨간 테두리일 때 누르면 프로필 대신 스토리
+  storyIds?: Set<number>
+  onOpenStory?: (userId: number) => void
   onFindPeople: () => void
   // 위에 프로필이 열려 있으면 잠시 숨긴다 (정렬·검색 상태는 그대로)
   hidden?: boolean
@@ -40,7 +43,17 @@ interface Row {
 }
 
 // 헤더의 팔로잉 버튼 → 팔로잉 현황판. 누가 요즘 어디를 다녀왔는지 한눈에 보고, 그 사람 지도로 바로 간다
-export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenProfile, onFindPeople, hidden, onClose }: FollowingBoardProps) {
+export default function FollowingBoard({
+  people,
+  reviews,
+  onShowOnMap,
+  onOpenProfile,
+  storyIds,
+  onOpenStory,
+  onFindPeople,
+  hidden,
+  onClose,
+}: FollowingBoardProps) {
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
   const [seenAt] = useState(readBoardSeen)
@@ -160,7 +173,16 @@ export default function FollowingBoard({ people, reviews, onShowOnMap, onOpenPro
             <ul className="board__list">
               {shown.map((r) => (
                 <li key={r.person.id} className="board__row">
-                  <button type="button" className="board__open" onClick={() => onOpenProfile(r.person.id)}>
+                  <button
+                    type="button"
+                    className="board__open"
+                    onClick={() =>
+                      // 새 후기(빨간 테두리)가 있고 스토리로 볼 수 있으면 스토리로, 아니면 프로필
+                      r.newCount > 0 && onOpenStory && storyIds?.has(r.person.id)
+                        ? onOpenStory(r.person.id)
+                        : onOpenProfile(r.person.id)
+                    }
+                  >
                     <span className={`board__avatar-wrap${r.newCount > 0 ? ' board__avatar-wrap--new' : ''}`}>
                       <Avatar className={`board__avatar tone-${Math.abs(r.person.id) % 4}`} src={r.person.avatar} name={r.name} />
                     </span>
