@@ -16,7 +16,7 @@ export default function StoryStrip({ stories, onOpen, recap, onFindFriends }: St
   if (stories.length === 0 && !recap && !onFindFriends) return null
 
   return (
-    <nav className="story-strip glass" aria-label="24시간 내 올라온 이웃 후기">
+    <nav className="story-strip" aria-label="24시간 내 올라온 이웃 후기">
       <ul className="story-strip__list">
         {recap && (
           <li>

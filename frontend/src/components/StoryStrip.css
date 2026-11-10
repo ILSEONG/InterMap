@@ -1,8 +1,13 @@
 /* 헤더 아래 유리 카드 — 24시간 내 후기 스토리 */
 .story-strip {
-  border-radius: 30px;
-  padding: 10px 6px;
+  /* 흰 판 없이 동그라미만 지도 위에 — 위쪽이 답답하지 않게. 빈 곳은 지도 터치를 막지 않는다 */
+  padding: 2px 0;
   transform: translateZ(0);
+  pointer-events: none;
+}
+
+.story-strip__list > * {
+  pointer-events: auto;
 }
 
 .story-strip__list {
@@ -42,6 +47,9 @@
   padding: 2.5px;
   border: 2.5px solid var(--accent);
   border-radius: 50%;
+  /* 판이 없으니 동그라미가 지도에서 떠 보이게 — 흰 바탕 + 옅은 그림자 */
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(20, 20, 30, 0.2);
   transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -64,7 +72,13 @@
 .story-chip__name {
   max-width: 60px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
+  /* 지도 글씨처럼 흰 테두리를 둘러 어떤 바탕 위에서도 읽히게 */
+  text-shadow:
+    0 0 2px #fff,
+    0 0 2px #fff,
+    0 0 3px #fff,
+    0 0 4px #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
