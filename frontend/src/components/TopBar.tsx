@@ -5,7 +5,7 @@ import StarIcon from './StarIcon'
 import './TopBar.css'
 
 export type SearchMode = 'restaurant' | 'person'
-export type ReviewFilter = 'all' | 'with' | 'without'
+export type ReviewFilter = 'all' | 'with'
 
 interface TopBarProps {
   // 로그인 상태면 닉네임·사진, 아니면 null
@@ -51,7 +51,6 @@ interface TopBarProps {
 const FILTER_LABELS: Record<ReviewFilter, string> = {
   all: '모든 가게',
   with: '후기 있는 곳',
-  without: '후기 없는 곳',
 }
 
 const SEARCH_MODES: [SearchMode, string][] = [
