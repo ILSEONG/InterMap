@@ -53,7 +53,8 @@ class RecapTest {
     // 후기 작성 시각은 엔티티가 now로 찍으므로 DB에서 직접 옮긴다
     private Review review(AppUser author, String name, String category, String road, double rating, LocalDateTime kst) {
         Review r = reviews.saveAndFlush(new Review(author, name, category, road, rating, "맛있어요", null));
-        jdbc.update("update review set created_at = ? where id = ?", Timestamp.from(kst.atZone(ZoneId.of("Asia/Seoul")).toInstant()), r.getId());
+        // DB는 한국시간 벽시계로 저장한다 (KstTimestamps) — 한국시간 값을 그대로 넣는다
+        jdbc.update("update review set created_at = ? where id = ?", Timestamp.valueOf(kst), r.getId());
         return r;
     }
 
@@ -73,7 +74,7 @@ class RecapTest {
         comments.saveAndFlush(new ReviewComment(a, fan, null, "저도 갈래요"));
         comments.saveAndFlush(new ReviewComment(a, me, null, "내 댓글은 안 센다"));
         jdbc.update("update review_comment set created_at = ? where review_id = ?",
-                Timestamp.from(LocalDateTime.of(2026, 11, 2, 12, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant()), a.getId());
+                Timestamp.valueOf(LocalDateTime.of(2026, 11, 2, 12, 0)), a.getId());
         // JDBC로 옮긴 작성 시각이 보이도록 1차 캐시를 비운다 (안 비우면 now로 찍힌 엔티티가 그대로 나온다)
         em.flush();
         em.clear();

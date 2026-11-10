@@ -18,6 +18,23 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # 한국시간 저장(KstTimestampsPostgresTest)은 실제 PostgreSQL에서 확인한다
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: intermap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PG_TEST_URL: jdbc:postgresql://localhost:5432/intermap?user=test&password=test
     defaults:
       run:
         working-directory: backend
