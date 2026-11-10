@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -17,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // 실제 PostgreSQL에서만 의미가 있다 — CI(backend-test.yml)가 PG_TEST_URL로 띄운 DB에 붙는다. 로컬(H2)에선 건너뛴다.
 @EnabledIfEnvironmentVariable(named = "PG_TEST_URL", matches = ".+")
@@ -54,8 +56,9 @@ class KstTimestampsPostgresTest {
                 String.class, saved.getId());
         assertEquals(LocalDateTime.ofInstant(agreed, ZoneId.of("Asia/Seoul")).format(MINUTE), raw);
 
+        // DB는 마이크로초까지 반올림해 저장한다 — 1µs 안이면 같은 순간
         Instant back = users.findById(saved.getId()).orElseThrow().getTermsAgreedAt();
-        assertEquals(agreed, back.truncatedTo(ChronoUnit.MICROS));
+        assertTrue(Duration.between(agreed, back).abs().toNanos() <= 1_000, agreed + " vs " + back);
         users.deleteById(saved.getId());
     }
 
