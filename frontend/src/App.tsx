@@ -224,7 +224,7 @@ export default function App() {
     none: '#A7A7AE',
   })
   // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만. 실제 적용값은 아래 reviewFilter (로그아웃이면 '전체')
-  const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with' | 'without'>('with')
+  const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with'>('with')
   // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
   const [searchMode, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
@@ -644,7 +644,7 @@ export default function App() {
           // 친구 한 명을 골랐으면 그 사람 후기가 있는 가게만 (후기 필터는 무의미하니 건너뛴다)
           (pid === null
             ? // 검색 시작 시 필터가 '전체'로 리셋되므로(Header onQueryChange), 검색 중에도 필터를 그대로 적용한다
-              reviewFilter === 'all' || (reviewFilter === 'with') === r.reviews.length > 0
+              reviewFilter === 'all' || r.reviews.length > 0
             : r.reviews.some((rev) => rev.author.id === pid)) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
@@ -655,25 +655,11 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
-  // 누적된 서버 요약 셀을 배열로. 서버 건수엔 후기 있는 가게도 들어 있다 —
-  // '후기 없음'이면 내가 보는 후기(팔로우 기준)가 있는 가게를 같은 격자 칸에서 빼고, 0이 된 칸은 숨긴다.
-  const cellList = useMemo(() => {
-    if (!cellStore) return []
-    if (reviewFilter !== 'without') return [...cellStore.byKey.values()]
-    const reviewedPerCell = new Map<string, number>()
-    for (const r of reviewedRestaurants) {
-      if (r.reviews.length === 0) continue
-      const key = cellKey(r.lat, r.lng, cellStore.cellDeg)
-      reviewedPerCell.set(key, (reviewedPerCell.get(key) ?? 0) + 1)
-    }
-    return [...cellStore.byKey].flatMap(([key, cell]) => {
-      const count = cell.count - (reviewedPerCell.get(key) ?? 0)
-      return count > 0 ? [{ ...cell, count }] : []
-    })
-  }, [cellStore, reviewFilter, reviewedRestaurants])
+  // 누적된 서버 요약 셀을 배열로
+  const cellList = useMemo(() => (cellStore ? [...cellStore.byKey.values()] : []), [cellStore])
 
   // 찜 모드: 후기·검색 필터와 무관하게 찜한 가게 전부
-  // 후기 없는 가게가 보일 수 있는 상태: '전체'·'후기 없음' 필터, 찜 모드(후기 없는 찜 가게도 있다)
+  // 후기 없는 가게가 보일 수 있는 상태: '전체' 필터, 찜 모드(후기 없는 찜 가게도 있다)
   const needViewport = reviewFilter !== 'with' || favMode
   useEffect(() => {
     viewportNeeded.current = needViewport
@@ -844,10 +830,9 @@ export default function App() {
   }, [])
 
   // 지도에서 보여 줄 가게가 지금 필터에 걸려 숨으면 걸리는 필터만 푼다
-  // ("후기 없는 곳만", 찜 모드, 친구 한 명 고르기, 검색어)
+  // ("후기 있는 곳만", 찜 모드, 친구 한 명 고르기, 검색어)
   const revealOnMap = useCallback(
     (target: Restaurant) => {
-      if (reviewFilterChoice === 'without' && target.reviews.length > 0) setReviewFilter('all')
       if (reviewFilterChoice === 'with' && target.reviews.length === 0) setReviewFilter('all')
       if (favMode && !favorites.has(restaurantKey(target))) setFavMode(false)
       if (personId !== null && !target.reviews.some((rv) => rv.author.id === personId)) setPersonId(null)
