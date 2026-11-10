@@ -175,7 +175,12 @@ export default function MyPage({
   // 회원 탈퇴 확인 단계
   const [leaving, setLeaving] = useState(false)
   // 내 정보 / 사람 찾기(검색·팔로잉·팔로워) / 차단한 사용자
-  const [view, setView] = useState<'main' | 'people' | 'blocked'>('main')
+  const [view, setViewState] = useState<'main' | 'people' | 'blocked'>('main')
+  // 이웃 찾기에서 나가면 검색어를 비운다 — 다시 들어왔을 때 지난 검색이 남아 있지 않게
+  const setView = (next: 'main' | 'people' | 'blocked') => {
+    if (next !== 'people') setQuery('')
+    setViewState(next)
+  }
   // 닉네임·사진 고치기 칸을 펼쳤는지
   const [editOpen, setEditOpen] = useState(false)
   // 아래 탭 — 나의 후기 / 이 달의 결산 / 어디 갈래?
@@ -238,6 +243,25 @@ export default function MyPage({
   if (!open) return null
 
   const followingIds = new Set((social?.following ?? []).map((p) => p.id))
+
+  // 찾기 결과 — 서버는 원래 닉네임으로만 찾으니, 내가 붙인 이름으로도 걸리게 팔로잉·팔로워에서 같이 찾아 합친다
+  const keyword = query.trim().toLowerCase()
+  const matches: { id: number; nickname: string; alias: string | null; avatar: string | null }[] = []
+  if (keyword.length >= MIN_SEARCH_LENGTH) {
+    const seen = new Set<number>()
+    for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) {
+      if (seen.has(p.id)) continue
+      if (p.nickname.toLowerCase().includes(keyword) || p.alias?.toLowerCase().includes(keyword)) {
+        seen.add(p.id)
+        matches.push({ id: p.id, nickname: p.nickname, alias: p.alias, avatar: p.avatar })
+      }
+    }
+    for (const u of found) {
+      if (seen.has(u.id)) continue
+      seen.add(u.id)
+      matches.push({ id: u.id, nickname: u.nickname, alias: null, avatar: null })
+    }
+  }
 
   // 내 후기는 별점 높은 순으로, 같은 별점끼리는 받은 순서(최신순) 유지
   const sortedReviews = [...myReviews].sort((a, b) => b.rating - a.rating)
@@ -347,8 +371,9 @@ export default function MyPage({
               </svg>
             </button>
           )}
-          <h2 className={`my-page__title${view === 'main' ? ' my-page__sr' : ''}`}>
-            {view === 'people' ? '사람 찾기' : view === 'blocked' ? '차단한 사용자' : '내 정보'}
+          {/* 이웃 찾기는 제목 없이 (검색칸이 곧 제목) */}
+          <h2 className={`my-page__title${view !== 'blocked' ? ' my-page__sr' : ''}`}>
+            {view === 'people' ? '이웃 찾기' : view === 'blocked' ? '차단한 사용자' : '내 정보'}
           </h2>
           <button type="button" className="my-page__close" onClick={onClose} aria-label="닫기">
             <CloseIcon />
@@ -375,25 +400,28 @@ export default function MyPage({
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="닉네임으로 찾기"
-                  aria-label="사용자 검색"
+                  placeholder="닉네임이나 내가 붙인 이름으로 찾기"
+                  aria-label="이웃 검색"
                   enterKeyHint="search"
                   autoComplete="off"
                 />
               </div>
-              {found.length > 0 && (
+              {matches.length > 0 && (
                 <ul className="my-page__card my-page__people my-page__found">
-                  {found.map((u) => (
+                  {matches.map((u) => (
                     <li key={u.id} className="my-page__person">
                       <button
                         type="button"
                         className="my-page__person-open"
                         onClick={() => openProfile?.(u.id)}
                         disabled={!openProfile}
-                        aria-label={`${u.nickname}님 프로필`}
+                        aria-label={`${u.alias ?? u.nickname}님 프로필`}
                       >
-                        <Avatar className={`my-page__avatar ${toneOf(u.id)}`} name={u.nickname} />
-                        <span className="my-page__name">{u.nickname}</span>
+                        <Avatar className={`my-page__avatar ${toneOf(u.id)}`} src={u.avatar} name={u.alias ?? u.nickname} />
+                        <span className="my-page__who">
+                          <span className="my-page__name">{u.alias ?? u.nickname}</span>
+                          {u.alias && <span className="my-page__nick">@{u.nickname}</span>}
+                        </span>
                       </button>
                       {followingIds.has(u.id) ? (
                         <span className="my-page__status">팔로잉</span>
@@ -412,8 +440,8 @@ export default function MyPage({
                   ))}
                 </ul>
               )}
-              {query.trim().length >= MIN_SEARCH_LENGTH && found.length === 0 && (
-                <p className="my-page__hint my-page__hint--field">찾는 사람이 없어요.</p>
+              {query.trim().length >= MIN_SEARCH_LENGTH && matches.length === 0 && (
+                <p className="my-page__hint my-page__hint--field">찾는 이웃이 없어요.</p>
               )}
             </section>
 
@@ -421,7 +449,7 @@ export default function MyPage({
               <PersonList
                 title="팔로잉"
                 people={social?.following ?? []}
-                empty="아직 팔로우한 사람이 없어요. 위에서 닉네임으로 찾아보세요."
+                empty="아직 팔로우한 이웃이 없어요. 위에서 닉네임으로 찾아보세요."
                 renderAction={(p, label) => (
                   <MoreMenu label={label} disabled={busy} onUnfollow={() => run(unfollowUser(p.id), `${label}님을 언팔로우했어요`)} />
                 )}
@@ -429,7 +457,7 @@ export default function MyPage({
               <PersonList
                 title="팔로워"
                 people={social?.followers ?? []}
-                empty="아직 나를 팔로우한 사람이 없어요."
+                empty="아직 나를 팔로우한 이웃이 없어요."
                 // 이미 맞팔이면 상태만 보여준다 — 언팔로우는 왼쪽 팔로잉 목록에서
                 renderAction={(p, label) =>
                   p.following ? (
@@ -459,7 +487,7 @@ export default function MyPage({
                   불러오는 중…
                 </p>
               ) : blocked.length === 0 ? (
-                <p className="my-page__empty">차단한 사람이 없어요. 프로필이나 신고 화면에서 차단할 수 있어요.</p>
+                <p className="my-page__empty">차단한 이웃이 없어요. 프로필이나 신고 화면에서 차단할 수 있어요.</p>
               ) : (
                 <ul className="my-page__card my-page__people">
                   {blocked.map((p) => (
@@ -665,7 +693,7 @@ export default function MyPage({
               <div className="my-page__band" />
 
               <button type="button" className="my-page__row" onClick={() => setView('people')}>
-                <span className="my-page__row-title">사람 찾기</span>
+                <span className="my-page__row-title">이웃 찾기</span>
                 <Chevron />
               </button>
               <button

@@ -54,7 +54,7 @@ const FILTER_LABELS: Record<ReviewFilter, string> = {
 
 const SEARCH_MODES: [SearchMode, string][] = [
   ['restaurant', '가게'],
-  ['person', '사람'],
+  ['person', '이웃'],
 ]
 
 // 상단 — 검색칸(오른쪽 끝에 내 계정) 한 줄과, 그 아래 팔로잉 현황 · 찜한 곳 · 후기 필터 칩 한 줄.
@@ -109,8 +109,8 @@ export default function TopBar(props: TopBarProps) {
                 }
               }}
               enterKeyHint="search"
-              placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '사람 이름으로 찾기'}
-              aria-label={searchMode === 'restaurant' ? '가게 이름으로 검색' : '사람 이름으로 검색'}
+              placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '이웃 이름으로 찾기'}
+              aria-label={searchMode === 'restaurant' ? '가게 이름으로 검색' : '이웃 이름으로 검색'}
             />
             {query && (
               <button
