@@ -1,25 +1,30 @@
-import type { Restaurant, FriendGroup, ReviewAuthor } from '../data/model'
-import type { TopPick } from '../lib/topPicks'
-import type { UserItem } from '../lib/api'
+import type { Restaurant, FriendGroup } from '../data/model'
 import { useOpenProfile } from '../lib/openProfile'
 import Avatar from './Avatar'
 import Highlight from './Highlight'
 import PlaceRow from './PlaceRow'
-import TopPicksCard from './TopPicksCard'
 import './SearchResults.css'
 
 // 목록에 그리는 최대 행 수
 const MAX_ROWS = 50
 
+// 이웃 검색 결과 한 줄 — 이미 아는 이웃(팔로잉·팔로워)은 내가 붙인 이름과 사진까지
+export interface NeighborHit {
+  id: number
+  // 보이는 이름 (내가 붙인 이름 우선)
+  name: string
+  // 원래 닉네임 — 이름과 다를 때만 @닉네임으로 덧붙인다
+  nickname: string
+  avatar: string | null
+  following: boolean
+}
+
 interface SearchResultsProps {
+  mode: 'restaurant' | 'person'
   results: Restaurant[]
-  // 사람 검색일 때 이름이 걸린 사람별 별점 TOP 5 요약
-  topPicks: { author: Pick<ReviewAuthor, 'id' | 'name'>; picks: TopPick[] }[]
-  // 사람 검색일 때 아직 팔로우하지 않아 후기가 안 보이는 인터맵 사용자들
-  people?: UserItem[]
+  // 이웃 검색 결과 (mode === 'person')
+  neighbors?: NeighborHit[]
   onFollow?: (userId: number) => void
-  // 이미 팔로우한 사람 — 버튼을 '팔로잉'으로
-  followingIds?: Set<number>
   groups: FriendGroup[]
   tooShort: boolean
   minLength: number
@@ -28,35 +33,76 @@ interface SearchResultsProps {
   onPick: (restaurant: Restaurant) => void
 }
 
-// 하단 검색 독 바로 위에 뜨는 결과 패널
+// 상단 검색칸 아래 뜨는 결과 패널. 가게 검색이면 가게만, 이웃 검색이면 이웃만.
 export default function SearchResults({
+  mode,
   results,
-  topPicks,
-  people = [],
+  neighbors = [],
   onFollow,
-  followingIds,
   groups,
   tooShort,
   minLength,
   highlight,
   onPick,
 }: SearchResultsProps) {
-  // 사람을 누르면 프로필 개요 (App이 컨텍스트로 내려준다)
+  // 이웃을 누르면 프로필 개요 (App이 컨텍스트로 내려준다)
   const openProfile = useOpenProfile()
 
   if (tooShort) {
     return (
       <section className="search-results glass glass--strong" aria-label="검색 결과">
-        <p className="search-results__empty">{minLength}글자 이상 입력하면 가게를 찾아드려요.</p>
+        <p className="search-results__empty">
+          {minLength}글자 이상 입력하면 {mode === 'person' ? '이웃을' : '가게를'} 찾아드려요.
+        </p>
+      </section>
+    )
+  }
+
+  if (mode === 'person') {
+    return (
+      <section className="search-results glass glass--strong" aria-label="이웃 검색 결과">
+        <h2 className="search-results__heading">이웃 {neighbors.length}</h2>
+        {neighbors.length === 0 ? (
+          <p className="search-results__empty">찾는 이웃이 없어요. 닉네임을 다시 확인해 보세요.</p>
+        ) : (
+          <ul className="search-results__list">
+            {neighbors.map((u) => (
+              <li key={u.id} className="search-results__person">
+                <button
+                  type="button"
+                  className="search-results__person-open"
+                  onClick={() => openProfile?.(u.id)}
+                  disabled={!openProfile}
+                >
+                  <Avatar className={`search-results__person-avatar tone-${Math.abs(u.id) % 4}`} src={u.avatar} name={u.name} />
+                  <span className="search-results__person-text">
+                    <span className="search-results__person-name">
+                      <Highlight text={u.name} query={highlight} />
+                    </span>
+                    {u.name !== u.nickname && (
+                      <span className="search-results__person-sub">
+                        @<Highlight text={u.nickname} query={highlight} />
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {u.following ? (
+                  <span className="search-results__follow search-results__follow--on">팔로잉</span>
+                ) : (
+                  <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
+                    팔로우
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     )
   }
 
   return (
-    <section className="search-results glass glass--strong" aria-label="검색 결과">
-      {topPicks.map(({ author, picks }) => (
-        <TopPicksCard key={author.id} name={author.name} picks={picks} userId={author.id} onPick={onPick} />
-      ))}
+    <section className="search-results glass glass--strong" aria-label="가게 검색 결과">
       <h2 className="search-results__heading">가게 {results.length}</h2>
       {results.length === 0 ? (
         <p className="search-results__empty">찾는 가게가 없어요. 다른 키워드로 찾아보세요.</p>
@@ -72,35 +118,6 @@ export default function SearchResults({
       )}
       {results.length > MAX_ROWS && (
         <p className="search-results__empty">{results.length - MAX_ROWS}곳 더 있어요. 키워드를 더 입력하면 좁혀져요.</p>
-      )}
-      {people.length > 0 && (
-        <>
-          <h2 className="search-results__heading search-results__heading--gap">인터맵 사용자</h2>
-          <ul className="search-results__list">
-            {people.map((u) => (
-              <li key={u.id} className="search-results__person">
-                <button
-                  type="button"
-                  className="search-results__person-open"
-                  onClick={() => openProfile?.(u.id)}
-                  disabled={!openProfile}
-                >
-                  <Avatar className={`search-results__person-avatar tone-${Math.abs(u.id) % 4}`} src={null} name={u.nickname} />
-                  <span className="search-results__person-name">
-                    <Highlight text={u.nickname} query={highlight} />
-                  </span>
-                </button>
-                {followingIds?.has(u.id) ? (
-                  <span className="search-results__follow search-results__follow--on">팔로잉</span>
-                ) : (
-                  <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
-                    팔로우
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
       )}
     </section>
   )
