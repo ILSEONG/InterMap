@@ -28,11 +28,6 @@
   background: #fff;
   /* 지도 canvas와 같은 표면에 래스터되면 Android WebView에서 pan마다 같이 깜빡인다 — 자체 GPU 레이어 */
   transform: translateZ(0);
-  transition: box-shadow 140ms ease;
-}
-
-.topbar__search:has(.topbar__input:focus) {
-  box-shadow: 0 4px 16px rgba(20, 20, 30, 0.1), inset 0 0 0 2px var(--ink);
 }
 
 .topbar__glyph {
@@ -66,7 +61,8 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: 17px;
+  /* 평소 문구(.topbar__open)와 같은 크기·자리 — 눌러서 입력칸으로 바뀔 때 글자가 튀지 않게 */
+  font-size: 16px;
   font-weight: 500;
   color: var(--ink);
 }

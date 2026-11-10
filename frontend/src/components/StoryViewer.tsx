@@ -27,11 +27,15 @@ interface StoryViewerProps {
   favorites: Set<string>
   onToggleFavorite: (place: { name: string; address: string }) => void
   onClose: () => void
+  // 위에 다른 시트(프로필·신고)가 떠 있으면 자동 넘김을 멈춘다
+  paused?: boolean
 }
 
 // 스토리를 누르면 그 사람의 24시간 내 후기를 한 장씩, 좌우로 넘겨 본다 (인스타그램 스토리 모양).
 // 사진이 화면 전체를 덮고, 그 위에 진행 막대·작성자·닫기, 아래에 가게·후기 유리 카드가 뜬다.
 // 넘기기는 CSS scroll-snap — 터치·휠·키보드 전부 브라우저가 처리한다.
+// 한 장은 10초 — 진행 막대가 차면 다음 장(다음 이웃 포함)으로, 마지막 장이면 닫는다.
+// 누르고 있거나 댓글을 쓰는 동안은 멈춘다.
 // 모든 스토리의 후기를 한 트랙에 펼쳐 두고 누른 사람의 첫 후기로 이동한다 — 사람 경계를 넘는 제스처 코드가 필요 없다.
 // 진행 막대·작성자 줄은 트랙 밖에 고정해 두고, 지금 보이는 슬라이드(스크롤 위치)를 따라 바뀐다.
 export default function StoryViewer({
@@ -46,6 +50,7 @@ export default function StoryViewer({
   favorites,
   onToggleFavorite,
   onClose,
+  paused: pausedOutside = false,
 }: StoryViewerProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const openProfile = useOpenProfile()
@@ -58,6 +63,23 @@ export default function StoryViewer({
   if (story !== shownStory) {
     setShownStory(story)
     setActive(Math.max(start, 0))
+  }
+
+  // 자동 넘김 멈춤 — 손가락으로 누르고 있는 동안, 댓글 칸에 쓰는 동안
+  const [holding, setHolding] = useState(false)
+  const [typing, setTyping] = useState(false)
+  const paused = holding || typing || pausedOutside
+
+  // 다음 장으로 (사람 경계도 그냥 넘어간다). 마지막 장이면 닫는다
+  const advance = () => {
+    const next = active + 1
+    const el = trackRef.current?.children[next] as HTMLElement | undefined
+    if (!el) {
+      onClose()
+      return
+    }
+    el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    setActive(next)
   }
 
   useEffect(() => {
@@ -92,7 +114,23 @@ export default function StoryViewer({
 
   return (
     <div className="story-viewer" onClick={onClose} role="dialog" aria-label={`${ownerName}의 후기`}>
-      <div className="story-viewer__stage" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="story-viewer__stage"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          // 버튼·입력칸을 누른 건 멈춤이 아니다
+          if (!(e.target as HTMLElement).closest('button, input, textarea, a')) setHolding(true)
+        }}
+        onPointerUp={() => setHolding(false)}
+        onPointerCancel={() => setHolding(false)}
+        onPointerLeave={() => setHolding(false)}
+        onFocus={(e) => {
+          if ((e.target as HTMLElement).matches('input, textarea')) setTyping(true)
+        }}
+        onBlur={(e) => {
+          if ((e.target as HTMLElement).matches('input, textarea')) setTyping(false)
+        }}
+      >
         <div
           ref={trackRef}
           className="story-viewer__track"
@@ -242,7 +280,16 @@ export default function StoryViewer({
               aria-valuenow={position + 1}
             >
               {ownerSlides.map((s, i) => (
-                <span key={s.review.id} className={`story-viewer__segment${i <= position ? ' story-viewer__segment--on' : ''}`} />
+                <span key={s.review.id} className={`story-viewer__segment${i < position ? ' story-viewer__segment--on' : ''}`}>
+                  {/* 지금 장 — 10초 동안 차오르고, 다 차면 다음 장으로. 장이 바뀌면 key가 바뀌어 처음부터 */}
+                  {i === position && (
+                    <span
+                      key={current.review.id}
+                      className={`story-viewer__fill${paused ? ' story-viewer__fill--paused' : ''}`}
+                      onAnimationEnd={advance}
+                    />
+                  )}
+                </span>
               ))}
             </div>
           )}

@@ -562,8 +562,14 @@ export default function App() {
     const scrollToInput = (e: FocusEvent) => {
       const el = e.target as HTMLElement | null
       if (!el?.matches?.('input, textarea')) return
-      // 위에 붙은 검색칸은 키보드에 가리지 않는다 — 끌어오면 화면이 쓸데없이 밀린다
-      if (el.closest('.topbar')) return
+      // 위에 붙은 검색칸은 키보드에 가리지 않는다 — 끌어오면 화면이 쓸데없이 밀린다.
+      // 키보드가 뜨며 웹뷰가 문서를 밀어 올렸으면(adjustPan) 제자리로
+      if (el.closest('.topbar')) {
+        window.setTimeout(() => {
+          if (window.scrollY !== 0) window.scrollTo(0, 0)
+        }, 0)
+        return
+      }
       window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
     }
     applyKeyboard()
@@ -1299,6 +1305,8 @@ export default function App() {
         favorites={favorites}
         onToggleFavorite={toggleFav}
         onClose={() => setOpenStory(null)}
+        // 스토리 위로 프로필·신고 시트가 떠 있는 동안은 자동 넘김을 멈춘다
+        paused={profileStack.length > 0 || reportTarget !== null}
       />
 
       {session && profileUserId !== null && (
