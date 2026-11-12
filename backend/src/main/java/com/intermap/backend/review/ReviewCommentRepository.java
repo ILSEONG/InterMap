@@ -30,6 +30,17 @@ public interface ReviewCommentRepository extends JpaRepository<ReviewComment, Lo
     @Query("select c.id from ReviewComment c where c.parentId = :parentId")
     List<Long> idsByParentId(Long parentId);
 
+    // 알림 — 남이 내 후기에 단 댓글 (작성자·후기까지 한 번에: 가게 이름을 문구에 쓴다)
+    @EntityGraph(attributePaths = {"author", "review"})
+    @Query("select c from ReviewComment c where c.review.author = :owner and c.author <> :owner and c.createdAt >= :from")
+    List<ReviewComment> findOnReviewsOfSince(AppUser owner, Instant from);
+
+    // 알림 — 남이 내 댓글에 단 답글
+    @EntityGraph(attributePaths = {"author", "review"})
+    @Query("select c from ReviewComment c where c.author <> :owner and c.createdAt >= :from"
+            + " and c.parentId in (select m.id from ReviewComment m where m.author = :owner)")
+    List<ReviewComment> findRepliesToSince(AppUser owner, Instant from);
+
     // 월간 결산 — 그 기간에 남이 내 후기에 단 댓글 (작성자까지 한 번에)
     @EntityGraph(attributePaths = "author")
     @Query("select c from ReviewComment c where c.review.author = :owner and c.author <> :owner and c.createdAt >= :from and c.createdAt < :to")

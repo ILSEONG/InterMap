@@ -1081,6 +1081,57 @@
   color: var(--ink-soft);
 }
 
+/* 설정 줄 — 누르는 줄이 아니라 오른쪽에 고르는 칸이 붙는다 */
+.my-page__row--setting {
+  cursor: default;
+  padding: 8px 0;
+}
+
+.my-page__row--setting:active {
+  opacity: 1;
+}
+
+.my-page__row--setting .my-page__row-title {
+  flex: none;
+}
+
+.my-page__row--setting .my-page__row-sub {
+  word-break: keep-all;
+}
+
+/* 둘 중 하나 고르기 (자동 | 수동) */
+.my-page__seg {
+  flex: none;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(118, 118, 128, 0.12);
+}
+
+.my-page__seg-btn {
+  min-width: 52px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.my-page__seg-btn--on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(20, 20, 30, 0.12);
+}
+
+.my-page__seg-btn:disabled {
+  cursor: default;
+}
+
 .my-page__row-chevron {
   flex: none;
   color: var(--ink-soft);

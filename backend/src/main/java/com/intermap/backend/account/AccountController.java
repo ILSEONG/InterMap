@@ -16,6 +16,7 @@ import com.intermap.backend.review.ReviewComment;
 import com.intermap.backend.review.ReviewCommentRepository;
 import com.intermap.backend.review.ReviewRepository;
 import com.intermap.backend.social.FollowRepository;
+import com.intermap.backend.social.FollowRequestRepository;
 import com.intermap.backend.social.UserAliasRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,7 @@ public class AccountController {
     private final ReviewCommentRepository comments;
     private final ReviewCleanup cleanup;
     private final FollowRepository follows;
+    private final FollowRequestRepository followRequests;
     private final UserAliasRepository aliases;
     private final FavoriteRepository favorites;
     private final UserAvatarRepository avatars;
@@ -57,8 +59,10 @@ public class AccountController {
     public AccountController(AppUserRepository users, AuthController auth, ReviewRepository reviews,
                              ReviewCommentRepository comments, ReviewCleanup cleanup, FollowRepository follows,
                              UserAliasRepository aliases, FavoriteRepository favorites, UserAvatarRepository avatars,
-                             UserBlockRepository blocks, ReportRepository reports, PollStore pollStore) {
+                             UserBlockRepository blocks, ReportRepository reports, PollStore pollStore,
+                             FollowRequestRepository followRequests) {
         this.users = users;
+        this.followRequests = followRequests;
         this.auth = auth;
         this.reviews = reviews;
         this.comments = comments;
@@ -102,6 +106,7 @@ public class AccountController {
             }
         }
         follows.deleteAllInvolving(me);
+        followRequests.deleteAllInvolving(me);
         aliases.deleteAllInvolving(me);
         favorites.deleteAllByUser(me);
         // 내가 만든 투표(후보·선택 포함)와 남의 투표에 남긴 내 선택

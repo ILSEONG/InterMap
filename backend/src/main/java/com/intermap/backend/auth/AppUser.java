@@ -52,6 +52,13 @@ public class AppUser {
     private Instant termsAgreedAt;
     private Instant marketingAgreedAt;
 
+    // 팔로우 승인 방식. true면 팔로우가 "요청"으로 들어와 내가 수락해야 맺어진다 (social.FollowRequest).
+    // 예전 가입자는 null — 자동 승인으로 본다.
+    private Boolean manualFollowApproval;
+
+    // 알림 목록을 마지막으로 연 때 — 그 뒤 것만 "새 알림"으로 센다 (social.NotificationController)
+    private Instant notificationsSeenAt;
+
     protected AppUser() {
     }
 
@@ -86,6 +93,18 @@ public class AppUser {
     public Instant getTokenIssuedAt() { return tokenIssuedAt; }
     public Instant getTermsAgreedAt() { return termsAgreedAt; }
     public Instant getMarketingAgreedAt() { return marketingAgreedAt; }
+
+    public boolean isManualFollowApproval() { return Boolean.TRUE.equals(manualFollowApproval); }
+
+    public Instant getNotificationsSeenAt() { return notificationsSeenAt; }
+
+    public void markNotificationsSeen() {
+        this.notificationsSeenAt = Instant.now();
+    }
+
+    public void setManualFollowApproval(boolean manual) {
+        this.manualFollowApproval = manual;
+    }
 
     public void rename(String nickname) {
         this.nickname = nickname;

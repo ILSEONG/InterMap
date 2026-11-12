@@ -17,6 +17,8 @@ export interface NeighborHit {
   nickname: string
   avatar: string | null
   following: boolean
+  // 팔로우 요청을 보내고 수락을 기다리는 중
+  requested?: boolean
 }
 
 interface SearchResultsProps {
@@ -88,6 +90,9 @@ export default function SearchResults({
                 </button>
                 {u.following ? (
                   <span className="search-results__follow search-results__follow--on">팔로잉</span>
+                ) : u.requested ? (
+                  // 상대가 팔로우를 직접 수락하는 사람 — 수락을 기다리는 중
+                  <span className="search-results__follow search-results__follow--on">요청됨</span>
                 ) : (
                   <button type="button" className="search-results__follow" onClick={() => onFollow?.(u.id)}>
                     팔로우

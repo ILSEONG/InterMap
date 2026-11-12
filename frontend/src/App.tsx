@@ -8,6 +8,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import TopBar from './components/TopBar'
 import SearchResults, { type NeighborHit } from './components/SearchResults'
 import FollowingBoard from './components/FollowingBoard'
+import NoticeSheet from './components/NoticeSheet'
 import PersonPanel from './components/PersonPanel'
 import type { PersonPlace } from './components/PersonPanel'
 import StoryStrip from './components/StoryStrip'
@@ -47,6 +48,10 @@ import {
   fetchSocial,
   searchUsers,
   followUser,
+  acceptFollowRequest,
+  rejectFollowRequest,
+  fetchNotices,
+  markNoticesSeen,
   postReview,
   updateReview,
   deleteReview,
@@ -61,7 +66,7 @@ import {
 } from './lib/api'
 import { tasteTag } from './lib/taste'
 import { shrinkImage } from './lib/image'
-import type { AuthSession, BBox, ClusterCell, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
+import type { AuthSession, BBox, ClusterCell, NoticeData, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
 import { kstMonth, monthLabel, prevMonth } from './lib/time'
 import { pollTokenFromUrl, tryOpenPollInApp } from './lib/deepLink'
 import './App.css'
@@ -328,7 +333,7 @@ export default function App() {
     }
   })
   // 차단·운영자 삭제처럼 서버 쪽 목록이 바뀌었을 때 — 후기·댓글·팔로우를 다시 받는다 (받은 게 있으면 그대로 두고 뒤에서)
-  const refreshContent = useCallback(() => refresh('reviews', 'comments', 'social'), [])
+  const refreshContent = useCallback(() => refresh('reviews', 'comments', 'social', 'notices'), [])
 
   // 서버가 내게 보여주는 후기 (최신순). 이웃 후기·주인장 후기·스토리가 전부 여기서 나온다.
   // 서버가 거른다 — 로그아웃이면 주인장 후기만, 로그인하면 나·팔로우한 사람·주인장 후기.
@@ -365,6 +370,22 @@ export default function App() {
   }, [sessionToken])
   // 헤더 팔로잉 버튼으로 여는 팔로잉 현황판
   const [boardOpen, setBoardOpen] = useState(false)
+  // 알림 — 지도 오른쪽 아래 종 버튼. 댓글·답글·팔로우 요청·새 팔로워 (서버가 기록에서 그때그때 모아 준다)
+  const [noticeData, setNotices] = useServerState<NoticeData>(['notices'], fetchNotices, { enabled: sessionToken !== null })
+  const notices = sessionToken ? (noticeData ?? null) : null
+  const [noticesOpen, setNoticesOpen] = useState(false)
+  const [noticeBusy, setNoticeBusy] = useState(false)
+  // 앱을 켜 둔 동안 1분마다 새 알림·팔로우 요청을 확인한다 (화면이 꺼져 있으면 건너뛴다)
+  useEffect(() => {
+    if (sessionToken === null) return
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh('notices', 'social')
+    }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [sessionToken])
+  useEffect(() => {
+    if (sessionToken === null) setNoticesOpen(false)
+  }, [sessionToken])
   // 헤더 친구 목록에서 고른 사람. 그 사람이 후기 쓴 가게만 지도·목록에 남긴다.
   const [personId, setPersonId] = useState<number | null>(null)
   const followingPeople = useMemo(
@@ -602,6 +623,7 @@ export default function App() {
     // 스토리는 팔로잉 현황 위에서도 열린다 — 위에 있는 스토리부터
     if (openStory) return setOpenStory(null), true
     if (boardOpen) return setBoardOpen(false), true
+    if (noticesOpen) return setNoticesOpen(false), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
     if (selectedId) return setSelectedId(null), true
@@ -834,6 +856,39 @@ export default function App() {
     [applySocial],
   )
   const followingIds = useMemo(() => new Set(social?.following.map((p) => p.id) ?? []), [social])
+  // 내가 보내고 수락을 기다리는 팔로우 요청 (상대가 수동 승인일 때)
+  const requestedIds = useMemo(() => new Set(social?.requested?.map((p) => p.id) ?? []), [social])
+
+  // 알림을 열면 지금까지의 알림은 읽은 것으로 — 종 버튼의 숫자가 사라진다
+  const openNotices = useCallback(() => {
+    setNoticesOpen(true)
+    markNoticesSeen()
+      .then(setNotices)
+      .catch(() => {})
+  }, [setNotices])
+  // 팔로우 요청 수락·거절 — 팔로워 목록과 알림을 함께 맞춘다
+  const answerRequest = useCallback(
+    async (userId: number, accept: boolean) => {
+      setNoticeBusy(true)
+      try {
+        applySocial(await (accept ? acceptFollowRequest(userId) : rejectFollowRequest(userId)))
+        refresh('notices')
+      } catch (e) {
+        alert((e as Error).message)
+      } finally {
+        setNoticeBusy(false)
+      }
+    },
+    [applySocial],
+  )
+  // 알림 속 이름 — 내가 붙인 이름이 있으면 그 이름으로
+  const noticeNameOf = useCallback(
+    (id: number, nickname: string) => {
+      for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) if (p.id === id && p.alias) return p.alias
+      return nickname
+    },
+    [social],
+  )
 
   // 이웃 검색 결과 — 아는 이웃(팔로잉·팔로워)은 내가 붙인 이름이나 원래 닉네임으로, 그 밖의 인터맵 사용자는 서버 검색으로.
   // 아는 이웃을 먼저(팔로잉 → 팔로워), 그다음 서버 결과. 같은 사람은 한 번만, 나는 뺀다.
@@ -845,14 +900,14 @@ export default function App() {
       if (hits.has(p.id)) continue
       const name = p.alias ?? p.nickname
       if (!name.toLowerCase().includes(keyword) && !p.nickname.toLowerCase().includes(keyword)) continue
-      hits.set(p.id, { id: p.id, name, nickname: p.nickname, avatar: p.avatar, following: p.following })
+      hits.set(p.id, { id: p.id, name, nickname: p.nickname, avatar: p.avatar, following: p.following, requested: requestedIds.has(p.id) })
     }
     for (const u of foundUsers) {
       if (hits.has(u.id) || u.id === session?.id) continue
-      hits.set(u.id, { id: u.id, name: u.nickname, nickname: u.nickname, avatar: null, following: followingIds.has(u.id) })
+      hits.set(u.id, { id: u.id, name: u.nickname, nickname: u.nickname, avatar: null, following: followingIds.has(u.id), requested: requestedIds.has(u.id) })
     }
     return [...hits.values()]
-  }, [searchMode, deferredQuery, social, foundUsers, followingIds, session])
+  }, [searchMode, deferredQuery, social, foundUsers, followingIds, requestedIds, session])
 
   // 하단 독(사람 패널·투표 바) 높이를 --dock-h로 알린다 — 현재 위치 버튼이 그 위에 선다
   const bottomDockRef = useRef<HTMLDivElement | null>(null)
@@ -1189,6 +1244,7 @@ export default function App() {
     adminReportsOpen ||
     profileUserId !== null ||
     boardOpen ||
+    noticesOpen ||
     openStory ||
     authMode ||
     myPageOpen ||
@@ -1502,6 +1558,41 @@ export default function App() {
           // 위에 프로필·스토리가 열려 있으면 잠시 숨긴다 — 닫으면 현황판으로 돌아온다
           hidden={profileUserId !== null || openStory !== null}
           onClose={() => setBoardOpen(false)}
+        />
+      )}
+
+      {session && (
+        <button type="button" className="map-bell" onClick={openNotices} aria-label={notices?.unread ? `알림 ${notices.unread}개` : '알림'}>
+          <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z" />
+            <path d="M10 19.5a2.2 2.2 0 0 0 4 0" />
+          </svg>
+          {!!notices?.unread && <span className="map-bell__badge">{notices.unread > 9 ? '9+' : notices.unread}</span>}
+        </button>
+      )}
+
+      {session && noticesOpen && (
+        <NoticeSheet
+          notices={notices?.items ?? []}
+          unread={notices?.unread ?? 0}
+          nameOf={noticeNameOf}
+          busy={noticeBusy}
+          onAccept={(id) => answerRequest(id, true)}
+          onReject={(id) => answerRequest(id, false)}
+          onOpenProfile={openProfile}
+          onOpenReview={(reviewId) => {
+            // 그 후기가 달린 가게를 지도에서 열어 댓글을 바로 보게 한다. 못 찾으면(지워졌거나 아직 못 받은 후기) 그대로 둔다
+            const restaurant = reviewedRestaurants.find((r) => r.reviews.some((rv) => rv.id === reviewId))
+            if (!restaurant) return
+            setNoticesOpen(false)
+            setFavMode(false)
+            setPersonId(null)
+            setSelectedId(restaurant.id)
+            focusFromSearch(restaurant, true)
+          }}
+          // 위에 프로필이 열려 있으면 잠시 숨긴다 — 닫으면 알림으로 돌아온다
+          hidden={profileUserId !== null}
+          onClose={() => setNoticesOpen(false)}
         />
       )}
 

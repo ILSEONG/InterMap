@@ -8,6 +8,9 @@ import {
   changeNickname,
   followUser,
   unfollowUser,
+  acceptFollowRequest,
+  rejectFollowRequest,
+  setFollowApproval,
   searchUsers,
   uploadAvatar,
   deleteAvatar,
@@ -248,6 +251,10 @@ export default function MyPage({
   if (!open) return null
 
   const followingIds = new Set((social?.following ?? []).map((p) => p.id))
+  // 내가 보내고 수락을 기다리는 요청 / 나에게 온 요청 / 내 승인 방식
+  const requestedIds = new Set((social?.requested ?? []).map((p) => p.id))
+  const requests = social?.requests ?? []
+  const manualApproval = !!social?.manualApproval
 
   // 찾기 결과 — 서버는 원래 닉네임으로만 찾으니, 내가 붙인 이름으로도 걸리게 팔로잉·팔로워에서 같이 찾아 합친다
   const keyword = query.trim().toLowerCase()
@@ -430,6 +437,17 @@ export default function MyPage({
                       </button>
                       {followingIds.has(u.id) ? (
                         <span className="my-page__status">팔로잉</span>
+                      ) : requestedIds.has(u.id) ? (
+                        // 수락을 기다리는 중 — 다시 누르면 요청을 거둔다
+                        <button
+                          type="button"
+                          className="my-page__action"
+                          onClick={() => run(unfollowUser(u.id), '팔로우 요청을 취소했어요')}
+                          disabled={busy}
+                          aria-label={`${u.nickname}님에게 보낸 팔로우 요청 취소`}
+                        >
+                          요청됨
+                        </button>
                       ) : (
                         <button
                           type="button"
@@ -450,6 +468,53 @@ export default function MyPage({
               )}
             </section>
 
+          {requests.length > 0 && (
+            <section className="my-page__section" aria-label="받은 팔로우 요청">
+              <h3 className="my-page__section-title my-page__section-title--small">
+                받은 팔로우 요청 <span className="my-page__count">{requests.length}</span>
+              </h3>
+              <ul className="my-page__card my-page__people">
+                {requests.map((p) => {
+                  const label = p.alias ?? p.nickname
+                  return (
+                    <li key={p.id} className="my-page__person">
+                      <button
+                        type="button"
+                        className="my-page__person-open"
+                        onClick={() => openProfile?.(p.id)}
+                        disabled={!openProfile}
+                        aria-label={`${label}님 프로필`}
+                      >
+                        <Avatar className={`my-page__avatar ${toneOf(p.id)}`} src={p.avatar} name={label} />
+                        <span className="my-page__who">
+                          <span className="my-page__name">{label}</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="my-page__action my-page__action--primary"
+                        onClick={() => run(acceptFollowRequest(p.id), `${label}님의 요청을 수락했어요`)}
+                        disabled={busy}
+                        aria-label={`${label}님의 팔로우 요청 수락`}
+                      >
+                        수락
+                      </button>
+                      <button
+                        type="button"
+                        className="my-page__action"
+                        onClick={() => run(rejectFollowRequest(p.id))}
+                        disabled={busy}
+                        aria-label={`${label}님의 팔로우 요청 거절`}
+                      >
+                        거절
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+
           <div className="my-page__columns">
               <PersonList
                 title="팔로잉"
@@ -467,6 +532,8 @@ export default function MyPage({
                 renderAction={(p, label) =>
                   p.following ? (
                     <span className="my-page__status">맞팔 중</span>
+                  ) : p.requested ? (
+                    <span className="my-page__status">요청됨</span>
                   ) : (
                     <button
                       type="button"
@@ -709,6 +776,39 @@ export default function MyPage({
                 <span className="my-page__row-title">차단한 사용자</span>
                 <Chevron />
               </button>
+              {/* 팔로우 승인 방식 — 자동이면 누르는 즉시 팔로우, 수동이면 내가 수락해야 팔로우가 맺어진다 */}
+              <div className="my-page__row my-page__row--setting">
+                <span className="my-page__row-text">
+                  <span className="my-page__row-title">팔로우 승인</span>
+                  <span className="my-page__row-sub">
+                    {manualApproval ? '내가 수락해야 팔로우가 맺어져요' : '누구나 바로 팔로우할 수 있어요'}
+                  </span>
+                </span>
+                <span className="my-page__seg" role="group" aria-label="팔로우 승인 방식">
+                  {(
+                    [
+                      [false, '자동'],
+                      [true, '수동'],
+                    ] as const
+                  ).map(([manual, label]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`my-page__seg-btn${manualApproval === manual ? ' my-page__seg-btn--on' : ''}`}
+                      aria-pressed={manualApproval === manual}
+                      disabled={busy || !social}
+                      onClick={() => {
+                        if (manualApproval === manual) return
+                        // 자동으로 돌리면 기다리던 요청이 전부 수락된다 — 먼저 알려 준다
+                        if (!manual && requests.length > 0 && !window.confirm(`자동 승인으로 바꾸면 기다리는 팔로우 요청 ${requests.length}건이 모두 수락돼요. 바꿀까요?`)) return
+                        run(setFollowApproval(manual), manual ? '이제 팔로우 요청을 직접 수락해요' : '이제 팔로우가 바로 승인돼요')
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </span>
+              </div>
               {isAdmin && (
                 <button type="button" className="my-page__row" onClick={onOpenReports}>
                   <span className="my-page__row-title">신고 관리</span>
