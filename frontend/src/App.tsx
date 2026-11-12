@@ -599,8 +599,9 @@ export default function App() {
     if (composerOpen) return setComposerOpen(false), true
     if (adminReportsOpen) return setAdminReportsOpen(false), true
     if (profileUserId !== null) return profileBack(), true
-    if (boardOpen) return setBoardOpen(false), true
+    // 스토리는 팔로잉 현황 위에서도 열린다 — 위에 있는 스토리부터
     if (openStory) return setOpenStory(null), true
+    if (boardOpen) return setBoardOpen(false), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
     if (selectedId) return setSelectedId(null), true
@@ -618,6 +619,41 @@ export default function App() {
       void listener.then((sub) => sub.remove())
     }
   }, [])
+
+  // 아이폰엔 뒤로가기 버튼이 없다 — iOS 앱에선 화면 왼쪽 끝에서 오른쪽으로 쓸면 위 레이어를 하나 닫는다 (iOS 기본 "뒤로" 제스처와 같은 손짓)
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'ios') return
+    let start: { x: number; y: number } | null = null
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      start = e.touches.length === 1 && t && t.clientX < 24 ? { x: t.clientX, y: t.clientY } : null
+    }
+    const onMove = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!start || !t) return
+      const dx = t.clientX - start.x
+      const dy = Math.abs(t.clientY - start.y)
+      if (dy > 50) start = null
+      else if (dx > 70) {
+        start = null
+        handleBackRef.current()
+      }
+    }
+    const onEnd = () => {
+      start = null
+    }
+    document.addEventListener('touchstart', onStart, { passive: true })
+    document.addEventListener('touchmove', onMove, { passive: true })
+    document.addEventListener('touchend', onEnd, { passive: true })
+    document.addEventListener('touchcancel', onEnd, { passive: true })
+    return () => {
+      document.removeEventListener('touchstart', onStart)
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+      document.removeEventListener('touchcancel', onEnd)
+    }
+  }, [])
+
 
   // 가게 이름 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
   // 받은 건 누적 목록에 합쳐두고 필터·핀은 기존 경로를 그대로 탄다.
@@ -1119,6 +1155,55 @@ export default function App() {
     clearSession()
     window.alert('탈퇴했어요. 그동안 인터맵을 이용해 주셔서 고마워요.')
   }, [clearSession])
+
+  // 웹(아이폰 사파리 등)에선 브라우저 뒤로가기·왼쪽 끝 쓸기가 페이지를 떠나 버린다.
+  // 무언가 열려 있으면 기록을 한 칸 쌓아 두고, 뒤로가 오면 위 레이어 하나만 닫는다. 아직 열린 게 남았으면 다시 한 칸 쌓는다.
+  // 화면 버튼으로 전부 닫았으면 쌓아 둔 칸을 조용히 걷어 낸다 (다음 뒤로가기가 헛돌지 않게).
+  const anyLayerOpen = !!(
+    policyPage ||
+    reportTarget ||
+    recapMonth ||
+    openPoll ||
+    composerOpen ||
+    adminReportsOpen ||
+    profileUserId !== null ||
+    boardOpen ||
+    openStory ||
+    authMode ||
+    myPageOpen ||
+    selectedId ||
+    personId !== null ||
+    searching ||
+    favMode
+  )
+  const historyGuard = useRef(false)
+  const ignoreNextPop = useRef(false)
+  const [popTick, setPopTick] = useState(0)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return
+    if (anyLayerOpen && !historyGuard.current) {
+      window.history.pushState({ intermapLayer: true }, '')
+      historyGuard.current = true
+    } else if (!anyLayerOpen && historyGuard.current) {
+      historyGuard.current = false
+      ignoreNextPop.current = true
+      window.history.back()
+    }
+  }, [anyLayerOpen, popTick])
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return
+    const onPop = () => {
+      if (ignoreNextPop.current) {
+        ignoreNextPop.current = false
+        return
+      }
+      historyGuard.current = false
+      handleBackRef.current()
+      setPopTick((n) => n + 1)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   return (
     <OpenProfileContext.Provider value={openProfile}>
