@@ -35,6 +35,11 @@
             </intent-filter>
         </activity>
 
+        <!-- 푸시 알림(FCM) 기본 모양: 작은 아이콘·색·채널. 채널은 앱이 켜질 때 만든다 (lib/push.ts) -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_notify" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notify_accent" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="intermap" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -49,4 +54,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- 푸시 알림 표시 (안드로이드 13 이상은 처음 켤 때 허용을 묻는다) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

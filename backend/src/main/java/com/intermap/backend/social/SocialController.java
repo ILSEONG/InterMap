@@ -7,6 +7,7 @@ import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
+import com.intermap.backend.push.PushService;
 import com.intermap.backend.review.ReviewRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -71,6 +72,7 @@ public class SocialController {
 
     private final FollowRepository follows;
     private final FollowRequestRepository requests;
+    private final PushService push;
     private final UserAliasRepository aliases;
     private final AppUserRepository users;
     private final AuthController auth;
@@ -81,8 +83,9 @@ public class SocialController {
 
     public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth,
                             UserAvatarRepository avatars, Blocks blocks, DailyLimits limits, ReviewRepository reviews,
-                            FollowRequestRepository requests) {
+                            FollowRequestRepository requests, PushService push) {
         this.limits = limits;
+        this.push = push;
         this.requests = requests;
         this.reviews = reviews;
         this.follows = follows;
@@ -171,8 +174,13 @@ public class SocialController {
                         .body(new AuthController.ErrorResponse("오늘은 더 팔로우할 수 없어요. 내일 다시 해주세요."));
             }
             // 수동 승인인 사람에게는 요청만 남긴다 — 수락 전에는 후기가 열리지 않는다
-            if (target.isManualFollowApproval()) requests.save(new FollowRequest(me, target));
-            else follows.save(new Follow(me, target));
+            if (target.isManualFollowApproval()) {
+                requests.save(new FollowRequest(me, target));
+                push.send(target, "인터맵", me.getNickname() + "님이 팔로우를 요청했어요", Map.of("type", "FOLLOW_REQUEST"));
+            } else {
+                follows.save(new Follow(me, target));
+                push.send(target, "인터맵", me.getNickname() + "님이 나를 팔로우하기 시작했어요", Map.of("type", "FOLLOW"));
+            }
         }
         return ResponseEntity.ok(socialOf(me));
     }
@@ -239,6 +247,7 @@ public class SocialController {
         AppUser target = request.getTarget();
         if (follows.findByFollowerAndFollowee(requester, target).isEmpty()) follows.save(new Follow(requester, target, true));
         requests.delete(request);
+        push.send(requester, "인터맵", target.getNickname() + "님이 팔로우 요청을 수락했어요", Map.of("type", "FOLLOW_ACCEPTED"));
     }
 
     // 빈 문자열이면 별칭 삭제. 팔로잉/팔로워가 아닌 사람에겐 못 붙인다.
