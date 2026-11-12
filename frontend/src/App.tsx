@@ -620,27 +620,45 @@ export default function App() {
     }
   }, [])
 
-  // 아이폰엔 뒤로가기 버튼이 없다 — iOS 앱에선 화면 왼쪽 끝에서 오른쪽으로 쓸면 위 레이어를 하나 닫는다 (iOS 기본 "뒤로" 제스처와 같은 손짓)
+  // 아이폰엔 뒤로가기 버튼이 없다 — iOS 앱이나 홈 화면에 추가한 웹 앱(주소창·사파리 뒤로가기 없음)에선
+  // 화면 왼쪽 끝에서 오른쪽으로 쓸면 위 레이어를 하나 닫는다 (iOS 기본 "뒤로" 손짓).
+  // 판정은 넉넉하게: 왼쪽 44px 안에서 시작해 오른쪽으로 50px, 또는 짧아도(24px~) 빠르게 튕기면.
   useEffect(() => {
-    if (Capacitor.getPlatform() !== 'ios') return
-    let start: { x: number; y: number } | null = null
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true
+    if (Capacitor.getPlatform() !== 'ios' && !standalone) return
+    const EDGE = 44
+    let start: { x: number; y: number; t: number } | null = null
+    let last: { x: number; t: number } | null = null
+    const fire = () => {
+      start = null
+      handleBackRef.current()
+    }
     const onStart = (e: TouchEvent) => {
       const t = e.touches[0]
-      start = e.touches.length === 1 && t && t.clientX < 24 ? { x: t.clientX, y: t.clientY } : null
+      start = e.touches.length === 1 && t && t.clientX < EDGE ? { x: t.clientX, y: t.clientY, t: performance.now() } : null
+      last = start ? { x: start.x, t: start.t } : null
     }
     const onMove = (e: TouchEvent) => {
       const t = e.touches[0]
       if (!start || !t) return
       const dx = t.clientX - start.x
       const dy = Math.abs(t.clientY - start.y)
-      if (dy > 50) start = null
-      else if (dx > 70) {
-        start = null
-        handleBackRef.current()
-      }
+      last = { x: t.clientX, t: performance.now() }
+      // 세로로 더 많이 움직였으면 쓸기가 아니다 (목록 스크롤)
+      if (dy > 40 && dy > dx) start = null
+      else if (dx > 50) fire()
     }
     const onEnd = () => {
+      // 짧게 튕긴 것도 인정 — 24px 이상, 0.25px/ms 이상
+      if (start && last) {
+        const dx = last.x - start.x
+        const dt = last.t - start.t
+        if (dx > 24 && dt > 0 && dx / dt > 0.25) fire()
+      }
       start = null
+      last = null
     }
     document.addEventListener('touchstart', onStart, { passive: true })
     document.addEventListener('touchmove', onMove, { passive: true })
