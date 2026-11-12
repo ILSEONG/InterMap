@@ -125,6 +125,9 @@
   border-radius: 50%;
   font-size: 15px;
   font-weight: 700;
+  /* 내 아바타는 늘 포인트 색 (마이페이지의 큰 아바타와 같은 틴트) — 포인트 색을 바꾸면 같이 바뀐다 */
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  color: var(--accent-ink);
 }
 
 .topbar__me:has(.topbar__avatar) {
