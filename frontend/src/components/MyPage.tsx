@@ -29,6 +29,8 @@ import SheetGrip from './SheetGrip'
 
 interface MyPageProps {
   open: boolean
+  // 위에 프로필·결산 같은 다른 화면이 떠 있음 — 그동안 뒤로가기는 그 화면 몫
+  covered?: boolean
   // 아래 글자 링크의 로그아웃
   onLogout: () => void
   session: AuthSession
@@ -133,6 +135,7 @@ function CloseIcon() {
 
 export default function MyPage({
   open,
+  covered = false,
   session,
   social,
   onSocialChange,
@@ -181,6 +184,8 @@ export default function MyPage({
     if (next !== 'people') setQuery('')
     setViewState(next)
   }
+  // 이웃 찾기·차단 목록에서 뒤로가기(안드로이드 버튼·아이폰 쓸기)는 마이페이지 첫 화면으로 — 마이페이지째 닫지 않는다
+  useBackLayer(open && view !== 'main' && !covered, () => setView('main'))
   // 닉네임·사진 고치기 칸을 펼쳤는지
   const [editOpen, setEditOpen] = useState(false)
   // 아래 탭 — 나의 후기 / 이 달의 결산 / 어디 갈래?

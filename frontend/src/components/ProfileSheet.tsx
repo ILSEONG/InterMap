@@ -181,12 +181,12 @@ export default function ProfileSheet({
       })
       .slice(0, 3)
   }, [match, reviews, myUserId, userId])
-  // 다녀온 곳 — 그 사람 후기를 최근 순으로 (가게마다 하나)
+  // 다녀온 곳 — 그 사람 후기를 별점 높은 순으로, 같은 별점이면 최근 순 (가게마다 하나)
   const visited = useMemo(() => {
     if (!profile?.following) return []
     return reviews
       .filter((rv) => rv.author.id === userId && !rv.author.owner)
-      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .sort((a, b) => b.rating - a.rating || Date.parse(b.createdAt) - Date.parse(a.createdAt))
       .map((rv) => ({
         key: restaurantKey(rv.restaurant),
         name: rv.restaurant.name,

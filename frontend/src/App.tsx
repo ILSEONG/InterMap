@@ -1385,6 +1385,15 @@ export default function App() {
       {session && (
         <MyPage
           open={myPageOpen}
+          covered={
+            profileUserId !== null ||
+            !!recapMonth ||
+            !!openPoll ||
+            !!policyPage ||
+            !!reportTarget ||
+            composerOpen ||
+            adminReportsOpen
+          }
           session={session}
           social={social}
           onSocialChange={applySocial}
