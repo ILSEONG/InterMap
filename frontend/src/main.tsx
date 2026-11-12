@@ -6,6 +6,10 @@ import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'
 import { queryClient, restoreQueryCache } from './lib/query'
+import { applyAccent, readAccent } from './lib/theme'
+
+// 고른 포인트 색을 그리기 전에 입힌다 — 기본 색으로 그렸다가 바뀌며 번쩍이지 않게
+applyAccent(readAccent())
 
 // iOS Safari는 viewport meta의 user-scalable=no를 무시한다(접근성 정책).
 // 페이지 핀치줌을 여기서 막는다 — 지도 줌은 지도 라이브러리가 touch 이벤트로 자체 처리해 영향 없음.

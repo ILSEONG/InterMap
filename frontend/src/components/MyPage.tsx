@@ -29,6 +29,8 @@ import type { PolicyPage } from './PolicyViewer'
 import './MyPage.css'
 import { RatingStar } from './Stars'
 import SheetGrip from './SheetGrip'
+import AccentPicker from './AccentPicker'
+import { applyAccent, readAccent, saveAccent } from '../lib/theme'
 
 interface MyPageProps {
   open: boolean
@@ -181,9 +183,16 @@ export default function MyPage({
   // 회원 탈퇴 확인 단계
   const [leaving, setLeaving] = useState(false)
   // 내 정보 / 사람 찾기(검색·팔로잉·팔로워) / 차단한 사용자
-  const [view, setViewState] = useState<'main' | 'people' | 'blocked'>('main')
+  const [view, setViewState] = useState<'main' | 'people' | 'blocked' | 'theme'>('main')
+  // 포인트 색 — 이 기기에만 남긴다. 고르는 즉시 앱 전체에 입힌다
+  const [accent, setAccent] = useState(readAccent)
+  const changeAccent = (hex: string) => {
+    setAccent(hex)
+    applyAccent(hex)
+    saveAccent(hex)
+  }
   // 이웃 찾기에서 나가면 검색어를 비운다 — 다시 들어왔을 때 지난 검색이 남아 있지 않게
-  const setView = (next: 'main' | 'people' | 'blocked') => {
+  const setView = (next: 'main' | 'people' | 'blocked' | 'theme') => {
     if (next !== 'people') setQuery('')
     setViewState(next)
   }
@@ -384,8 +393,8 @@ export default function MyPage({
             </button>
           )}
           {/* 이웃 찾기는 제목 없이 (검색칸이 곧 제목) */}
-          <h2 className={`my-page__title${view !== 'blocked' ? ' my-page__sr' : ''}`}>
-            {view === 'people' ? '이웃 찾기' : view === 'blocked' ? '차단한 사용자' : '내 정보'}
+          <h2 className={`my-page__title${view !== 'blocked' && view !== 'theme' ? ' my-page__sr' : ''}`}>
+            {view === 'people' ? '이웃 찾기' : view === 'blocked' ? '차단한 사용자' : view === 'theme' ? '포인트 색' : '내 정보'}
           </h2>
           <button type="button" className="my-page__close" onClick={onClose} aria-label="닫기">
             <CloseIcon />
@@ -550,6 +559,12 @@ export default function MyPage({
             </div>
   
             </>
+          )}
+
+          {view === 'theme' && (
+            <section className="my-page__section" aria-label="포인트 색">
+              <AccentPicker value={accent} onChange={changeAccent} />
+            </section>
           )}
 
           {view === 'blocked' && (
@@ -774,6 +789,11 @@ export default function MyPage({
                 onClick={() => setView('blocked')}
               >
                 <span className="my-page__row-title">차단한 사용자</span>
+                <Chevron />
+              </button>
+              <button type="button" className="my-page__row" onClick={() => setView('theme')}>
+                <span className="my-page__row-title">포인트 색</span>
+                <span className="my-page__row-swatch" style={{ background: accent }} aria-hidden="true" />
                 <Chevron />
               </button>
               {/* 팔로우 승인 방식 — 자동이면 누르는 즉시 팔로우, 수동이면 내가 수락해야 팔로우가 맺어진다 */}

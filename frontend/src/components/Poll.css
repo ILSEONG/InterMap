@@ -142,6 +142,7 @@
 .poll-option--picked .poll-option__check {
   background: var(--accent);
   border-color: var(--accent);
+  color: var(--on-accent);
 }
 
 .poll-option--winner .poll-option__check {

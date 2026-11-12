@@ -1,0 +1,232 @@
+.accent-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 8px;
+}
+
+/* 미리보기 — 앱에서 포인트 색이 쓰이는 모양 몇 가지 */
+.accent-picker__preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.accent-picker__sample-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.accent-picker__sample-rating svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+
+.accent-picker__sample-flag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.accent-picker__sample-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: center;
+}
+
+.accent-picker__sample-tint {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.accent-picker__sample-bar {
+  flex: 1 1 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(118, 118, 128, 0.14);
+  overflow: hidden;
+}
+
+.accent-picker__sample-bar i {
+  display: block;
+  width: 62%;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.accent-picker__presets {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  justify-items: center;
+}
+
+.accent-picker__swatch {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: scale 90ms ease;
+}
+
+.accent-picker__swatch:active {
+  scale: 0.94;
+}
+
+.accent-picker__swatch--on {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5.5px var(--ink);
+}
+
+.accent-picker__label {
+  margin: 6px 0 -4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 채도·밝기 판 — 끄는 동안 화면이 스크롤되지 않게 */
+.accent-picker__pad {
+  position: relative;
+  height: 170px;
+  border-radius: 18px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.accent-picker__thumb {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(20, 20, 30, 0.35);
+  pointer-events: none;
+}
+
+.accent-picker__hue {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  border-radius: 14px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: pointer;
+}
+
+.accent-picker__hue::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: transparent;
+  box-shadow: 0 2px 8px rgba(20, 20, 30, 0.35), inset 0 0 0 1px rgba(20, 20, 30, 0.15);
+}
+
+.accent-picker__hue::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: transparent;
+  box-shadow: 0 2px 8px rgba(20, 20, 30, 0.35);
+}
+
+.accent-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accent-picker__hex {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.1);
+}
+
+.accent-picker__chip {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(20, 20, 30, 0.12);
+}
+
+.accent-picker__hex input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  /* 16px 미만이면 iOS가 입력할 때 화면을 확대한다 */
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  outline: none;
+}
+
+.accent-picker__reset {
+  flex: none;
+  height: 46px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 67, 0.18);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.accent-picker__reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.accent-picker__hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
