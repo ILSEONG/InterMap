@@ -61,7 +61,8 @@ function escapeHtml(value: string): string {
 }
 
 // 후기 있는 가게 핀 색. 그룹색보다 우선 — "이웃이 다녀간 곳"이 지도에서 바로 보이게.
-const REVIEWED_PIN_COLOR = '#FF5D73'
+// 포인트 색을 바꾸면 따라간다 (lib/theme.ts가 --accent-pin을 정한다. 기본은 로즈)
+const REVIEWED_PIN_COLOR = 'var(--accent-pin, #FF5D73)'
 
 function pinColor(items: Restaurant[], groups: FriendGroup[]): string {
   if (items.some((r) => r.reviews.length > 0)) return REVIEWED_PIN_COLOR
