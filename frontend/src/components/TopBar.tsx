@@ -143,7 +143,7 @@ export default function TopBar(props: TopBarProps) {
               aria-label={nickname ? '마이페이지' : '로그인'}
             >
               {nickname ? (
-                <Avatar src={avatar} name={nickname} className={`topbar__avatar tone-${(props.userId ?? 0) % 4}`} />
+                <Avatar src={avatar} name={nickname} className="topbar__avatar" />
               ) : (
                 <PersonIcon />
               )}
