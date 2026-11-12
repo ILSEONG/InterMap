@@ -12,7 +12,7 @@ import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
 
-// 단방향 팔로우 (follower → followee). 상호 승인 없음.
+// 단방향 팔로우 (follower → followee). 받는 사람이 수동 승인이면 FollowRequest를 거쳐 수락될 때 만들어진다.
 @Entity
 @Table(uniqueConstraints = @UniqueConstraint(columnNames = {"follower_id", "followee_id"}))
 public class Follow {
@@ -29,7 +29,15 @@ public class Follow {
 
     private Instant createdAt = Instant.now();
 
+    // 팔로우 요청이 수락되어 맺어진 팔로우 (알림 문구를 가른다: "수락했어요" / "팔로우하기 시작했어요"). 예전 행은 null
+    private Boolean viaRequest;
+
     protected Follow() {
+    }
+
+    public Follow(AppUser follower, AppUser followee, boolean viaRequest) {
+        this(follower, followee);
+        this.viaRequest = viaRequest;
     }
 
     public Follow(AppUser follower, AppUser followee) {
@@ -41,4 +49,5 @@ public class Follow {
     public AppUser getFollower() { return follower; }
     public AppUser getFollowee() { return followee; }
     public Instant getCreatedAt() { return createdAt; }
+    public boolean isViaRequest() { return Boolean.TRUE.equals(viaRequest); }
 }

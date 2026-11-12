@@ -277,11 +277,18 @@ export interface Person {
   following: boolean
   followsMe: boolean
   avatar: string | null
+  // 내가 보낸 팔로우 요청이 수락을 기다리는 중 (상대가 수동 승인일 때). 예전에 저장해 둔 목록에는 없을 수 있다
+  requested?: boolean
 }
 
 export interface SocialData {
   following: Person[]
   followers: Person[]
+  // 나에게 온 팔로우 요청 / 내가 보내고 기다리는 요청. 예전에 저장해 둔 목록에는 없을 수 있다
+  requests?: Person[]
+  requested?: Person[]
+  // 내 팔로우 승인 방식 — true면 요청을 직접 수락해야 팔로우가 맺어진다
+  manualApproval?: boolean
 }
 
 export interface UserItem {
@@ -304,6 +311,9 @@ export interface UserProfile {
   blocked: boolean
   // 팔로우 전에도 보이는 후기 수 (주인장은 0)
   reviewCount: number
+  // 내가 보낸 팔로우 요청이 수락 대기 중 / 이 사람은 팔로우를 직접 수락한다
+  requested?: boolean
+  manualApproval?: boolean
 }
 
 export async function fetchUserProfile(userId: number): Promise<UserProfile> {
@@ -331,6 +341,51 @@ export function followUser(userId: number): Promise<SocialData> {
 
 export function unfollowUser(userId: number): Promise<SocialData> {
   return post<SocialData>(`/api/me/follows/${userId}`, '', {}, 'DELETE')
+}
+
+// 나에게 온 팔로우 요청 수락 / 거절
+export function acceptFollowRequest(userId: number): Promise<SocialData> {
+  return post<SocialData>(`/api/me/follow-requests/${userId}`, '')
+}
+
+export function rejectFollowRequest(userId: number): Promise<SocialData> {
+  return post<SocialData>(`/api/me/follow-requests/${userId}`, '', {}, 'DELETE')
+}
+
+// 팔로우 승인 방식 — manual이면 요청을 직접 수락, 아니면 누르는 즉시 팔로우. 자동으로 돌리면 기다리던 요청은 모두 수락된다
+export function setFollowApproval(manual: boolean): Promise<SocialData> {
+  return post<SocialData>('/api/me/follow-approval', JSON.stringify({ manual }), { 'Content-Type': 'application/json' }, 'PUT')
+}
+
+// ---- 알림 (서버 NotificationController) ----
+
+export type NoticeType = 'COMMENT' | 'REPLY' | 'FOLLOW_REQUEST' | 'FOLLOW' | 'FOLLOW_ACCEPTED'
+
+export interface Notice {
+  type: NoticeType
+  actor: { id: number; nickname: string; avatar: string | null }
+  createdAt: string
+  // 댓글·답글일 때만
+  reviewId: number | null
+  restaurantName: string | null
+  text: string | null
+}
+
+export interface NoticeData {
+  items: Notice[]
+  // 마지막으로 알림을 연 뒤에 생긴 수
+  unread: number
+}
+
+export async function fetchNotices(): Promise<NoticeData> {
+  const res = await fetch(`${API_BASE}/api/me/notifications`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`알림 조회 실패 (${res.status})`)
+  return res.json()
+}
+
+// 알림 목록을 열었다 — 지금까지의 알림을 읽은 것으로
+export function markNoticesSeen(): Promise<NoticeData> {
+  return post<NoticeData>('/api/me/notifications/seen', '')
 }
 
 // 빈 문자열이면 별칭 삭제

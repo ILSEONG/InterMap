@@ -12,6 +12,7 @@ import com.intermap.backend.review.ReviewComment;
 import com.intermap.backend.review.ReviewCommentRepository;
 import com.intermap.backend.review.ReviewRepository;
 import com.intermap.backend.social.FollowRepository;
+import com.intermap.backend.social.FollowRequestRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +64,7 @@ public class ModerationController {
     private final ReviewRepository reviews;
     private final ReviewCommentRepository comments;
     private final FollowRepository follows;
+    private final FollowRequestRepository followRequests;
     private final ReviewCleanup cleanup;
     private final AuthController auth;
     private final UserAvatarRepository avatars;
@@ -70,8 +72,10 @@ public class ModerationController {
 
     public ModerationController(ReportRepository reports, UserBlockRepository blocks, AppUserRepository users,
                                 ReviewRepository reviews, ReviewCommentRepository comments, FollowRepository follows,
-                                ReviewCleanup cleanup, AuthController auth, UserAvatarRepository avatars, DailyLimits limits) {
+                                ReviewCleanup cleanup, AuthController auth, UserAvatarRepository avatars, DailyLimits limits,
+                                FollowRequestRepository followRequests) {
         this.limits = limits;
+        this.followRequests = followRequests;
         this.reports = reports;
         this.blocks = blocks;
         this.users = users;
@@ -178,6 +182,7 @@ public class ModerationController {
             blocks.save(new UserBlock(me, target));
         }
         follows.deleteBetween(me, target);
+        followRequests.deleteBetween(me, target);
         return ResponseEntity.ok(blockListOf(me));
     }
 

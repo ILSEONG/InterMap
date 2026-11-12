@@ -282,6 +282,8 @@ export default function ProfileSheet({
                       <span className="my-page__status">나</span>
                     ) : p.following ? (
                       <span className="my-page__status">팔로잉</span>
+                    ) : p.requested ? (
+                      <span className="my-page__status">요청됨</span>
                     ) : (
                       <button
                         type="button"
@@ -359,12 +361,13 @@ export default function ProfileSheet({
                   <div className="profile-sheet__actions">
                     <button
                       type="button"
-                      className={`profile-sheet__follow${profile.following ? ' profile-sheet__follow--on' : ''}`}
+                      className={`profile-sheet__follow${profile.following || profile.requested ? ' profile-sheet__follow--on' : ''}`}
                       aria-pressed={profile.following}
-                      onClick={() => run(profile.following ? unfollowUser(userId) : followUser(userId))}
+                      // 요청을 보내 둔 상태에서 다시 누르면 요청을 거둔다 (언팔로우와 같은 길)
+                      onClick={() => run(profile.following || profile.requested ? unfollowUser(userId) : followUser(userId))}
                       disabled={busy}
                     >
-                      {profile.following ? (
+                      {profile.following || profile.requested ? (
                         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M5 12.5l4.5 4.5L19 7.5" />
                         </svg>
@@ -373,7 +376,7 @@ export default function ProfileSheet({
                           <path d="M12 5v14M5 12h14" />
                         </svg>
                       )}
-                      {profile.following ? '팔로잉' : '팔로우'}
+                      {profile.following ? '팔로잉' : profile.requested ? '요청됨' : profile.manualApproval ? '팔로우 요청' : '팔로우'}
                     </button>
                     {canRename && (
                       <button type="button" className="profile-sheet__rename" onClick={rename} disabled={busy}>
@@ -450,7 +453,11 @@ export default function ProfileSheet({
                         <rect x="5" y="11" width="14" height="9" rx="2.5" />
                         <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
                       </svg>
-                      팔로우하면 {name}님의 후기와 별점을 볼 수 있어요.
+                      {profile.requested
+                        ? `팔로우 요청을 보냈어요. ${name}님이 수락하면 후기와 별점을 볼 수 있어요.`
+                        : profile.manualApproval
+                          ? `${name}님이 팔로우 요청을 수락하면 후기와 별점을 볼 수 있어요.`
+                          : `팔로우하면 ${name}님의 후기와 별점을 볼 수 있어요.`}
                     </p>
                   )}
                   </>
