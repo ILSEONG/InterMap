@@ -296,7 +296,7 @@
 }
 
 .story-viewer__action--on {
-  color: #ff6f8f;
+  color: var(--accent-on-dark);
 }
 
 /* ── 댓글: 늘 펼친 목록 + 입력칸 ── */

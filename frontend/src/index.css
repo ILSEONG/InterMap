@@ -28,6 +28,9 @@
   --accent: #d9365a;
   --accent-ink: #b3204a;
   --accent-tint: rgba(217, 54, 90, 0.13);
+  /* 포인트 색 면 위의 글자, 어두운 판(스토리) 위의 포인트 색. 포인트 색을 바꾸면 lib/theme.ts가 넷을 함께 다시 정한다 */
+  --on-accent: #ffffff;
+  --accent-on-dark: #ff6f8f;
   --blue: #2f7bf6;
   /* 브랜드 보조색(민트) — 다녀간 이웃 수·추천 메뉴처럼 '좋은 소식' 정보에 */
   --mint: #1fa38c;

@@ -222,7 +222,8 @@ export default function App() {
   // 그룹별 마커 색. --gc-* CSS 변수로 앱 루트에 내려가고 모든 컴포넌트가 var()로 참조한다.
   // 저채도 연한 파랑 기본값 — 밝은 지도 배경과 명도 대비를 낮춰 핀 밀집 시 "구멍 무리" 착시(환공포증 유발)를 줄인다.
   const [groupColors] = useState<Record<GroupId, string>>({
-    close: '#FF5D73',
+    // 포인트 색을 바꾸면 지도 별점 핀도 그 색으로 (lib/theme.ts의 --accent-pin, 없으면 기본 로즈)
+    close: 'var(--accent-pin, #FF5D73)',
     work: '#2F7BF6',
     college: '#1FA38C',
     // 후기 없는 가게(대부분)는 이 색 — 밀집해도 눈에 덜 띄는 중간 회색

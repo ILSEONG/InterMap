@@ -85,7 +85,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--on-accent);
 }
 
 .report-sheet__reason:has(input:focus-visible) {
@@ -155,7 +155,7 @@
   height: 48px;
   border-radius: 24px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;

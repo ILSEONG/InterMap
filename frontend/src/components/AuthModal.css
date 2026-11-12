@@ -515,6 +515,11 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
 }
 
+/* 밝은 포인트 색을 골랐으면 흰 체크가 안 보인다 — 검은 체크로 (lib/theme.ts가 data-accent-light를 붙인다) */
+:root[data-accent-light] .auth-modal__check input:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c1c1e' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+
 /* ── 가입 완료 — 폼 대신 이것만 보여준다 (모달이 스크롤될 수 있어 덮어씌우는 대신 숨긴다) ── */
 .auth-modal--done > :not(.auth-modal__done) {
   display: none;
