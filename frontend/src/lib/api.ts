@@ -388,6 +388,16 @@ export function markNoticesSeen(): Promise<NoticeData> {
   return post<NoticeData>('/api/me/notifications/seen', '')
 }
 
+// 푸시 알림을 받을 기기(FCM 토큰) 등록 — 로그인한 채 앱이 켜질 때마다 (lib/push.ts)
+export function registerPushToken(token: string): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>('/api/me/push-token', { token, platform: 'android' })
+}
+
+// 로그아웃할 때 이 기기만 해제. 세션 없이도 된다 (토큰 값이 그 기기라는 증거)
+export function unregisterPushToken(token: string): Promise<{ ok: boolean }> {
+  return post<{ ok: boolean }>('/api/push-token', JSON.stringify({ token }), { 'Content-Type': 'application/json' }, 'DELETE')
+}
+
 // 빈 문자열이면 별칭 삭제
 export function setAlias(userId: number, alias: string): Promise<SocialData> {
   return post<SocialData>(`/api/me/aliases/${userId}`, JSON.stringify({ alias }), { 'Content-Type': 'application/json' }, 'PUT')

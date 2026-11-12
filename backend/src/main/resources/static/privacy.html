@@ -150,7 +150,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
       <p>운영자는 다음 목적을 위해서만 개인정보를 처리하며, 목적이 바뀌면 법령에 따라 미리 동의를 받는 등 필요한 조치를 합니다.</p>
       <ul>
         <li><strong>회원 가입과 관리:</strong> 가입 의사 확인, 이메일 인증, 이용자 식별과 로그인 유지, 소셜 로그인 연결, 만 14세 이상 여부와 약관 동의 확인, 회원 탈퇴 처리</li>
-        <li><strong>서비스 제공:</strong> 후기·사진·댓글 게시와 표시, 팔로우한 이용자의 후기 보여주기, 찜한 가게와 별칭(나만 보이는 이름) 관리, 지도 표시와 가게 검색, “어디 갈래?” 투표 만들기와 참여, 월간 결산 보여주기</li>
+        <li><strong>서비스 제공:</strong> 후기·사진·댓글 게시와 표시, 팔로우한 이용자의 후기 보여주기, 찜한 가게와 별칭(나만 보이는 이름) 관리, 지도 표시와 가게 검색, “어디 갈래?” 투표 만들기와 참여, 월간 결산 보여주기, 댓글·팔로우 알림 보내기</li>
         <li><strong>안전한 커뮤니티 운영:</strong> 신고 접수와 처리, 차단 기능 제공, 이용약관 위반 게시물 삭제와 이용 제한 등 부정 이용 방지</li>
         <li><strong>문의 응대:</strong> 이용자의 문의와 요청(계정 삭제 요청 포함) 확인 및 답변</li>
         <li><strong>소식 안내(선택):</strong> 마케팅 정보 수신에 동의한 이용자에 한해 서비스 소식 안내</li>
@@ -191,6 +191,11 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
               <th scope="row">이용자가 올리거나 만든 정보</th>
               <td>프로필 사진, 후기(가게 이름·주소·분류, 별점, 본문, 추천 메뉴, 사진 최대 10장), 댓글과 답글, 찜한 가게, 팔로우 관계, 다른 이용자에게 붙인 별칭(나만 보이는 이름), 차단한 이용자 목록, 신고 내역(신고 사유와 신고 당시 게시물 내용의 사본), 만든 투표(제목, 후보 가게와 한마디, 마감 시각), 투표에서 고른 가게</td>
               <td>이용자가 서비스에서 직접 등록</td>
+            </tr>
+            <tr>
+              <th scope="row">푸시 알림(선택)</th>
+              <td>알림을 보낼 기기를 가리키는 토큰(Firebase Cloud Messaging 등록 토큰)</td>
+              <td>안드로이드 앱에서 알림을 허용한 경우 앱이 자동으로 등록. 로그아웃하거나 탈퇴하면 삭제</td>
             </tr>
             <tr>
               <th scope="row">회원이 아닌 투표 참여자</th>
@@ -278,6 +283,11 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
               <th scope="row">Brevo</th>
               <td>인증번호 이메일 발송</td>
               <td>이메일 주소, 인증번호</td>
+            </tr>
+            <tr>
+              <th scope="row">Google (Firebase Cloud Messaging)</th>
+              <td>앱 푸시 알림 전달</td>
+              <td>기기 토큰, 알림 문구(보낸 사람 닉네임, 가게 이름, 댓글 내용 일부)</td>
             </tr>
             <tr>
               <th scope="row">NAVER Cloud Platform</th>

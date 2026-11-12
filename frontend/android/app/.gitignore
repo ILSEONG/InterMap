@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# Firebase 설정 — CI가 Secret에서 만들어 둔다 (저장소에 올리지 않는다)
+google-services.json

@@ -65,6 +65,7 @@ import {
   POLL_MAX_OPTIONS,
 } from './lib/api'
 import { tasteTag } from './lib/taste'
+import { startPush, stopPush } from './lib/push'
 import { shrinkImage } from './lib/image'
 import type { AuthSession, BBox, ClusterCell, NoticeData, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
 import { kstMonth, monthLabel, prevMonth } from './lib/time'
@@ -281,6 +282,8 @@ export default function App() {
   }, [])
   const handleLogout = useCallback(() => {
     // 서버 토큰부터 지운다 — authHeaders()가 localStorage를 읽으므로 삭제 전에 호출해야 한다
+    // 푸시 기기 토큰도 뗀다 — 로그아웃한 폰으로 알림이 가지 않게
+    stopPush()
     void logout()
     clearSession()
   }, [clearSession])
@@ -866,6 +869,25 @@ export default function App() {
       .then(setNotices)
       .catch(() => {})
   }, [setNotices])
+  // 푸시 알림 (안드로이드 앱) — 로그인해 있으면 기기를 등록한다. 알림을 눌러 들어오면 알림 목록을 연다
+  const openNoticesRef = useRef(openNotices)
+  openNoticesRef.current = openNotices
+  useEffect(() => {
+    if (sessionToken === null) return
+    let stop = () => {}
+    let cancelled = false
+    void startPush({
+      onOpen: () => openNoticesRef.current(),
+      onReceive: () => refresh('notices', 'social', 'comments'),
+    }).then((s) => {
+      if (cancelled) s()
+      else stop = s
+    })
+    return () => {
+      cancelled = true
+      stop()
+    }
+  }, [sessionToken])
   // 팔로우 요청 수락·거절 — 팔로워 목록과 알림을 함께 맞춘다
   const answerRequest = useCallback(
     async (userId: number, accept: boolean) => {

@@ -8,6 +8,7 @@ import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.moderation.Report;
 import com.intermap.backend.moderation.ReportRepository;
+import com.intermap.backend.push.PushService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,11 +56,14 @@ public class ReviewCommentController {
     private final ReportRepository reports;
     private final DailyLimits limits;
     private final ReviewAudience audience;
+    private final PushService push;
 
     public ReviewCommentController(ReviewCommentRepository repository, ReviewRepository reviews, AuthController auth,
                                    UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                                   ReportRepository reports, DailyLimits limits, ReviewAudience audience) {
+                                   ReportRepository reports, DailyLimits limits, ReviewAudience audience,
+                                   PushService push) {
         this.limits = limits;
+        this.push = push;
         this.audience = audience;
         this.repository = repository;
         this.reviews = reviews;
@@ -110,8 +114,9 @@ public class ReviewCommentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("이 후기에는 댓글을 달 수 없어요."));
         }
         // 대댓글이면 부모가 같은 후기의 원댓글이어야 한다 (대댓글에 또 답글은 없다)
+        ReviewComment parent = null;
         if (request.parentId() != null) {
-            ReviewComment parent = repository.findById(request.parentId()).orElse(null);
+            parent = repository.findById(request.parentId()).orElse(null);
             if (parent == null || !parent.getReview().getId().equals(review.getId()) || parent.getParentId() != null) {
                 return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("답글을 달 댓글을 찾지 못했어요."));
             }
@@ -125,6 +130,17 @@ public class ReviewCommentController {
                     .body(new AuthController.ErrorResponse("오늘은 댓글을 더 달 수 없어요. 내일 다시 해주세요."));
         }
         ReviewComment saved = repository.save(new ReviewComment(review, user, request.parentId(), text));
+        // 푸시 알림 — 답글이면 원댓글 쓴 사람에게, 그 밖엔 후기 쓴 사람에게 (같은 사람이면 답글로 한 번만, 내가 나에게는 안 보낸다)
+        AppUser parentAuthor = parent == null ? null : parent.getAuthor();
+        AppUser reviewAuthor = review.getAuthor();
+        Map<String, String> data = Map.of("type", parent == null ? "COMMENT" : "REPLY", "reviewId", String.valueOf(review.getId()));
+        if (parentAuthor != null && !parentAuthor.getId().equals(user.getId())) {
+            push.send(parentAuthor, user.getNickname() + "님이 내 댓글에 답글을 남겼어요", text, data);
+        }
+        if (!reviewAuthor.getId().equals(user.getId())
+                && (parentAuthor == null || !parentAuthor.getId().equals(reviewAuthor.getId()))) {
+            push.send(reviewAuthor, user.getNickname() + "님이 " + review.getRestaurantName() + " 후기에 댓글을 남겼어요", text, data);
+        }
         return ResponseEntity.ok(Item.from(saved, avatars.urlOf(user.getId())));
     }
 
