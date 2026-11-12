@@ -152,6 +152,12 @@
 }
 
 /* 후기 있는 가게 — 흰 알약에 그룹색 점과 후기 수 */
+/* 후기 있는 가게 — 점 대신 작은 별, 옆에 이웃 평균 별점 */
+.map-pin__star {
+  flex: 0 0 auto;
+  display: block;
+}
+
 .map-pin--pill {
   height: 28px;
   padding: 0 10px 0 8px;
@@ -160,7 +166,7 @@
   border: 1px solid rgba(60, 60, 67, 0.14);
 }
 
-/* 고른 가게 — 진한 알약에 점·이름·후기 수 배지 */
+/* 고른 가게 — 진한 알약에 별·이름·평균 별점 배지 */
 .map-pin--label {
   height: 32px;
   padding: 0 12px 0 10px;

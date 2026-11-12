@@ -78,15 +78,19 @@ const FAVORITE_PIN_COLOR = '#FF9F0A'
 // 헤더 찜 토글과 같은 통통한 별 (StarIcon.STAR_PATH)
 const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="display:block"><path d="${STAR_PATH}" style="fill:var(--pin-color);stroke:#fff" stroke-width="2" stroke-linejoin="round"/></svg>`
 
+// 후기 있는 가게 알약 앞 작은 별 (빨강) — 그 옆에 이웃 평균 별점
+const RATING_STAR_SVG = `<svg class="map-pin__star" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="${STAR_PATH}" style="fill:var(--pin-color)"/></svg>`
+
 // 가게 핀 모양 (CSS가 전부 가운데 정렬하므로 너비가 달라도 anchor는 0,0 하나):
-// 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양), 후기 있는 가게 = 흰 알약 "● 후기수",
-// 후기 없는 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 이름(+후기수)으로 펼친다.
+// 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양), 후기 있는 가게 = 흰 알약 "★ 평균 별점",
+// 후기 없는 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 ★ 이름 + 평균 별점으로 펼친다.
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
   const count = pin.count ?? pin.items.length
   // 요약 셀은 items가 비어 있고 count만 있다
   const cell = pin.items.length === 0
   const place = !cell && count === 1 ? pin.items[0] : null
   const reviewCount = place ? place.reviews.length : 0
+  const avg = reviewCount > 0 ? (place!.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1) : ''
   const color = star ? FAVORITE_PIN_COLOR : cell ? 'var(--gc-none)' : pinColor(pin.items, groups)
   const variant = !place
     ? 'cluster'
@@ -97,12 +101,12 @@ function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false
           : reviewCount > 0
             ? 'pill'
             : 'dot'
-  const lead = star ? STAR_PIN_SVG : '<span class="map-pin__dot"></span>'
+  const lead = star ? STAR_PIN_SVG : reviewCount > 0 ? RATING_STAR_SVG : '<span class="map-pin__dot"></span>'
   const body = {
     cluster: `${count}`,
-    label: `${lead}<span class="map-pin__name">${escapeHtml(place?.name ?? '')}</span>${reviewCount > 0 ? `<span class="map-pin__badge">${reviewCount}</span>` : ''}`,
+    label: `${lead}<span class="map-pin__name">${escapeHtml(place?.name ?? '')}</span>${reviewCount > 0 ? `<span class="map-pin__badge">${avg}</span>` : ''}`,
     star: STAR_PIN_SVG,
-    pill: `${lead}<span class="map-pin__count">${reviewCount}</span>`,
+    pill: `${lead}<span class="map-pin__count">${avg}</span>`,
     dot: '',
   }[variant]
   const title = place ? escapeHtml(place.name) : `이 자리 ${count}곳`
