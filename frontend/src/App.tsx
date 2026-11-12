@@ -624,10 +624,13 @@ export default function App() {
   // 화면 왼쪽 끝에서 오른쪽으로 쓸면 위 레이어를 하나 닫는다 (iOS 기본 "뒤로" 손짓).
   // 판정은 넉넉하게: 왼쪽 44px 안에서 시작해 오른쪽으로 50px, 또는 짧아도(24px~) 빠르게 튕기면.
   useEffect(() => {
+    // 아이폰·아이패드에서만. 안드로이드는 기기 뒤로가기(버튼·제스처)가 따로 있어서, 여기서도 쓸기를 받으면 두 번 닫힌다
+    const iosDevice =
+      /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     const standalone =
       window.matchMedia?.('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone === true
-    if (Capacitor.getPlatform() !== 'ios' && !standalone) return
+    if (Capacitor.getPlatform() !== 'ios' && !(iosDevice && standalone)) return
     const EDGE = 44
     let start: { x: number; y: number; t: number } | null = null
     let last: { x: number; t: number } | null = null
