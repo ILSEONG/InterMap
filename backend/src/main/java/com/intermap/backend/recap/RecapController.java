@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
 // 월간 결산 — "11월의 나: 9곳, 최애는 라멘, 제일 많이 간 동네는 망원동".
 // 다녀온 곳 = 그 달(KST)에 후기를 남긴 가게. 카드 문구·칭호는 프론트가 이 숫자로 만든다 (RecapSheet).
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class RecapController {
 
     public record Place(String name, String category, double rating) {

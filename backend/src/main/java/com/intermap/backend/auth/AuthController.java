@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 //   소셜 로그인 → 연결된 회원이면 로그인 → 같은 이메일 계정이 있으면 인증번호로 연결 → 없으면 닉네임+약관으로 가입
 @RestController
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class AuthController {
 
     public record EmailRequest(String email) {

@@ -33,7 +33,7 @@ import java.util.Map;
 
 // 신고와 차단 (스토어 사용자 생성 콘텐츠 정책), 운영자(주인장)용 신고 처리.
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class ModerationController {
 
     static final int MAX_DETAIL_LENGTH = 500;

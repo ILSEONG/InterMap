@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class ReviewCommentController {
 
     public record CreateRequest(Long reviewId, String text, Long parentId) {

@@ -1,5 +1,3 @@
-import { Capacitor } from '@capacitor/core'
-
 declare global {
   interface Window {
     naver?: typeof naver
@@ -18,57 +16,6 @@ export const useGlMap = (() => {
   }
 })()
 
-// 아이폰 앱은 화면 주소가 capacitor://intermap.app:8443 이다 (iOS 웹뷰는 앱 안 파일을 https로 내줄 수 없다).
-// 네이버 지도 인증 서버는 https가 아닌 주소를 받으면 인증 실패가 아니라 500 오류를 내서 지도가 뜨지 않는다.
-// 그래서 지도 SDK가 네이버로 보내는 요청 주소 안의 "내 주소"를 안드로이드 앱과 같은 https://intermap.app:8443 으로 바꿔 보낸다
-// (NCP 콘솔 Web 서비스 URL에 등록해 둔 그 주소 — capacitor.config.ts 참고).
-// SDK가 인증을 <script>(JSONP)·fetch·XHR 어느 쪽으로 하든 걸리도록 세 군데를 모두 감싼다.
-let iosAuthPatched = false
-function patchNaverAuthForIos() {
-  if (iosAuthPatched || Capacitor.getPlatform() !== 'ios') return
-  iosAuthPatched = true
-  const origin = window.location.origin
-  if (!origin.startsWith('capacitor://')) return
-  const httpsOrigin = origin.replace(/^capacitor:/, 'https:')
-  const variants: [string, string][] = [
-    [origin, httpsOrigin],
-    [encodeURIComponent(origin), encodeURIComponent(httpsOrigin)],
-  ]
-  const fix = (url: string): string => {
-    if (!/^https?:\/\/[^/]*naver\.(com|net)\//.test(url)) return url
-    let out = url
-    for (const [from, to] of variants) out = out.split(from).join(to)
-    return out
-  }
-
-  const srcDesc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')
-  if (srcDesc?.set && srcDesc.get) {
-    const { get, set } = srcDesc
-    Object.defineProperty(HTMLScriptElement.prototype, 'src', {
-      configurable: true,
-      enumerable: srcDesc.enumerable,
-      get() {
-        return get.call(this)
-      },
-      set(value: string) {
-        set.call(this, fix(String(value)))
-      },
-    })
-  }
-  const setAttribute = HTMLScriptElement.prototype.setAttribute
-  HTMLScriptElement.prototype.setAttribute = function (name: string, value: string) {
-    setAttribute.call(this, name, name.toLowerCase() === 'src' ? fix(String(value)) : value)
-  }
-  const realFetch = window.fetch
-  window.fetch = (input: RequestInfo | URL, init?: RequestInit) =>
-    realFetch(typeof input === 'string' ? fix(input) : input instanceof URL ? fix(input.href) : input, init)
-  const open = XMLHttpRequest.prototype.open
-  XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: unknown[]) {
-    // @ts-expect-error 나머지 인자(async, user, password)는 그대로 넘긴다
-    return open.call(this, method, fix(String(url)), ...rest)
-  }
-}
-
 export function loadNaverMaps(): Promise<typeof naver> {
   if (window.naver?.maps) return Promise.resolve(window.naver)
   if (loadPromise) return loadPromise
@@ -78,7 +25,6 @@ export function loadNaverMaps(): Promise<typeof naver> {
     return Promise.reject(new Error('VITE_NAVER_MAP_CLIENT_ID가 설정되지 않았습니다 (frontend/.env.local)'))
   }
 
-  patchNaverAuthForIos()
   loadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}${useGlMap ? '&submodules=gl' : ''}`

@@ -32,7 +32,7 @@ import java.util.Set;
 // 팔로우(단방향)와 나만 보이는 이름(별칭). 전부 로그인 필요.
 // 팔로우 승인 방식은 받는 사람이 정한다: 자동(기본)이면 누르는 즉시 맺어지고, 수동이면 요청(FollowRequest)으로 들어가 수락해야 맺어진다.
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class SocialController {
 
     static final int MAX_ALIAS_LENGTH = 20;

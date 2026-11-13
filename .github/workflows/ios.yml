@@ -8,7 +8,6 @@ on:
   pull_request:
     paths:
       - 'frontend/ios/**'
-      - 'frontend/src/lib/loadNaverMaps.ts'
       - 'frontend/src/lib/geo.ts'
       - 'frontend/capacitor.config.ts'
       - 'frontend/package.json'
@@ -24,20 +23,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # (임시) 네이버 지도 SDK가 인증을 어떻게 하는지 본다
-  probe:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Naver auth by url
-        run: |
-          for u in "https://intermap.app:8443/" "https://evil.example/" "httpsapp://intermap.app:8443/" "httpsapp://evil.example/" "capacitor://localhost/" "https://intermap.app/"; do
-            echo "--- url=$u"
-            curl -s -m 20 -G "https://oapi.map.naver.com/v3/auth" --data-urlencode "ncpKeyId=yrvo8lm3er" --data-urlencode "url=$u" \
-              --data-urlencode "time=$(date +%s)000" --data-urlencode "callback=cb" | cut -c1-300 || true
-            echo
-          done
-
   simulator:
     # Capacitor 8 iOS 프로젝트는 Xcode 26으로 빌드한다
     runs-on: macos-26
@@ -129,6 +114,15 @@ jobs:
             base64 -b 120 -i "$RUNNER_TEMP/out/$f.jpg"
             echo "-----END $f-----"
           done
+
+      # 서버가 아이폰 앱 주소(httpsapp://intermap.app:8443)에서 온 요청을 받아 주는지 (CORS)
+      - name: Check API accepts the app origin
+        if: always()
+        run: |
+          API="${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}"
+          curl -s -o /dev/null -D - -m 90 -X OPTIONS "$API/api/auth/oauth/result" \
+            -H "Origin: httpsapp://intermap.app:8443" -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type" | grep -i -E "^HTTP|access-control-allow-origin" || true
 
       - name: Keep build log
         if: always()
