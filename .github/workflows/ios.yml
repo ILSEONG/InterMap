@@ -24,6 +24,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # (임시) 네이버 지도 SDK가 인증을 어떻게 하는지 본다
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Naver auth shape
+        run: |
+          curl -s -m 30 "https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=yrvo8lm3er" -H "Referer: https://intermap.app:8443/" -o maps.js
+          wc -c maps.js
+          python3 - <<'PY'
+          import re
+          s = open('maps.js', encoding='utf-8', errors='replace').read()
+          seen = 0
+          for m in re.finditer(r'oapi\.map\.naver\.com|/v3/auth|ncpKeyId|Internal Server Error|location\.href|document\.URL|callback=|jsonp', s, re.I):
+              a = max(0, m.start() - 220); b = min(len(s), m.end() + 320)
+              print('@', m.start(), m.group(0))
+              print(s[a:b].replace('\n', ' '))
+              print('-----')
+              seen += 1
+              if seen > 45: break
+          PY
+
   simulator:
     # Capacitor 8 iOS 프로젝트는 Xcode 26으로 빌드한다
     runs-on: macos-26
@@ -114,27 +136,6 @@ jobs:
             echo "-----BEGIN $f-----"
             base64 -b 120 -i "$RUNNER_TEMP/out/$f.jpg"
             echo "-----END $f-----"
-          done
-
-      # 아이폰 앱 주소(capacitor://…)로 서버·네이버 지도가 어떻게 응답하는지 본다 (원인 확인용)
-      - name: Probe servers
-        if: always()
-        run: |
-          API="${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}"
-          echo "----- CORS: capacitor://intermap.app:8443 -----"
-          curl -s -o /dev/null -D - -m 60 -H "Origin: capacitor://intermap.app:8443" "$API/api/auth/oauth/result" -X OPTIONS \
-            -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | grep -i -E "^HTTP|access-control" || true
-          echo "----- 네이버 지도 SDK의 인증 요청 모양 -----"
-          curl -s -m 30 "https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=yrvo8lm3er" -H "Referer: https://intermap.app:8443/" -o "$RUNNER_TEMP/maps.js" || true
-          wc -c "$RUNNER_TEMP/maps.js" || true
-          grep -o -E '.{240}/v3/auth.{360}' "$RUNNER_TEMP/maps.js" | head -3 || true
-          for u in "https://intermap.app:8443/" "capacitor://intermap.app:8443/"; do
-            for ref in "" "https://intermap.app:8443/" "capacitor://intermap.app:8443/"; do
-              echo "--- url=$u referer=${ref:-없음}"
-              curl -s -m 20 -G "https://oapi.map.naver.com/v3/auth" --data-urlencode "ncpKeyId=yrvo8lm3er" --data-urlencode "url=$u" \
-                --data-urlencode "time=$(date +%s)000" --data-urlencode "callback=cb" ${ref:+-H "Referer: $ref"} | cut -c1-300 || true
-              echo
-            done
           done
 
       - name: Keep build log
