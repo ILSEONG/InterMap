@@ -1,6 +1,7 @@
 package com.intermap.backend.moderation;
 
 import com.intermap.backend.auth.AdminSeeder;
+import com.intermap.backend.auth.Admins;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
@@ -69,11 +70,13 @@ public class ModerationController {
     private final AuthController auth;
     private final UserAvatarRepository avatars;
     private final DailyLimits limits;
+    private final Admins admins;
 
     public ModerationController(ReportRepository reports, UserBlockRepository blocks, AppUserRepository users,
                                 ReviewRepository reviews, ReviewCommentRepository comments, FollowRepository follows,
                                 ReviewCleanup cleanup, AuthController auth, UserAvatarRepository avatars, DailyLimits limits,
-                                FollowRequestRepository followRequests) {
+                                FollowRequestRepository followRequests, Admins admins) {
+        this.admins = admins;
         this.limits = limits;
         this.followRequests = followRequests;
         this.reports = reports;
@@ -91,7 +94,8 @@ public class ModerationController {
         return ResponseEntity.status(status).body(new AuthController.ErrorResponse(message));
     }
 
-    private static boolean isAdmin(AppUser user) {
+    // 주인장 계정 하나 — 차단할 수 없다 (그 계정의 후기는 모두에게 보이는 공지 성격)
+    private static boolean isOwner(AppUser user) {
         return user != null && AdminSeeder.ADMIN_EMAIL.equals(user.getEmail());
     }
 
@@ -177,7 +181,7 @@ public class ModerationController {
         if (me.getId().equals(userId)) return error(HttpStatus.BAD_REQUEST, "나 자신은 차단할 수 없어요.");
         AppUser target = users.findById(userId).orElse(null);
         if (target == null) return error(HttpStatus.NOT_FOUND, "없는 사용자예요.");
-        if (isAdmin(target)) return error(HttpStatus.BAD_REQUEST, "운영자 계정은 차단할 수 없어요.");
+        if (isOwner(target)) return error(HttpStatus.BAD_REQUEST, "운영자 계정은 차단할 수 없어요.");
         if (blocks.findByBlockerAndBlocked(me, target).isEmpty()) {
             blocks.save(new UserBlock(me, target));
         }
@@ -202,7 +206,7 @@ public class ModerationController {
     public ResponseEntity<?> adminReports(@RequestHeader(value = "Authorization", required = false) String authorization,
                                           @RequestParam(defaultValue = "OPEN") String status) {
         AppUser me = auth.currentUser(authorization);
-        if (!isAdmin(me)) return error(HttpStatus.FORBIDDEN, "운영자만 볼 수 있어요.");
+        if (!admins.isAdmin(me)) return error(HttpStatus.FORBIDDEN, "운영자만 볼 수 있어요.");
         Report.Status st = parse(Report.Status.class, status);
         if (st == null) return error(HttpStatus.BAD_REQUEST, "알 수 없는 상태예요.");
         List<Report> list = reports.findByStatusOrderByCreatedAtDesc(st);
@@ -230,7 +234,7 @@ public class ModerationController {
     public ResponseEntity<?> resolve(@RequestHeader(value = "Authorization", required = false) String authorization,
                                      @PathVariable Long id, @RequestBody ResolveRequest request) {
         AppUser me = auth.currentUser(authorization);
-        if (!isAdmin(me)) return error(HttpStatus.FORBIDDEN, "운영자만 처리할 수 있어요.");
+        if (!admins.isAdmin(me)) return error(HttpStatus.FORBIDDEN, "운영자만 처리할 수 있어요.");
         Report report = reports.findById(id).orElse(null);
         if (report == null) return error(HttpStatus.NOT_FOUND, "없는 신고예요.");
         String action = request.action() == null ? "" : request.action().trim().toUpperCase();

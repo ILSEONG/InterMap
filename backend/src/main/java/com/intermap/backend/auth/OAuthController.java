@@ -2,6 +2,7 @@ package com.intermap.backend.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.intermap.backend.ops.ExternalCalls;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -92,6 +93,7 @@ public class OAuthController {
     private final PendingSocialLinks pendingLinks;
     private final AuthController auth;
     private final AppleLogin apple;
+    private final ExternalCalls calls;
     private final String backendBaseUrl;
     private final String frontendBaseUrl;
 
@@ -100,6 +102,7 @@ public class OAuthController {
         PendingSocialLinks pendingLinks,
         AuthController auth,
         AppleLogin apple,
+        ExternalCalls calls,
         @Value("${backend.base-url}") String backendBaseUrl,
         @Value("${frontend.base-url}") String frontendBaseUrl,
         @Value("${oauth.google.client-id}") String googleId, @Value("${oauth.google.client-secret}") String googleSecret,
@@ -110,6 +113,7 @@ public class OAuthController {
         this.pendingLinks = pendingLinks;
         this.auth = auth;
         this.apple = apple;
+        this.calls = calls;
         this.backendBaseUrl = backendBaseUrl;
         this.frontendBaseUrl = frontendBaseUrl;
         this.providers = Map.of(
@@ -199,8 +203,11 @@ public class OAuthController {
 
         try {
             String accessToken = exchangeToken(provider, config, code, state);
-            return finish(provider, fetchProfile(provider, config, accessToken), null, pending, fromApp);
+            Profile profile = fetchProfile(provider, config, accessToken);
+            calls.ok(ExternalCalls.LOGIN + provider);
+            return finish(provider, profile, null, pending, fromApp);
         } catch (Exception e) {
+            calls.fail(ExternalCalls.LOGIN + provider, e);
             return redirectWithError("failed", fromApp);
         }
     }
@@ -225,8 +232,10 @@ public class OAuthController {
         try {
             AppleLogin.AppleUser appleUser = apple.exchange(code, redirectUri(APPLE));
             Profile profile = new Profile(appleUser.sub(), appleUser.email(), appleName(user));
+            calls.ok(ExternalCalls.LOGIN + APPLE);
             return finish(APPLE, profile, appleUser.refreshToken(), pending, fromApp);
         } catch (Exception e) {
+            calls.fail(ExternalCalls.LOGIN + APPLE, e);
             return redirectWithError("failed", fromApp);
         }
     }

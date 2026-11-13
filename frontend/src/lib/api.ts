@@ -61,6 +61,8 @@ export interface AuthSession {
   nickname: string
   // 프로필 사진 API 경로(?v= 포함). 없으면 null. 예전 세션엔 없을 수 있다
   avatar?: string | null
+  // 운영 관리자 — 마이페이지에 신고 관리·서버 상태가 보인다 (서버 Admins)
+  admin?: boolean
 }
 
 const SESSION_KEY = 'intermap.session'
@@ -246,6 +248,12 @@ export const ADMIN_EMAIL = 'admin'
 
 export function isAdmin(session: AuthSession | null): boolean {
   return session?.email === ADMIN_EMAIL
+}
+
+// 운영 관리자: 주인장 계정이거나 서버가 관리자라고 알려 준 계정 (환경변수 ADMIN_EMAILS).
+// 주인장(isAdmin)과 달리 후기는 보통 회원처럼 쓴다 — 신고 관리와 서버 상태만 더 보인다
+export function isOperator(session: AuthSession | null): boolean {
+  return isAdmin(session) || session?.admin === true
 }
 
 // 후기와 가게를 잇는 키 "이름|주소" (App.mergeRecords와 같은 규칙)
@@ -607,6 +615,55 @@ export async function fetchAdminReports(status: ReportStatus = 'OPEN'): Promise<
 // REMOVE = 글 삭제, DISMISS = 문제 없음. 같은 글에 걸린 신고가 모두 같이 닫힌다.
 export function resolveReport(id: number, action: 'REMOVE' | 'DISMISS'): Promise<{ message: string }> {
   return postJson<{ message: string }>(`/api/admin/reports/${id}/resolve`, { action })
+}
+
+// ---- 서버 상태 (운영 관리자 전용, 서버 OpsController) ----
+// 요청·오류 통계는 서버 메모리에 있어 서버가 다시 켜진 뒤부터의 값이다
+export interface OpsData {
+  server: {
+    startedAt: string
+    now: string
+    heapUsedMb: number
+    heapMaxMb: number
+    dbPool: { active: number; idle: number; waiting: number; max: number } | null
+  }
+  traffic: {
+    total: number
+    errors: number
+    avgMs: number
+    // 최근 24시간, 오래된 것부터
+    hours: { at: string; count: number; errors: number; avgMs: number }[]
+  }
+  // 시간을 많이 쓴 순
+  routes: { route: string; count: number; errors: number; avgMs: number; p95Ms: number; maxMs: number }[]
+  // 1초 넘게 걸린 최근 요청
+  slow: { at: string; route: string; ms: number; status: number }[]
+  // 바깥 서비스 호출: mail, push, login:<provider>
+  external: { name: string; ok: number; fail: number; lastOkAt: string | null; lastFailAt: string | null; lastError: string | null }[]
+  logs: {
+    errors: number
+    warnings: number
+    recent: { at: string; level: string; logger: string; message: string; error: string | null }[]
+  }
+  data: {
+    users: number
+    usersToday: number
+    usersWeek: number
+    reviews: number
+    reviewsToday: number
+    comments: number
+    openReports: number
+    pushDevices: number
+    dbBytes: number | null
+    photoBytes: number | null
+  }
+}
+
+export async function fetchOps(): Promise<OpsData> {
+  const res = await fetch(`${API_BASE}/api/admin/ops`, { headers: authHeaders(), cache: 'no-store' })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message ?? `서버 상태 조회 실패 (${res.status})`)
+  return data
 }
 
 // ---- "어디 갈래?" 투표 (서버 PollController) ----

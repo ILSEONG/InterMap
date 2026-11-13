@@ -1,6 +1,7 @@
 package com.intermap.backend.push;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.intermap.backend.ops.ExternalCalls;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intermap.backend.auth.AppUser;
 import org.slf4j.Logger;
@@ -48,6 +49,7 @@ public class PushService {
     });
 
     private final boolean configured;
+    private final ExternalCalls calls;
     private String projectId;
     private String clientEmail;
     private String tokenUri;
@@ -57,7 +59,9 @@ public class PushService {
     private String accessToken;
     private Instant accessTokenExpiry = Instant.EPOCH;
 
-    public PushService(PushTokenRepository tokens, @Value("${fcm.service-account:}") String serviceAccount) {
+    public PushService(PushTokenRepository tokens, @Value("${fcm.service-account:}") String serviceAccount,
+                       ExternalCalls calls) {
+        this.calls = calls;
         this.tokens = tokens;
         this.configured = load(serviceAccount);
     }
@@ -131,16 +135,20 @@ public class PushService {
                     .body(mapper.writeValueAsString(Map.of("message", message)))
                     .retrieve()
                     .toBodilessEntity();
+            calls.ok(ExternalCalls.PUSH);
         } catch (RestClientResponseException e) {
-            // 앱을 지웠거나 토큰이 바뀐 기기 — 더 보내지 않게 지운다
+            // 앱을 지웠거나 토큰이 바뀐 기기 — 더 보내지 않게 지운다 (발송 장애가 아니라 실패로 세지 않는다)
             String response = e.getResponseBodyAsString();
             if (e.getStatusCode().value() == 404 || response.contains("UNREGISTERED")) {
                 tokens.deleteByTokenValue(target);
             } else {
                 log.warn("푸시 발송 실패: HTTP {}", e.getStatusCode().value());
+                // 응답 본문엔 기기 토큰이 섞일 수 있어 상태 코드만 남긴다
+                calls.fail(ExternalCalls.PUSH, "HTTP " + e.getStatusCode().value());
             }
         } catch (Exception e) {
             log.warn("푸시 발송 실패: {}", e.getClass().getSimpleName());
+            calls.fail(ExternalCalls.PUSH, e.getClass().getSimpleName());
         }
     }
 
