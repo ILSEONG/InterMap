@@ -16,7 +16,7 @@ import java.util.Map;
 
 // 푸시 알림을 받을 기기 등록·해제. 앱(안드로이드)이 로그인한 채 켜질 때마다 등록하고, 로그아웃할 때 해제한다.
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class PushController {
 
     static final int MAX_TOKEN_LENGTH = 512;

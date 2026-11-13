@@ -31,7 +31,7 @@ import java.util.Set;
 // 댓글이 지워지거나 요청이 취소되면 알림도 같이 사라져 "눌렀더니 없는 글" 같은 일이 없다.
 // 읽음은 마지막으로 목록을 연 때(AppUser.notificationsSeenAt) 하나로 가른다.
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class NotificationController {
 
     // 이보다 오래된 일은 알리지 않는다 (받은 팔로우 요청은 처리할 때까지 남는다)

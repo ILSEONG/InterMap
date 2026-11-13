@@ -20,7 +20,7 @@ import java.util.Arrays;
 
 // 프로필 사진. 올리기/지우기는 본인만, 보기는 누구나 (후기·팔로우 목록에서 그린다).
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class AvatarController {
 
     // 프론트가 512px JPEG로 줄여 보내 보통 100KB 아래다
