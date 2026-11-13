@@ -84,13 +84,22 @@ jobs:
           # 위치 권한 창이 화면을 가리지 않게 미리 허용하고, 서울 시청 근처로 위치를 준다
           xcrun simctl privacy "$UDID" grant location com.intermap.app || true
           xcrun simctl location "$UDID" set 37.5665,126.9780 || true
-          xcrun simctl launch --console "$UDID" com.intermap.app > "$RUNNER_TEMP/out/app.log" 2>&1 &
+          # pty로 붙어야 앱 출력이 줄 단위로 바로 나온다 (파이프면 버퍼에 남은 채 종료돼 사라진다)
+          xcrun simctl launch --console-pty "$UDID" com.intermap.app > "$RUNNER_TEMP/out/app.log" 2>&1 &
           sleep 20
           xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/1-launch.png"
           sleep 25
           xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/2-loaded.png"
           xcrun simctl terminate "$UDID" com.intermap.app || true
-          tail -n 80 "$RUNNER_TEMP/out/app.log" || true
+          echo "----- app.log -----"
+          tail -n 150 "$RUNNER_TEMP/out/app.log" | cut -c1-600 || true
+          # 캡처를 줄여 로그에도 싣는다 — Artifacts를 못 받는 환경에서도 화면을 볼 수 있게
+          for f in 1-launch 2-loaded; do
+            sips -Z 1000 -s format jpeg -s formatOptions 50 "$RUNNER_TEMP/out/$f.png" --out "$RUNNER_TEMP/out/$f.jpg" > /dev/null
+            echo "-----BEGIN $f-----"
+            base64 -b 120 -i "$RUNNER_TEMP/out/$f.jpg"
+            echo "-----END $f-----"
+          done
 
       - name: Keep build log
         if: always()
