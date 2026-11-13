@@ -24,6 +24,7 @@ import ReportSheet from './components/ReportSheet'
 import PolicyViewer from './components/PolicyViewer'
 import type { PolicyPage } from './components/PolicyViewer'
 import AdminReports from './components/AdminReports'
+import AdminOps from './components/AdminOps'
 import PollComposer from './components/PollComposer'
 import PollSheet from './components/PollSheet'
 import PollCartBar from './components/PollCartBar'
@@ -56,6 +57,7 @@ import {
   updateReview,
   deleteReview,
   isAdmin,
+  isOperator,
   restaurantKey,
   logout,
   deleteAccount,
@@ -294,6 +296,7 @@ export default function App() {
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
   const [policyPage, setPolicyPage] = useState<PolicyPage | null>(null)
   const [adminReportsOpen, setAdminReportsOpen] = useState(false)
+  const [adminOpsOpen, setAdminOpsOpen] = useState(false)
 
   // "어디 갈래?" 투표 — 가게 시트에서 담아 둔 후보 (앱을 껐다 켜도 남게 저장), 만들기 시트, 열어 본 투표.
   // 친구가 보낸 링크(?poll=)로 들어오면 그 투표를 바로 연다
@@ -625,6 +628,7 @@ export default function App() {
     if (openPoll) return setOpenPoll(null), true
     if (composerOpen) return setComposerOpen(false), true
     if (adminReportsOpen) return setAdminReportsOpen(false), true
+    if (adminOpsOpen) return setAdminOpsOpen(false), true
     if (profileUserId !== null) return profileBack(), true
     // 스토리는 팔로잉 현황 위에서도 열린다 — 위에 있는 스토리부터
     if (openStory) return setOpenStory(null), true
@@ -1267,6 +1271,7 @@ export default function App() {
     openPoll ||
     composerOpen ||
     adminReportsOpen ||
+    adminOpsOpen ||
     profileUserId !== null ||
     boardOpen ||
     noticesOpen ||
@@ -1476,7 +1481,8 @@ export default function App() {
             !!policyPage ||
             !!reportTarget ||
             composerOpen ||
-            adminReportsOpen
+            adminReportsOpen ||
+            adminOpsOpen
           }
           session={session}
           social={social}
@@ -1488,7 +1494,9 @@ export default function App() {
           onDeleteAccount={handleDeleteAccount}
           onOpenPolicy={setPolicyPage}
           isAdmin={isAdmin(session)}
+          isOperator={isOperator(session)}
           onOpenReports={() => setAdminReportsOpen(true)}
+          onOpenOps={() => setAdminOpsOpen(true)}
           onOpenRecap={openRecapFromMyPage}
           onOpenPoll={setOpenPoll}
           pollVersion={pollVersion}
@@ -1635,6 +1643,7 @@ export default function App() {
       {session && adminReportsOpen && (
         <AdminReports onChanged={refreshContent} onClose={() => setAdminReportsOpen(false)} />
       )}
+      {session && adminOpsOpen && <AdminOps onClose={() => setAdminOpsOpen(false)} />}
       {reportTarget && (
         <ReportSheet
           target={reportTarget}

@@ -59,7 +59,8 @@ public class AuthController {
     }
 
     // avatar: 프로필 사진 URL(API 경로, ?v= 포함) 또는 null
-    public record AuthResponse(Long id, String token, String email, String nickname, String avatar) {
+    // admin: 운영 관리자(Admins)인지 — 프론트가 마이페이지에 신고 관리·서버 상태를 낼지 정한다
+    public record AuthResponse(Long id, String token, String email, String nickname, String avatar, boolean admin) {
     }
 
     public record ErrorResponse(String message) {
@@ -144,10 +145,12 @@ public class AuthController {
     private final PendingSocialLinks pendingLinks;
     private final UserAvatarRepository avatars;
     private final DailyLimits limits;
+    private final Admins admins;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthController(AppUserRepository repository, MailService mailService, PendingSocialLinks pendingLinks,
-                          UserAvatarRepository avatars, DailyLimits limits) {
+                          UserAvatarRepository avatars, DailyLimits limits, Admins admins) {
+        this.admins = admins;
         this.repository = repository;
         this.mailService = mailService;
         this.pendingLinks = pendingLinks;
@@ -157,7 +160,8 @@ public class AuthController {
 
     // DB엔 토큰 해시만 있으므로 원문 토큰은 호출부가 넘긴다
     private AuthResponse authResponse(AppUser user, String token) {
-        return new AuthResponse(user.getId(), token, user.getEmail(), user.getNickname(), avatars.urlOf(user.getId()));
+        return new AuthResponse(user.getId(), token, user.getEmail(), user.getNickname(), avatars.urlOf(user.getId()),
+                admins.isAdmin(user));
     }
 
     private static String normalizeEmail(String raw) {

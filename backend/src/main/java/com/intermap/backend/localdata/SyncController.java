@@ -1,7 +1,6 @@
 package com.intermap.backend.localdata;
 
-import com.intermap.backend.auth.AdminSeeder;
-import com.intermap.backend.auth.AppUser;
+import com.intermap.backend.auth.Admins;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.restaurant.GeocodeBackfill;
 import org.springframework.http.HttpStatus;
@@ -27,9 +26,11 @@ public class SyncController {
     private final RestaurantImportService importService;
     private final AuthController auth;
     private final GeocodeBackfill geocode;
+    private final Admins admins;
 
     public SyncController(StatusSyncService syncService, RestaurantImportService importService, AuthController auth,
-                          GeocodeBackfill geocode) {
+                          GeocodeBackfill geocode, Admins admins) {
+        this.admins = admins;
         this.syncService = syncService;
         this.importService = importService;
         this.auth = auth;
@@ -37,8 +38,7 @@ public class SyncController {
     }
 
     private boolean isAdmin(String authorization) {
-        AppUser me = auth.currentUser(authorization);
-        return me != null && AdminSeeder.ADMIN_EMAIL.equals(me.getEmail());
+        return admins.isAdmin(auth.currentUser(authorization));
     }
 
     private static ResponseEntity<?> forbidden() {

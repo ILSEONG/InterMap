@@ -1,0 +1,337 @@
+/* 서버 상태 (운영 관리자 전용). 신고 관리와 같은 유리 시트 위에 흰 카드를 쌓는다.
+   상태색: 나쁨은 고정 빨강(포인트 색은 사용자가 바꿀 수 있어 상태 표시에 쓰지 않는다), 막대는 파랑 하나. */
+.admin-ops__lead {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.admin-ops__lead strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.admin-ops__alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(217, 45, 32, 0.1);
+  color: #a11d13;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.admin-ops__alert > span {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #d92d20;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-ops__tiles {
+  margin: 0 0 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.admin-ops__tile {
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.admin-ops__tile dt {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.admin-ops__tile dd {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-ops__tile small,
+.admin-ops__facts small {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+.admin-ops__section {
+  margin: 0 0 20px;
+}
+
+.admin-ops__section h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.admin-ops__section h3 small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.admin-ops__section h4 {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.admin-ops__empty {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--fill);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.admin-ops__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-ops__item {
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  min-width: 0;
+}
+
+.admin-ops__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.admin-ops__state {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--mint-tint);
+  color: var(--mint-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-ops__state--bad {
+  background: rgba(217, 45, 32, 0.12);
+  color: #a11d13;
+}
+
+.admin-ops__meta {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ops__item-head .admin-ops__meta {
+  margin: 0;
+}
+
+.admin-ops__bad {
+  color: #a11d13;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-ops__route,
+.admin-ops__code {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-ops__route {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.admin-ops__code {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.admin-ops__log {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* 시간대별 요청 — 막대 24개. 막대 끝만 둥글리고 바닥은 기준선에 붙인다 */
+.admin-ops__chart {
+  padding: 16px 14px 12px;
+  border-radius: 22px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+}
+
+.admin-ops__bars {
+  height: 110px;
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-ops__bar {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  cursor: pointer;
+}
+
+.admin-ops__bar-fill {
+  display: block;
+  border-radius: 4px 4px 0 0;
+  background: #2f7bf6;
+  opacity: 0.85;
+}
+
+.admin-ops__bar--on .admin-ops__bar-fill {
+  opacity: 1;
+  background: #1a5fd0;
+}
+
+.admin-ops__bar--on {
+  background: var(--fill);
+  border-radius: 6px 6px 0 0;
+}
+
+/* 오류가 있던 시간 — 막대 위 빨간 점. 건수는 막대를 누르면 글로 나온다 */
+.admin-ops__bar-flag {
+  align-self: center;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-bottom: 3px;
+  border-radius: 50%;
+  background: #d92d20;
+}
+
+.admin-ops__axis {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ops__axis span {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.admin-ops__axis span:last-child {
+  direction: rtl;
+}
+
+.admin-ops__chart-note {
+  margin: 10px 0 0;
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ops__facts {
+  margin: 0;
+  border-radius: 22px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 14px rgba(20, 20, 30, 0.06);
+  padding: 4px 16px;
+}
+
+.admin-ops__facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+}
+
+.admin-ops__facts > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.admin-ops__facts dt {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.admin-ops__facts dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ops__spin {
+  animation: admin-ops-spin 800ms linear infinite;
+}
+
+@keyframes admin-ops-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-ops__spin {
+    animation: none;
+  }
+}

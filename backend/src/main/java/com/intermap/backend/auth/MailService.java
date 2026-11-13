@@ -1,5 +1,6 @@
 package com.intermap.backend.auth;
 
+import com.intermap.backend.ops.ExternalCalls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,10 +21,12 @@ public class MailService {
     private final RestClient client = RestClient.create();
     private final String apiKey;
     private final String from;
+    private final ExternalCalls calls;
 
-    public MailService(@Value("${brevo.api-key}") String apiKey, @Value("${mail.from}") String from) {
+    public MailService(@Value("${brevo.api-key}") String apiKey, @Value("${mail.from}") String from, ExternalCalls calls) {
         this.apiKey = apiKey;
         this.from = from;
+        this.calls = calls;
     }
 
     public void sendVerificationCode(String email, String code) {
@@ -32,6 +35,18 @@ public class MailService {
             log.info("[이메일 인증번호] {} -> {}", email, code);
             return;
         }
+        // 실패는 호출한 쪽(AuthController)이 사용자에게 알린다. 여기선 관측 화면에 성공·실패만 남긴다
+        try {
+            deliver(email, code);
+            calls.ok(ExternalCalls.MAIL);
+        } catch (RuntimeException e) {
+            calls.fail(ExternalCalls.MAIL, e);
+            throw e;
+        }
+        log.info("[이메일 인증번호] {} 발송 완료", email);
+    }
+
+    private void deliver(String email, String code) {
         client.post()
             .uri(BREVO_URL)
             .header("api-key", apiKey)
@@ -44,7 +59,6 @@ public class MailService {
                 "htmlContent", html(code)))
             .retrieve()
             .toBodilessEntity();
-        log.info("[이메일 인증번호] {} 발송 완료", email);
     }
 
     // 메일 클라이언트 호환을 위해 table + inline style만 쓴다. 워드마크 색은 프론트 Header와 동일.

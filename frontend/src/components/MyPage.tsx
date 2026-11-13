@@ -53,9 +53,12 @@ interface MyPageProps {
   // 회원 탈퇴. 성공하면 App이 로그아웃 상태로 돌리고 이 화면을 닫는다
   onDeleteAccount: () => Promise<void>
   onOpenPolicy: (page: PolicyPage) => void
-  // 운영자(주인장)면 신고 관리 화면으로 가는 버튼
+  // 주인장 계정 — 탈퇴할 수 없다
   isAdmin: boolean
+  // 운영 관리자면 신고 관리·서버 상태로 가는 버튼
+  isOperator: boolean
   onOpenReports: () => void
+  onOpenOps: () => void
   // 월간 결산 · 투표 화면 열기 (App이 띄운다)
   onOpenRecap: () => void
   onOpenPoll: (token: string) => void
@@ -151,6 +154,8 @@ export default function MyPage({
   onDeleteAccount,
   onOpenPolicy,
   isAdmin,
+  isOperator,
+  onOpenOps,
   onOpenReports,
   onOpenRecap,
   onOpenPoll,
@@ -829,11 +834,17 @@ export default function MyPage({
                   ))}
                 </span>
               </div>
-              {isAdmin && (
-                <button type="button" className="my-page__row" onClick={onOpenReports}>
-                  <span className="my-page__row-title">신고 관리</span>
-                  <Chevron />
-                </button>
+              {isOperator && (
+                <>
+                  <button type="button" className="my-page__row" onClick={onOpenReports}>
+                    <span className="my-page__row-title">신고 관리</span>
+                    <Chevron />
+                  </button>
+                  <button type="button" className="my-page__row" onClick={onOpenOps}>
+                    <span className="my-page__row-title">서버 상태</span>
+                    <Chevron />
+                  </button>
+                </>
               )}
 
               <footer className="my-page__footer">
