@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -22,14 +23,15 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
-// 구글/네이버/카카오 소셜 로그인 — Spring Security 없이 인가 코드 플로우를 직접 구현한다
+// 구글/네이버/카카오/Apple 소셜 로그인 — Spring Security 없이 인가 코드 플로우를 직접 구현한다
 // (기존 인증이 세션이 아니라 커스텀 토큰 기반이라, 필터체인을 새로 설계하지 않는 쪽이 더 단순하다).
 //
 // 로그인을 시작한 기기에만 결과가 돌아가게 묶는다:
@@ -37,6 +39,8 @@ import java.util.regex.Pattern;
 //   콜백은 결과를 서버에 맡기고 일회용 코드만 ?oauth=<code> 로 돌려보낸다 →
 //   프론트가 POST /api/auth/oauth/result {code, verifier} 로 결과(세션 또는 연결·가입 티켓)를 받는다.
 // 남이 만든 콜백 링크나 가로챈 intermap:// 딥링크는 verifier가 없어 쓸모가 없다.
+//
+// Apple은 같은 흐름이지만 client_secret·콜백 방식·프로필 읽는 법이 달라 AppleLogin에 따로 둔다.
 @RestController
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class OAuthController {
@@ -76,6 +80,7 @@ public class OAuthController {
     private static final String APP_STATE_SUFFIX = "-app";
     // Android 매니페스트 intent-filter·iOS CFBundleURLSchemes(scheme=intermap, host=auth)와 맞춘 딥링크 주소
     private static final String APP_DEEP_LINK = "intermap://auth";
+    private static final String APPLE = "apple";
 
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper mapper = new ObjectMapper();
@@ -86,6 +91,7 @@ public class OAuthController {
     private final AppUserRepository repository;
     private final PendingSocialLinks pendingLinks;
     private final AuthController auth;
+    private final AppleLogin apple;
     private final String backendBaseUrl;
     private final String frontendBaseUrl;
 
@@ -93,6 +99,7 @@ public class OAuthController {
         AppUserRepository repository,
         PendingSocialLinks pendingLinks,
         AuthController auth,
+        AppleLogin apple,
         @Value("${backend.base-url}") String backendBaseUrl,
         @Value("${frontend.base-url}") String frontendBaseUrl,
         @Value("${oauth.google.client-id}") String googleId, @Value("${oauth.google.client-secret}") String googleSecret,
@@ -102,6 +109,7 @@ public class OAuthController {
         this.repository = repository;
         this.pendingLinks = pendingLinks;
         this.auth = auth;
+        this.apple = apple;
         this.backendBaseUrl = backendBaseUrl;
         this.frontendBaseUrl = frontendBaseUrl;
         this.providers = Map.of(
@@ -129,14 +137,26 @@ public class OAuthController {
         return backendBaseUrl + "/api/auth/oauth/" + provider + "/callback";
     }
 
+    // 키가 들어 있어 실제로 쓸 수 있는 간편 로그인 목록 — 프론트가 버튼을 낼지 정한다 (Apple은 설정 전엔 숨긴다)
+    @GetMapping("/api/auth/oauth/providers")
+    public List<String> configuredProviders() {
+        List<String> ids = new ArrayList<>();
+        for (String id : List.of("naver", "kakao", "google")) {
+            if (providers.get(id).configured()) ids.add(id);
+        }
+        if (apple.configured()) ids.add(APPLE);
+        return ids;
+    }
+
     // 앱(WebView)에서 시작한 로그인은 ?app=1 — state에 표시를 실어 콜백에서 커스텀 스킴으로 돌려보낸다
     @GetMapping("/api/auth/oauth/{provider}")
     public ResponseEntity<Void> authorize(@PathVariable String provider, @RequestParam(required = false) String app,
                                           @RequestParam(required = false) String verifier) {
         boolean fromApp = app != null;
+        boolean isApple = APPLE.equals(provider);
         ProviderConfig config = providers.get(provider);
-        if (config == null) return ResponseEntity.notFound().build();
-        if (!config.configured()) return redirectWithError("unavailable", fromApp);
+        if (config == null && !isApple) return ResponseEntity.notFound().build();
+        if (isApple ? !apple.configured() : !config.configured()) return redirectWithError("unavailable", fromApp);
         if (verifier == null || !VERIFIER.matcher(verifier).matches()) return redirectWithError("failed", fromApp);
 
         Instant now = Instant.now();
@@ -147,14 +167,18 @@ public class OAuthController {
             + (fromApp ? APP_STATE_SUFFIX : "");
         pendingStates.put(state, new PendingState(now, verifier));
 
-        URI target = UriComponentsBuilder.fromUriString(config.authorizeUri())
-            .queryParam("client_id", config.clientId())
+        UriComponentsBuilder target = UriComponentsBuilder.fromUriString(isApple ? AppleLogin.AUTHORIZE_URI : config.authorizeUri())
+            .queryParam("client_id", isApple ? apple.clientId() : config.clientId())
             .queryParam("redirect_uri", redirectUri(provider))
             .queryParam("response_type", "code")
-            .queryParam("state", state)
-            .queryParamIfPresent("scope", config.scope().isBlank() ? Optional.empty() : Optional.of(config.scope()))
-            .encode().build().toUri();
-        return ResponseEntity.status(302).location(target).build();
+            .queryParam("state", state);
+        if (isApple) {
+            // 이름·이메일을 요청하면 Apple은 콜백을 POST(form_post)로만 보낸다 → appleCallback
+            target.queryParam("scope", "name email").queryParam("response_mode", "form_post");
+        } else if (!config.scope().isBlank()) {
+            target.queryParam("scope", config.scope());
+        }
+        return ResponseEntity.status(302).location(target.encode().build().toUri()).build();
     }
 
     @GetMapping("/api/auth/oauth/{provider}/callback")
@@ -175,32 +199,78 @@ public class OAuthController {
 
         try {
             String accessToken = exchangeToken(provider, config, code, state);
-            Profile profile = fetchProfile(provider, config, accessToken);
-            if (profile.providerId() == null || profile.providerId().isBlank()) {
-                return redirectWithError("failed", fromApp);
-            }
-            String email = profile.email() == null ? "" : profile.email().trim().toLowerCase();
-
-            // 이 소셜 계정이 연결된 회원이 있으면 로그인.
-            // 없는데 같은 이메일 계정이 있으면 "계정 연결" 화면(link) — 인증번호로 이메일 소유를 증명해야 연결된다
-            // (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
-            // 둘 다 없으면 닉네임+약관만 받는 가입 화면(signup)으로 보낸다.
-            AppUser user = repository.findByProviderAndProviderId(provider, profile.providerId()).orElse(null);
-            Outcome outcome;
-            if (user == null) {
-                String ticket = pendingLinks.put(provider, profile.providerId(), email);
-                boolean emailTaken = !email.isBlank() && repository.findByEmail(email).isPresent();
-                outcome = new Outcome(Instant.now(), pending.verifier(), null, new OAuthResult(
-                    emailTaken ? "link" : "signup", null, ticket, provider,
-                    email.isBlank() ? null : email,
-                    profile.nickname() == null || profile.nickname().isBlank() ? null : profile.nickname()));
-            } else {
-                outcome = new Outcome(Instant.now(), pending.verifier(), user.getId(), null);
-            }
-            return redirect(fromApp, "oauth", putOutcome(outcome));
+            return finish(provider, fetchProfile(provider, config, accessToken), null, pending, fromApp);
         } catch (Exception e) {
             return redirectWithError("failed", fromApp);
         }
+    }
+
+    // Apple 콜백 — Apple 로그인 화면이 브라우저를 시켜 이 주소로 폼을 POST한다 (그래서 출처가 appleid.apple.com).
+    // user(이름)는 그 사람이 이 앱에 처음 로그인할 때 한 번만 온다.
+    @CrossOrigin(origins = "https://appleid.apple.com")
+    @PostMapping(value = "/api/auth/oauth/apple/callback", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<Void> appleCallback(
+        @RequestParam(required = false) String code,
+        @RequestParam(required = false) String state,
+        @RequestParam(required = false) String error,
+        @RequestParam(required = false) String user
+    ) {
+        boolean fromApp = state != null && state.endsWith(APP_STATE_SUFFIX);
+        if (!apple.configured()) return redirectWithError("unavailable", fromApp);
+        PendingState pending = state == null ? null : pendingStates.remove(state);
+        if (error != null || code == null) return redirectWithError("cancelled", fromApp);
+        if (pending == null || pending.issuedAt().plusSeconds(STATE_TTL_SECONDS).isBefore(Instant.now())) {
+            return redirectWithError("expired", fromApp);
+        }
+        try {
+            AppleLogin.AppleUser appleUser = apple.exchange(code, redirectUri(APPLE));
+            Profile profile = new Profile(appleUser.sub(), appleUser.email(), appleName(user));
+            return finish(APPLE, profile, appleUser.refreshToken(), pending, fromApp);
+        } catch (Exception e) {
+            return redirectWithError("failed", fromApp);
+        }
+    }
+
+    // {"name":{"firstName":"길동","lastName":"홍"}} → "홍길동". 가입 화면 닉네임 칸에 미리 채워 줄 뿐이라 못 읽으면 비운다
+    private String appleName(String userJson) {
+        if (userJson == null || userJson.isBlank()) return null;
+        try {
+            JsonNode name = mapper.readTree(userJson).path("name");
+            String joined = (name.path("lastName").asText("") + name.path("firstName").asText("")).trim();
+            return joined.isBlank() ? null : joined;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // provider가 알려 준 사용자로 결과를 만든다:
+    // 이 소셜 계정이 연결된 회원이 있으면 로그인.
+    // 없는데 같은 이메일 계정이 있으면 "계정 연결" 화면(link) — 인증번호로 이메일 소유를 증명해야 연결된다
+    // (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
+    // 둘 다 없으면 닉네임+약관만 받는 가입 화면(signup)으로 보낸다.
+    private ResponseEntity<Void> finish(String provider, Profile profile, String appleRefreshToken,
+                                        PendingState pending, boolean fromApp) {
+        if (profile.providerId() == null || profile.providerId().isBlank()) {
+            return redirectWithError("failed", fromApp);
+        }
+        String email = profile.email() == null ? "" : profile.email().trim().toLowerCase();
+        AppUser user = repository.findByProviderAndProviderId(provider, profile.providerId()).orElse(null);
+        Outcome outcome;
+        if (user == null) {
+            String ticket = pendingLinks.put(provider, profile.providerId(), email, appleRefreshToken);
+            boolean emailTaken = !email.isBlank() && repository.findByEmail(email).isPresent();
+            outcome = new Outcome(Instant.now(), pending.verifier(), null, new OAuthResult(
+                emailTaken ? "link" : "signup", null, ticket, provider,
+                email.isBlank() ? null : email,
+                profile.nickname() == null || profile.nickname().isBlank() ? null : profile.nickname()));
+        } else {
+            if (appleRefreshToken != null) {
+                user.rememberAppleRefreshToken(appleRefreshToken);
+                repository.save(user);
+            }
+            outcome = new Outcome(Instant.now(), pending.verifier(), user.getId(), null);
+        }
+        return redirect(fromApp, "oauth", putOutcome(outcome));
     }
 
     // 콜백이 맡긴 결과를 로그인을 시작한 쪽(verifier를 가진 쪽)에만 한 번 내준다

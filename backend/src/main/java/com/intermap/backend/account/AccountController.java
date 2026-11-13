@@ -3,6 +3,7 @@ package com.intermap.backend.account;
 import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
+import com.intermap.backend.auth.AppleLogin;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.favorite.FavoriteRepository;
@@ -57,12 +58,15 @@ public class AccountController {
     private final UserBlockRepository blocks;
     private final ReportRepository reports;
     private final PollStore pollStore;
+    private final AppleLogin appleLogin;
 
     public AccountController(AppUserRepository users, AuthController auth, ReviewRepository reviews,
                              ReviewCommentRepository comments, ReviewCleanup cleanup, FollowRepository follows,
                              UserAliasRepository aliases, FavoriteRepository favorites, UserAvatarRepository avatars,
                              UserBlockRepository blocks, ReportRepository reports, PollStore pollStore,
-                             FollowRequestRepository followRequests, PushTokenRepository pushTokens) {
+                             FollowRequestRepository followRequests, PushTokenRepository pushTokens,
+                             AppleLogin appleLogin) {
+        this.appleLogin = appleLogin;
         this.users = users;
         this.pushTokens = pushTokens;
         this.followRequests = followRequests;
@@ -118,6 +122,15 @@ public class AccountController {
         blocks.deleteAllInvolving(me);
         reports.deleteAllByReporter(me);
         if (avatars.existsById(id)) avatars.deleteById(id);
+        // Apple로 로그인한 계정이면 Apple 쪽에서도 이 앱과의 연결을 끊는다 (App Store 심사 지침).
+        // Apple이 응답하지 않아도 탈퇴는 그대로 끝낸다
+        if ("apple".equals(me.getProvider()) && me.getAppleRefreshToken() != null) {
+            try {
+                appleLogin.revoke(me.getAppleRefreshToken());
+            } catch (Exception e) {
+                log.warn("Apple 연결 해제 실패: user {} ({})", id, e.getClass().getSimpleName());
+            }
+        }
         users.delete(me);
         log.info("회원 탈퇴: user {}", id);
         return ResponseEntity.noContent().build();

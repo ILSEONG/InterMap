@@ -129,7 +129,7 @@ export function loginWithCode(email: string, emailCode: string, newPassword?: st
   return postJson<AuthSession>('/api/auth/login-code', { email, emailCode, newPassword })
 }
 
-export type OAuthProvider = 'google' | 'naver' | 'kakao'
+export type OAuthProvider = 'google' | 'naver' | 'kakao' | 'apple'
 
 // 전체 페이지 이동으로 provider 로그인 화면을 연다. 완료되면 서버가 일회용 코드만 ?oauth= 로 달아
 // 돌려보내고(앱은 intermap://auth?oauth=), 프론트가 exchangeOAuth로 결과를 받는다.
@@ -165,6 +165,31 @@ export function oauthUrl(provider: OAuthProvider): string {
   // 로그인 후 브라우저가 아니라 앱으로 돌아온다
   const app = Capacitor.isNativePlatform() ? '&app=1' : ''
   return `${API_BASE}/api/auth/oauth/${provider}?verifier=${verifier}${app}`
+}
+
+// 간편 로그인을 시작한다 — provider 로그인 화면을 열고, 끝나면 ?oauth=(웹) 또는 intermap://auth?oauth=(앱)로 돌아온다.
+// 아이폰 앱은 앱 안 브라우저 창(SFSafariViewController)으로 연다: 사파리 앱으로 내보내면 심사에서 걸리고,
+// Google은 웹뷰 안 로그인을 막는다. 돌아오면 App.tsx가 이 창을 닫는다 (closeOAuthBrowser).
+export async function startOAuth(provider: OAuthProvider): Promise<void> {
+  const url = oauthUrl(provider)
+  if (Capacitor.getPlatform() === 'ios') {
+    const { Browser } = await import('@capacitor/browser')
+    await Browser.open({ url })
+    return
+  }
+  window.location.href = url
+}
+
+export function closeOAuthBrowser(): void {
+  if (Capacitor.getPlatform() !== 'ios') return
+  void import('@capacitor/browser').then(({ Browser }) => Browser.close()).catch(() => {})
+}
+
+// 서버에 키가 들어 있어 쓸 수 있는 간편 로그인 목록. Apple은 설정 전엔 빠져 있다 (버튼을 숨긴다)
+export async function fetchOAuthProviders(): Promise<OAuthProvider[]> {
+  const res = await fetch(`${API_BASE}/api/auth/oauth/providers`)
+  if (!res.ok) throw new Error(`간편 로그인 목록 조회 실패 (${res.status})`)
+  return res.json()
 }
 
 // type: session = 연결된 회원 로그인, link = 같은 이메일 계정과 연결, signup = 닉네임+약관 가입

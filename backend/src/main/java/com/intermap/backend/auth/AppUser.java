@@ -32,11 +32,15 @@ public class AppUser {
     @Column(unique = true)
     private String phone;
 
-    // 간편 로그인 연결: 'google' | 'naver' | 'kakao', 자체 가입은 null
+    // 간편 로그인 연결: 'google' | 'naver' | 'kakao' | 'apple', 자체 가입은 null
     private String provider;
 
     // provider 쪽 사용자 고유 ID. 이메일이 바뀌거나 없어도 같은 계정으로 찾는 키.
     private String providerId;
+
+    // Apple로 로그인한 계정만: 탈퇴할 때 Apple 쪽 연결을 끊는 데 쓰는 토큰 (AppleLogin.revoke). 다른 데는 쓰지 않는다
+    @Column(length = 512)
+    private String appleRefreshToken;
 
     // 로그인 세션 토큰의 SHA-256 (hex). 원문은 클라이언트만 갖는다 — DB가 새도 세션을 쓸 수 없게.
     // 재로그인 시 교체되어 이전 토큰은 무효가 된다.
@@ -80,6 +84,13 @@ public class AppUser {
         this.provider = provider;
         this.providerId = providerId;
     }
+
+    // Apple 로그인 때마다 새로 받은 것으로 바꾼다. Apple 계정이 아니면 null
+    public void rememberAppleRefreshToken(String appleRefreshToken) {
+        this.appleRefreshToken = appleRefreshToken;
+    }
+
+    public String getAppleRefreshToken() { return appleRefreshToken; }
 
     public Long getId() { return id; }
     public String getEmail() { return email; }

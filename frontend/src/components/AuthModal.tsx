@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   checkNickname,
   login,
   loginWithCode,
   lookupEmail,
-  oauthUrl,
+  fetchOAuthProviders,
+  startOAuth,
   requestEmailCode,
   signup,
   signupSocial,
@@ -15,7 +16,7 @@ import type { AuthSession, SocialTicket } from '../lib/api'
 import './AuthModal.css'
 import { FcGoogle } from 'react-icons/fc'
 import { RiKakaoTalkFill } from 'react-icons/ri'
-import { SiNaver } from 'react-icons/si'
+import { SiApple, SiNaver } from 'react-icons/si'
 
 // start: 소셜 버튼 + 이메일 입력. 이메일이 기존 회원이면 로그인, 아니면 가입으로 이어진다.
 // social: 소셜 최초 인증 뒤 닉네임+약관만 받는 가입 화면
@@ -30,6 +31,16 @@ const SOCIAL_PROVIDERS = [
   { id: 'kakao', name: '카카오' },
   { id: 'google', name: 'Google' },
 ] as const
+
+// Apple로 로그인 — 서버에 Apple 키가 들어 있을 때만 보인다 (fetchOAuthProviders).
+// 아이폰·아이패드에선 맨 위에, 그 밖에선 맨 아래에 둔다 (아이폰에서 가입한 사람이 다른 기기에서도 들어올 수 있게).
+// 버튼 모양과 문구는 Apple 지침을 따른다: 검은 바탕에 흰 로고, "Apple로 계속하기"
+const APPLE_PROVIDER = { id: 'apple', name: 'Apple' } as const
+type SocialProvider = (typeof SOCIAL_PROVIDERS)[number] | typeof APPLE_PROVIDER
+const ALL_PROVIDERS: readonly SocialProvider[] = [...SOCIAL_PROVIDERS, APPLE_PROVIDER]
+const socialLabel = (p: SocialProvider) => (p.id === 'apple' ? 'Apple로 계속하기' : `${p.name}로 시작하기`)
+const ON_APPLE_DEVICE =
+  /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
 // 선 아이콘 공통 속성 (24 그리드, currentColor)
 const STROKE = {
@@ -105,7 +116,14 @@ function Icon({ name, size = 20, strokeWidth = 2 }: { name: keyof typeof ICONS; 
 
 // 소셜 버튼 앞 로고 — 아이콘 라이브러리(react-icons)의 브랜드 로고.
 // 네이버는 초록 네모 안 흰 N, 카카오는 노란 네모 안 검은 말풍선(각 사 로그인 버튼 안내 형태), Google은 컬러 G
-function SocialIcon({ id }: { id: (typeof SOCIAL_PROVIDERS)[number]['id'] }) {
+function SocialIcon({ id }: { id: SocialProvider['id'] }) {
+  if (id === 'apple') {
+    return (
+      <span className="auth-modal__social-icon" aria-hidden="true">
+        <SiApple size={20} />
+      </span>
+    )
+  }
   if (id === 'naver') {
     return (
       <span className="auth-modal__social-icon auth-modal__social-icon--naver" aria-hidden="true">
@@ -152,6 +170,27 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
   if (mode) lastModeRef.current = mode
   const shown = mode ?? lastModeRef.current
 
+  // 서버가 Apple 로그인을 받을 준비가 됐는지. 모르는 동안(조회 전·실패)은 버튼을 내지 않는다.
+  // 앱이 켜질 때 미리 알아 두고(열었을 때 버튼이 뒤늦게 끼어들지 않게), 그때 실패했으면 열 때 다시 묻는다
+  const [appleReady, setAppleReady] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (appleReady !== null) return
+    let cancelled = false
+    fetchOAuthProviders()
+      .then((ids) => {
+        if (!cancelled) setAppleReady(ids.includes('apple'))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [open, appleReady])
+  const socialProviders: SocialProvider[] = !appleReady
+    ? [...SOCIAL_PROVIDERS]
+    : ON_APPLE_DEVICE
+      ? [APPLE_PROVIDER, ...SOCIAL_PROVIDERS]
+      : [...SOCIAL_PROVIDERS, APPLE_PROVIDER]
+
   const [step, setStep] = useState<Step>('start')
   const [email, setEmail] = useState('')
   // 처음 화면에선 이메일 입력칸을 접어 두고 글자 링크만 — 누르면 펼친다
@@ -175,7 +214,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
   // 가입 성공 직후. 완료 화면을 보여주고 "시작하기"에서 onAuthed로 넘긴다.
   const [done, setDone] = useState<AuthSession | null>(null)
 
-  const provider = SOCIAL_PROVIDERS.find((p) => p.id === social?.provider)?.name ?? 'SNS'
+  const provider = ALL_PROVIDERS.find((p) => p.id === social?.provider)?.name ?? 'SNS'
 
   // 열 때(또는 열린 채로 화면 종류가 바뀔 때) 전부 초기화. 소셜 가입은 provider가 준 닉네임을 미리 채워준다 (수정 가능).
   // 닫을 때는 건드리지 않는다 — 닫히는 0.26초 동안 첫 화면으로 튀어 깜빡이지 않게.
@@ -229,8 +268,12 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
     run(lookupEmail(email), ({ exists, hasPassword, provider: p }) => {
       setExisting(exists)
       if (exists && !hasPassword) {
-        const name = SOCIAL_PROVIDERS.find((s) => s.id === p)?.name ?? 'SNS'
-        setError(`${name}로 가입한 계정이에요. 위의 "${name}로 시작하기"를 눌러주세요.`)
+        const found = ALL_PROVIDERS.find((s) => s.id === p)
+        setError(
+          found
+            ? `${found.name}로 가입한 계정이에요. 위의 "${socialLabel(found)}"를 눌러주세요.`
+            : 'SNS로 가입한 계정이에요. 위의 간편 로그인 버튼을 눌러주세요.',
+        )
         return
       }
       if (exists) {
@@ -644,17 +687,17 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
               </p>
             </div>
             <div className="auth-modal__social">
-              {SOCIAL_PROVIDERS.map((p) => (
+              {socialProviders.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   className={`auth-modal__social-btn auth-modal__social-btn--${p.id}`}
                   onClick={() => {
-                    window.location.href = oauthUrl(p.id)
+                    void startOAuth(p.id).catch(() => alert('로그인 화면을 열지 못했어요. 다시 시도해주세요.'))
                   }}
                 >
                   <SocialIcon id={p.id} />
-                  {p.name}로 시작하기
+                  {socialLabel(p)}
                 </button>
               ))}
             </div>

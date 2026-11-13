@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class PendingSocialLinks {
 
-    public record Pending(String provider, String providerId, String email, Instant issuedAt) {
+    // appleRefreshToken: Apple 로그인일 때만 — 계정이 만들어지면 거기에 옮겨 둔다 (탈퇴 때 연결 해제용)
+    public record Pending(String provider, String providerId, String email, Instant issuedAt, String appleRefreshToken) {
     }
 
     private static final long TTL_SECONDS = 15 * 60;
@@ -20,9 +21,13 @@ public class PendingSocialLinks {
     private final Map<String, Pending> pending = new ConcurrentHashMap<>();
 
     public String put(String provider, String providerId, String email) {
+        return put(provider, providerId, email, null);
+    }
+
+    public String put(String provider, String providerId, String email, String appleRefreshToken) {
         pending.values().removeIf(p -> p.issuedAt().plusSeconds(TTL_SECONDS).isBefore(Instant.now()));
         String ticket = UUID.randomUUID().toString();
-        pending.put(ticket, new Pending(provider, providerId, email, Instant.now()));
+        pending.put(ticket, new Pending(provider, providerId, email, Instant.now(), appleRefreshToken));
         return ticket;
     }
 
