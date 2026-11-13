@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 //   프론트가 POST /api/auth/oauth/result {code, verifier} 로 결과(세션 또는 연결·가입 티켓)를 받는다.
 // 남이 만든 콜백 링크나 가로챈 intermap:// 딥링크는 verifier가 없어 쓸모가 없다.
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
 public class OAuthController {
 
     private record ProviderConfig(String authorizeUri, String tokenUri, String userInfoUri, String scope,

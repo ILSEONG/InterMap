@@ -12,7 +12,7 @@ import java.util.List;
 
 @RestController
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
 public class RestaurantController {
 
     // 목록 응답용 슬림 DTO — 지도에 안 쓰는 status/statusCheckedAt/localDataMgtNo를 뺀다 (목록엔 영업 중인 가게만 온다)

@@ -36,7 +36,7 @@ import java.util.Comparator;
 // 회원 탈퇴 — 계정과 그 사람이 남긴 것을 즉시, 되돌릴 수 없게 지운다 (Google Play 계정 삭제 정책).
 // 남이 그 사람 글을 신고한 기록은 사본과 함께 남겨 운영 기록으로 쓴다 (작성자 id·닉네임 사본만 남는다).
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
 public class AccountController {
 
     private static final Logger log = LoggerFactory.getLogger(AccountController.class);

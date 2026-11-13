@@ -17,7 +17,7 @@ import java.util.Map;
 // 운영자(admin) 전용 수동 실행. 둘 다 가게 전체를 훑는 무거운 작업이라 로그인한 운영자만 부른다.
 @RestController
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
 public class SyncController {
 
     // 주간 동기화가 8일이라 한 달이면 밀린 것도 충분히 따라잡는다

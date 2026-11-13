@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
 // 비회원은 브라우저가 만든 난수(voterKey)로 "같은 사람"을 알아본다 — 서버엔 그 해시만 남긴다.
 // 결과에는 고른 사람 이름이 보인다 (친구끼리 정하는 용도라 누가 어디를 골랐는지가 곧 정보다).
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
 public class PollController {
 
     public record OptionRequest(String name, String category, String address, String note) {

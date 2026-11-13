@@ -40,7 +40,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 @RestController
-@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "https://*.vercel.app"})
+@CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "capacitor://intermap.app:8443", "https://*.vercel.app"})
 public class ReviewController {
 
     // lat/lng는 조회 응답에만 실린다 — 후기 있는 가게를 줌과 무관하게 핀으로 찍기 위해. 작성 요청은 비워 보낸다.

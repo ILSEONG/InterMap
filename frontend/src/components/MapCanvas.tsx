@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Restaurant, FriendGroup } from '../data/model'
 import { loadNaverMaps, useGlMap } from '../lib/loadNaverMaps'
+import { currentPosition, geoAvailable, watchPosition } from '../lib/geo'
 import { clusterPins, clusterDistanceAt } from '../lib/cluster'
 import type { Pin } from '../lib/cluster'
 import { SUMMARY_MAX_ZOOM } from '../lib/api'
@@ -221,55 +222,45 @@ export default function MapCanvas({
 
   const [locating, setLocating] = useState(false)
 
-  // GPS 버튼: 현재 위치로 지도 이동. Capacitor WebView가 navigator.geolocation을
-  // 네이티브 권한 요청으로 이어준다 (매니페스트에 위치 권한 선언 필요).
+  // GPS 버튼: 현재 위치로 지도 이동 (위치 권한이 없으면 이때 묻는다 — lib/geo.ts)
   const goToMyLocation = useCallback(() => {
-    if (locating || !navigator.geolocation) return
+    if (locating || !geoAvailable()) return
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setLocating(false)
+    currentPosition()
+      .then((pos) => {
         const map = mapRef.current
         if (!map || !window.naver) return
         map.morph(
-          new window.naver.maps.LatLng(coords.latitude, coords.longitude),
+          new window.naver.maps.LatLng(pos.lat, pos.lng),
           toMapZoom(Math.max(zoomOf(map), DEFAULT_ZOOM)),
           PAN_TRANSITION,
         )
-      },
-      () => {
-        setLocating(false)
-        alert('현재 위치를 가져올 수 없어요. 위치 권한을 확인해주세요.')
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+      })
+      .catch(() => alert('현재 위치를 가져올 수 없어요. 위치 권한을 확인해주세요.'))
+      .finally(() => setLocating(false))
   }, [locating])
 
   // 현재 위치 빨간 점 — 지도가 준비되면 실시간 추적을 시작하고, 위치가 올 때마다 점만 옮긴다.
+  // 권한 거부 등이면 점만 안 그린다. 안내는 GPS 버튼의 alert가 담당.
   useEffect(() => {
-    if (!mapReady || !navigator.geolocation) return
+    if (!mapReady || !geoAvailable()) return
     let marker: naver.maps.Marker | null = null
-    const watchId = navigator.geolocation.watchPosition(
-      ({ coords }) => {
-        onMyLocation?.({ lat: coords.latitude, lng: coords.longitude })
-        const pos = new window.naver.maps.LatLng(coords.latitude, coords.longitude)
-        if (marker) {
-          marker.setPosition(pos)
-          return
-        }
-        marker = new window.naver.maps.Marker({
-          position: pos,
-          map: mapRef.current!,
-          icon: { content: '<span class="my-loc"></span>', anchor: new window.naver.maps.Point(8, 8) },
-          zIndex: 10,
-        })
-      },
-      // 권한 거부 등이면 점만 안 그린다. 안내는 GPS 버튼의 alert가 담당.
-      () => {},
-      { enableHighAccuracy: true },
-    )
+    const stop = watchPosition(({ lat, lng }) => {
+      onMyLocation?.({ lat, lng })
+      const pos = new window.naver.maps.LatLng(lat, lng)
+      if (marker) {
+        marker.setPosition(pos)
+        return
+      }
+      marker = new window.naver.maps.Marker({
+        position: pos,
+        map: mapRef.current!,
+        icon: { content: '<span class="my-loc"></span>', anchor: new window.naver.maps.Point(8, 8) },
+        zIndex: 10,
+      })
+    })
     return () => {
-      navigator.geolocation.clearWatch(watchId)
+      stop()
       marker?.setMap(null)
     }
   }, [mapReady, onMyLocation])
