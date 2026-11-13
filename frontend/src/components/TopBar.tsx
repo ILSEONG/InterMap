@@ -172,16 +172,12 @@ export default function TopBar(props: TopBarProps) {
             {props.showBoard && (
               <button
                 type="button"
-                className="topbar__chip"
+                className={`topbar__chip${props.boardHasNew ? '' : ' topbar__chip--nodot'}`}
                 onClick={props.onOpenBoard}
               >
                 <FriendsIcon />
                 팔로잉 현황
-                <span
-                  className={`topbar__dot${props.boardHasNew ? '' : ' topbar__dot--off'}`}
-                  aria-label={props.boardHasNew ? '새 후기 있음' : undefined}
-                  aria-hidden={!props.boardHasNew}
-                />
+                {props.boardHasNew && <span className="topbar__dot" aria-label="새 후기 있음" />}
               </button>
             )}
             {/* 찜은 로그인한 사람만 */}

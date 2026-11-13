@@ -1,6 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
+  // 안드로이드 패키지 이름. iOS 번들 ID는 com.ilseong.intermap 으로 다르다 (com.intermap.app은 Apple에서 이미 남이 쓰고 있었다)
+  // — iOS 쪽은 Xcode 프로젝트(ios/App/App.xcodeproj)에 따로 적혀 있고 cap sync가 건드리지 않는다
   appId: 'com.intermap.app',
   appName: '인터맵',
   webDir: 'dist',
