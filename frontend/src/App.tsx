@@ -61,6 +61,7 @@ import {
   deleteAccount,
   exchangeOAuth,
   oauthErrorMessage,
+  closeOAuthBrowser,
   SUMMARY_MAX_ZOOM,
   POLL_MAX_OPTIONS,
 } from './lib/api'
@@ -543,7 +544,8 @@ export default function App() {
         return
       }
       try {
-        applyAuthParams(new URL(url).searchParams)
+        // 아이폰: 로그인에 쓴 앱 안 브라우저 창을 닫는다 (안드로이드는 바깥 브라우저라 닫을 게 없다)
+        if (applyAuthParams(new URL(url).searchParams)) closeOAuthBrowser()
       } catch {
         // 딥링크 형식이 아니면 무시
       }

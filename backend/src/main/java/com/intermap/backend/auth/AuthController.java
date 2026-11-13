@@ -329,6 +329,7 @@ public class AuthController {
         }
         AppUser user = new AppUser(email, null, nickname, null);
         user.linkProvider(pending.provider(), pending.providerId());
+        user.rememberAppleRefreshToken(pending.appleRefreshToken());
         user.agree(request.marketingAgreed());
         AuthResponse session = signIn(user);
         pendingLinks.remove(request.ticket());
@@ -356,6 +357,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(emailError);
         }
         user.linkProvider(pending.provider(), pending.providerId());
+        user.rememberAppleRefreshToken(pending.appleRefreshToken());
         AuthResponse session = signIn(user);
         codes.remove(email);
         pendingLinks.remove(request.linkTicket());

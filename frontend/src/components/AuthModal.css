@@ -169,6 +169,13 @@
   justify-content: center;
 }
 
+/* Apple 지침: 검은 바탕에 흰 로고·글자 */
+.auth-modal__social-btn--apple {
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+}
+
 .auth-modal__social-icon--naver {
   background: #03c75a;
   color: #ffffff;
