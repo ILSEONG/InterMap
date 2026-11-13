@@ -29,22 +29,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Naver auth shape
+      - name: Naver auth by url
         run: |
-          curl -s -m 30 "https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=yrvo8lm3er" -H "Referer: https://intermap.app:8443/" -o maps.js
-          wc -c maps.js
-          python3 - <<'PY'
-          import re
-          s = open('maps.js', encoding='utf-8', errors='replace').read()
-          seen = 0
-          for m in re.finditer(r'oapi\.map\.naver\.com|/v3/auth|ncpKeyId|Internal Server Error|location\.href|document\.URL|callback=|jsonp', s, re.I):
-              a = max(0, m.start() - 220); b = min(len(s), m.end() + 320)
-              print('@', m.start(), m.group(0))
-              print(s[a:b].replace('\n', ' '))
-              print('-----')
-              seen += 1
-              if seen > 45: break
-          PY
+          for u in "https://intermap.app:8443/" "https://evil.example/" "httpsapp://intermap.app:8443/" "httpsapp://evil.example/" "capacitor://localhost/" "https://intermap.app/"; do
+            echo "--- url=$u"
+            curl -s -m 20 -G "https://oapi.map.naver.com/v3/auth" --data-urlencode "ncpKeyId=yrvo8lm3er" --data-urlencode "url=$u" \
+              --data-urlencode "time=$(date +%s)000" --data-urlencode "callback=cb" | cut -c1-300 || true
+            echo
+          done
 
   simulator:
     # Capacitor 8 iOS 프로젝트는 Xcode 26으로 빌드한다
