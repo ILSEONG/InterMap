@@ -1,0 +1,106 @@
+# iOS 앱을 GitHub의 맥 서버에서 빌드해 시뮬레이터로 띄워 보고, 화면 캡처와 앱 로그를 남긴다.
+# 맥·아이폰 없이 "아이폰에서 켜지긴 하는지, 화면이 어떻게 보이는지"를 확인하는 용도다 (서명 없음 — 기기 설치·TestFlight는 아직 아님).
+#
+# 실행: iOS 쪽 파일이 바뀐 PR, 또는 Actions 탭에서 수동 실행. 결과는 실행 화면 아래 Artifacts의 "ios-simulator".
+name: iOS simulator
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/ios/**'
+      - 'frontend/capacitor.config.ts'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    # Capacitor 8 iOS 프로젝트는 Xcode 26으로 빌드한다
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+        shell: bash -eo pipefail {0}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build web
+        env:
+          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID || 'yrvo8lm3er' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
+          VITE_WEB_BASE_URL: ${{ vars.VITE_WEB_BASE_URL }}
+          FONT_DISPLAY: block
+          # 아이폰 푸시는 아직 연결 전
+          VITE_PUSH_ENABLED: 'false'
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Build for simulator
+        working-directory: frontend/ios/App
+        run: |
+          xcodebuild -version
+          xcodebuild build \
+            -project App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error|warning: unable|BUILD|^\*\*" || true
+          test -d "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator/App.app"
+
+      # 시뮬레이터에 깔아 실행하고, 켜진 직후와 조금 뒤 화면을 찍는다. 앱 로그(웹뷰 콘솔 포함)도 남긴다
+      - name: Run on simulator
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          devices = json.load(sys.stdin)['devices']
+          phones = [d for runtime, ds in devices.items() if 'iOS' in runtime for d in ds if d['name'].startswith('iPhone')]
+          pick = next((d for d in phones if 'Pro' not in d['name'] and 'Max' not in d['name']), phones[0])
+          print(pick['name'], file=sys.stderr)
+          print(pick['udid'])
+          ")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator/App.app"
+          # 위치 권한 창이 화면을 가리지 않게 미리 허용하고, 서울 시청 근처로 위치를 준다
+          xcrun simctl privacy "$UDID" grant location com.intermap.app || true
+          xcrun simctl location "$UDID" set 37.5665,126.9780 || true
+          xcrun simctl launch --console "$UDID" com.intermap.app > "$RUNNER_TEMP/out/app.log" 2>&1 &
+          sleep 20
+          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/1-launch.png"
+          sleep 25
+          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/2-loaded.png"
+          xcrun simctl terminate "$UDID" com.intermap.app || true
+          tail -n 80 "$RUNNER_TEMP/out/app.log" || true
+
+      - name: Keep build log
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          if [ -f "$RUNNER_TEMP/xcodebuild.log" ]; then tail -n 400 "$RUNNER_TEMP/xcodebuild.log" > "$RUNNER_TEMP/out/xcodebuild-tail.log"; fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator
+          path: ${{ runner.temp }}/out
+          retention-days: 7

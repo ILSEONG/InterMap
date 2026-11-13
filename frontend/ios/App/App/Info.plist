@@ -35,6 +35,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>지도에서 내 위치를 보여 주고 주변 맛집을 찾는 데 사용합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>후기와 프로필에 올릴 사진을 찍는 데 사용합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>후기와 프로필에 올릴 사진을 고르는 데 사용합니다.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,8 +73,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
