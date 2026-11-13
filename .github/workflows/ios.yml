@@ -79,18 +79,31 @@ jobs:
           print(pick['udid'])
           ")
           xcrun simctl boot "$UDID"
-          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl bootstatus "$UDID" -b > /dev/null
+          sleep 5
           xcrun simctl install "$UDID" "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator/App.app"
           # 위치 권한 창이 화면을 가리지 않게 미리 허용하고, 서울 시청 근처로 위치를 준다
           xcrun simctl privacy "$UDID" grant location com.intermap.app || true
           xcrun simctl location "$UDID" set 37.5665,126.9780 || true
-          # pty로 붙어야 앱 출력이 줄 단위로 바로 나온다 (파이프면 버퍼에 남은 채 종료돼 사라진다)
-          xcrun simctl launch --console-pty "$UDID" com.intermap.app > "$RUNNER_TEMP/out/app.log" 2>&1 &
+          # 앱 출력(웹뷰 콘솔 포함)을 파일로 받는다. NSUnbufferedIO: 버퍼에 남은 채 종료돼 사라지지 않게
+          SIMCTL_CHILD_NSUnbufferedIO=YES xcrun simctl launch \
+            --stdout="$RUNNER_TEMP/out/app.log" --stderr="$RUNNER_TEMP/out/app.err.log" "$UDID" com.intermap.app
           sleep 20
           xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/1-launch.png"
           sleep 25
           xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/2-loaded.png"
+          echo "----- 실행 중? -----"
+          xcrun simctl spawn "$UDID" launchctl list | grep -i intermap || echo "앱이 떠 있지 않음"
           xcrun simctl terminate "$UDID" com.intermap.app || true
+          echo "----- 크래시 리포트 -----"
+          ls -t ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -5 || true
+          CRASH=$(ls -t ~/Library/Logs/DiagnosticReports/App-*.ips 2>/dev/null | head -1 || true)
+          if [ -n "$CRASH" ]; then cp "$CRASH" "$RUNNER_TEMP/out/crash.ips"; head -c 7000 "$CRASH"; fi
+          echo "----- 시스템 로그 (App) -----"
+          xcrun simctl spawn "$UDID" log show --last 2m --style compact \
+            --predicate 'process == "App" AND (messageType == error OR messageType == fault)' 2>/dev/null | tail -n 60 | cut -c1-400 || true
+          echo "----- app.err.log -----"
+          tail -n 60 "$RUNNER_TEMP/out/app.err.log" | cut -c1-600 || true
           echo "----- app.log -----"
           tail -n 150 "$RUNNER_TEMP/out/app.log" | cut -c1-600 || true
           # 캡처를 줄여 로그에도 싣는다 — Artifacts를 못 받는 환경에서도 화면을 볼 수 있게
