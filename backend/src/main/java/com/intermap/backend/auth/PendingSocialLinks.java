@@ -1,14 +1,14 @@
 package com.intermap.backend.auth;
 
+import com.intermap.backend.state.ServerState;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
-// 소셜 로그인은 됐지만 아직 우리 계정에 연결되지 않은 사용자. 이메일+비밀번호로 계정을 증명할 때까지
-// provider 정보를 티켓으로 들고 있는다. 단일 인스턴스 전제라 메모리로 충분 (인증번호 저장소와 같은 이유).
+// 소셜 로그인은 됐지만 아직 우리 계정에 연결되지 않은 사용자. 닉네임·약관(가입)이나 인증번호(기존 계정 연결)를 마칠 때까지
+// provider 정보를 티켓으로 들고 있는다. DB(ServerState)에 두므로 그 사이 서버가 다시 켜져도 티켓이 살아 있다.
 @Component
 public class PendingSocialLinks {
 
@@ -16,34 +16,38 @@ public class PendingSocialLinks {
     public record Pending(String provider, String providerId, String email, Instant issuedAt, String appleRefreshToken) {
     }
 
-    private static final long TTL_SECONDS = 15 * 60;
+    // 저장 모양 (시각은 epoch 밀리초)
+    record Stored(String provider, String providerId, String email, long issuedAt, String appleRefreshToken) {
+    }
 
-    private final Map<String, Pending> pending = new ConcurrentHashMap<>();
+    private static final Duration TTL = Duration.ofMinutes(15);
+    private static final String KIND = "social-ticket";
+
+    private final ServerState state;
+
+    public PendingSocialLinks(ServerState state) {
+        this.state = state;
+    }
 
     public String put(String provider, String providerId, String email) {
         return put(provider, providerId, email, null);
     }
 
     public String put(String provider, String providerId, String email, String appleRefreshToken) {
-        pending.values().removeIf(p -> p.issuedAt().plusSeconds(TTL_SECONDS).isBefore(Instant.now()));
         String ticket = UUID.randomUUID().toString();
-        pending.put(ticket, new Pending(provider, providerId, email, Instant.now(), appleRefreshToken));
+        state.put(KIND, ticket, new Stored(provider, providerId, email, Instant.now().toEpochMilli(), appleRefreshToken), TTL);
         return ticket;
     }
 
     // 만료됐거나 없으면 null
     public Pending get(String ticket) {
         if (ticket == null) return null;
-        Pending p = pending.get(ticket);
-        if (p == null) return null;
-        if (p.issuedAt().plusSeconds(TTL_SECONDS).isBefore(Instant.now())) {
-            pending.remove(ticket);
-            return null;
-        }
-        return p;
+        return state.get(KIND, ticket, Stored.class)
+                .map(s -> new Pending(s.provider(), s.providerId(), s.email(), Instant.ofEpochMilli(s.issuedAt()), s.appleRefreshToken()))
+                .orElse(null);
     }
 
     public void remove(String ticket) {
-        if (ticket != null) pending.remove(ticket);
+        if (ticket != null) state.remove(KIND, ticket);
     }
 }

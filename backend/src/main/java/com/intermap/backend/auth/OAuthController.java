@@ -3,6 +3,7 @@ package com.intermap.backend.auth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intermap.backend.ops.ExternalCalls;
+import com.intermap.backend.state.ServerState;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -24,13 +25,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 // 구글/네이버/카카오/Apple 소셜 로그인 — Spring Security 없이 인가 코드 플로우를 직접 구현한다
@@ -57,16 +57,16 @@ public class OAuthController {
     private record Profile(String providerId, String email, String nickname) {
     }
 
-    private record PendingState(Instant issuedAt, String verifier) {
-    }
 
     // type: "session"(연결된 회원 — session 채움) | "link"(같은 이메일 계정과 연결) | "signup"(닉네임+약관 가입)
     public record OAuthResult(String type, AuthController.AuthResponse session, String ticket, String provider,
                               String email, String nickname) {
     }
 
-    // userId가 있으면 세션 결과 — 토큰은 교환 시점에 발급해 메모리에 남기지 않는다
-    private record Outcome(Instant issuedAt, String verifier, Long userId, OAuthResult ticketResult) {
+    // 콜백이 맡겨 둔 로그인 결과 (ServerState에 JSON으로). userId가 있으면 세션 결과 — 토큰은 교환 시점에 발급해 저장하지 않는다.
+    // 아니면 가입·연결 티켓 결과 (type·ticket·provider·email·nickname)
+    record Outcome(String verifier, Long userId, String type, String ticket, String provider, String email,
+                           String nickname) {
     }
 
     public record ResultRequest(String code, String verifier) {
@@ -75,7 +75,7 @@ public class OAuthController {
     private static final long STATE_TTL_SECONDS = 600;
     // 콜백 뒤 앱/웹이 결과를 찾아가기까지
     private static final long RESULT_TTL_SECONDS = 300;
-    // 쌓인 요청이 이만큼이면 새 로그인 시작을 막는다 — 시작 요청을 마구 보내 메모리를 채우는 걸 방지
+    // 쌓인 요청이 이만큼이면 새 로그인 시작을 막는다 — 시작 요청을 마구 보내 표를 채우는 걸 방지
     private static final int MAX_PENDING = 10_000;
     private static final Pattern VERIFIER = Pattern.compile("^[A-Za-z0-9_-]{32,128}$");
     // 앱에서 시작한 로그인의 state 꼬리표. 콜백을 앱 딥링크로 돌려보내는 기준.
@@ -86,8 +86,10 @@ public class OAuthController {
 
     private final RestClient restClient = Http.client();
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Map<String, PendingState> pendingStates = new ConcurrentHashMap<>();
-    private final Map<String, Outcome> outcomes = new ConcurrentHashMap<>();
+    // 진행 중인 로그인(state → verifier)과 콜백 결과는 DB(ServerState)에 둔다 — 로그인 도중 서버가 다시 켜지거나
+    // 시작한 서버와 콜백을 받은 서버가 달라도 이어진다
+    private static final String STATE_KIND = "oauth-state";
+    private static final String RESULT_KIND = "oauth-result";
 
     private final Map<String, ProviderConfig> providers;
     private final AppUserRepository repository;
@@ -95,6 +97,7 @@ public class OAuthController {
     private final AuthController auth;
     private final AppleLogin apple;
     private final ExternalCalls calls;
+    private final ServerState serverState;
     private final String backendBaseUrl;
     private final String frontendBaseUrl;
 
@@ -104,6 +107,7 @@ public class OAuthController {
         AuthController auth,
         AppleLogin apple,
         ExternalCalls calls,
+        ServerState serverState,
         @Value("${backend.base-url}") String backendBaseUrl,
         @Value("${frontend.base-url}") String frontendBaseUrl,
         @Value("${oauth.google.client-id}") String googleId, @Value("${oauth.google.client-secret}") String googleSecret,
@@ -115,6 +119,7 @@ public class OAuthController {
         this.auth = auth;
         this.apple = apple;
         this.calls = calls;
+        this.serverState = serverState;
         this.backendBaseUrl = backendBaseUrl;
         this.frontendBaseUrl = frontendBaseUrl;
         this.providers = Map.of(
@@ -164,13 +169,11 @@ public class OAuthController {
         if (isApple ? !apple.configured() : !config.configured()) return redirectWithError("unavailable", fromApp);
         if (verifier == null || !VERIFIER.matcher(verifier).matches()) return redirectWithError("failed", fromApp);
 
-        Instant now = Instant.now();
-        pendingStates.values().removeIf(p -> p.issuedAt().plusSeconds(STATE_TTL_SECONDS).isBefore(now));
-        if (pendingStates.size() >= MAX_PENDING) return redirectWithError("failed", fromApp);
+        if (serverState.count(STATE_KIND) >= MAX_PENDING) return redirectWithError("failed", fromApp);
 
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(UUID.randomUUID().toString().getBytes())
             + (fromApp ? APP_STATE_SUFFIX : "");
-        pendingStates.put(state, new PendingState(now, verifier));
+        serverState.put(STATE_KIND, state, verifier, Duration.ofSeconds(STATE_TTL_SECONDS));
 
         UriComponentsBuilder target = UriComponentsBuilder.fromUriString(isApple ? AppleLogin.AUTHORIZE_URI : config.authorizeUri())
             .queryParam("client_id", isApple ? apple.clientId() : config.clientId())
@@ -196,17 +199,16 @@ public class OAuthController {
         boolean fromApp = state != null && state.endsWith(APP_STATE_SUFFIX);
         ProviderConfig config = providers.get(provider);
         if (config == null || !config.configured()) return redirectWithError("unavailable", fromApp);
-        PendingState pending = state == null ? null : pendingStates.remove(state);
+        // 한 번만 쓴다 — 없으면 만료됐거나 이미 쓴 것
+        String verifier = state == null ? null : serverState.take(STATE_KIND, state).orElse(null);
         if (error != null || code == null) return redirectWithError("cancelled", fromApp);
-        if (pending == null || pending.issuedAt().plusSeconds(STATE_TTL_SECONDS).isBefore(Instant.now())) {
-            return redirectWithError("expired", fromApp);
-        }
+        if (verifier == null) return redirectWithError("expired", fromApp);
 
         try {
             String accessToken = exchangeToken(provider, config, code, state);
             Profile profile = fetchProfile(provider, config, accessToken);
             calls.ok(ExternalCalls.LOGIN + provider);
-            return finish(provider, profile, null, pending, fromApp);
+            return finish(provider, profile, null, verifier, fromApp);
         } catch (Exception e) {
             calls.fail(ExternalCalls.LOGIN + provider, e);
             return redirectWithError("failed", fromApp);
@@ -225,16 +227,15 @@ public class OAuthController {
     ) {
         boolean fromApp = state != null && state.endsWith(APP_STATE_SUFFIX);
         if (!apple.configured()) return redirectWithError("unavailable", fromApp);
-        PendingState pending = state == null ? null : pendingStates.remove(state);
+        // 한 번만 쓴다 — 없으면 만료됐거나 이미 쓴 것
+        String verifier = state == null ? null : serverState.take(STATE_KIND, state).orElse(null);
         if (error != null || code == null) return redirectWithError("cancelled", fromApp);
-        if (pending == null || pending.issuedAt().plusSeconds(STATE_TTL_SECONDS).isBefore(Instant.now())) {
-            return redirectWithError("expired", fromApp);
-        }
+        if (verifier == null) return redirectWithError("expired", fromApp);
         try {
             AppleLogin.AppleUser appleUser = apple.exchange(code, redirectUri(APPLE));
             Profile profile = new Profile(appleUser.sub(), appleUser.email(), appleName(user));
             calls.ok(ExternalCalls.LOGIN + APPLE);
-            return finish(APPLE, profile, appleUser.refreshToken(), pending, fromApp);
+            return finish(APPLE, profile, appleUser.refreshToken(), verifier, fromApp);
         } catch (Exception e) {
             calls.fail(ExternalCalls.LOGIN + APPLE, e);
             return redirectWithError("failed", fromApp);
@@ -259,7 +260,7 @@ public class OAuthController {
     // (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
     // 둘 다 없으면 닉네임+약관만 받는 가입 화면(signup)으로 보낸다.
     private ResponseEntity<Void> finish(String provider, Profile profile, String appleRefreshToken,
-                                        PendingState pending, boolean fromApp) {
+                                        String verifier, boolean fromApp) {
         if (profile.providerId() == null || profile.providerId().isBlank()) {
             return redirectWithError("failed", fromApp);
         }
@@ -269,16 +270,15 @@ public class OAuthController {
         if (user == null) {
             String ticket = pendingLinks.put(provider, profile.providerId(), email, appleRefreshToken);
             boolean emailTaken = !email.isBlank() && repository.findByEmail(email).isPresent();
-            outcome = new Outcome(Instant.now(), pending.verifier(), null, new OAuthResult(
-                emailTaken ? "link" : "signup", null, ticket, provider,
+            outcome = new Outcome(verifier, null, emailTaken ? "link" : "signup", ticket, provider,
                 email.isBlank() ? null : email,
-                profile.nickname() == null || profile.nickname().isBlank() ? null : profile.nickname()));
+                profile.nickname() == null || profile.nickname().isBlank() ? null : profile.nickname());
         } else {
             if (appleRefreshToken != null) {
                 user.rememberAppleRefreshToken(appleRefreshToken);
                 repository.save(user);
             }
-            outcome = new Outcome(Instant.now(), pending.verifier(), user.getId(), null);
+            outcome = new Outcome(verifier, user.getId(), null, null, null, null, null);
         }
         return redirect(fromApp, "oauth", putOutcome(outcome));
     }
@@ -286,15 +286,17 @@ public class OAuthController {
     // 콜백이 맡긴 결과를 로그인을 시작한 쪽(verifier를 가진 쪽)에만 한 번 내준다
     @PostMapping("/api/auth/oauth/result")
     public ResponseEntity<?> result(@RequestBody ResultRequest request) {
-        Outcome outcome = request.code() == null ? null : outcomes.remove(request.code());
-        if (outcome == null || outcome.issuedAt().plusSeconds(RESULT_TTL_SECONDS).isBefore(Instant.now())
-                || request.verifier() == null
+        Outcome outcome = request.code() == null ? null : serverState.take(RESULT_KIND, request.code(), Outcome.class).orElse(null);
+        if (outcome == null || request.verifier() == null
                 || !MessageDigest.isEqual(outcome.verifier().getBytes(StandardCharsets.UTF_8),
                         request.verifier().getBytes(StandardCharsets.UTF_8))) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new AuthController.ErrorResponse("로그인 정보가 만료됐어요. 다시 시도해주세요."));
         }
-        if (outcome.userId() == null) return ResponseEntity.ok(outcome.ticketResult());
+        if (outcome.userId() == null) {
+            return ResponseEntity.ok(new OAuthResult(outcome.type(), null, outcome.ticket(), outcome.provider(),
+                    outcome.email(), outcome.nickname()));
+        }
         AppUser user = repository.findById(outcome.userId()).orElse(null);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -304,10 +306,8 @@ public class OAuthController {
     }
 
     private String putOutcome(Outcome outcome) {
-        Instant now = Instant.now();
-        outcomes.values().removeIf(o -> o.issuedAt().plusSeconds(RESULT_TTL_SECONDS).isBefore(now));
         String code = UUID.randomUUID().toString();
-        outcomes.put(code, outcome);
+        serverState.put(RESULT_KIND, code, outcome, Duration.ofSeconds(RESULT_TTL_SECONDS));
         return code;
     }
 
