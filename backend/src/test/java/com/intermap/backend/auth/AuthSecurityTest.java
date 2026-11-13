@@ -75,6 +75,23 @@ class AuthSecurityTest {
     }
 
     @Test
+    void codeIsThrownAwayAfterFiveWrongTries() {
+        String email = uniqueEmail();
+        user(email, null);
+        String code = sentCode(email);
+        String wrong = code.equals("000000") ? "111111" : "000000";
+        for (int i = 0; i < 5; i++) {
+            assertEquals(HttpStatus.BAD_REQUEST,
+                    auth.verifyEmailCode(new AuthController.CodeRequest(email, wrong, null)).getStatusCode());
+        }
+        // 다섯 번 틀리면 맞는 번호도 더는 받지 않는다 — 새로 받아야 한다
+        assertEquals(HttpStatus.BAD_REQUEST,
+                auth.verifyEmailCode(new AuthController.CodeRequest(email, code, null)).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST,
+                auth.loginWithCode(new AuthController.CodeRequest(email, code, null)).getStatusCode());
+    }
+
+    @Test
     void passwordLoginLocksAfterFiveFailures() {
         String email = uniqueEmail();
         user(email, "right-password");

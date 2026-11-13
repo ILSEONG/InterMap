@@ -1,5 +1,6 @@
 package com.intermap.backend.auth;
 
+import com.intermap.backend.state.ServerState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -15,13 +16,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 // 가입/로그인 흐름:
@@ -101,32 +101,17 @@ public class AuthController {
     private static final int DAILY_PER_IP = 10;         // 같은 IP
     private static final int DAILY_GLOBAL_EMAIL = 250;
 
-    // 발급된 인증번호. 단일 인스턴스 전제라 메모리로 충분 (재시작하면 재발송하면 됨).
-    private static final class Verification {
-        final String code;
-        final Instant issuedAt = Instant.now();
-        int attempts = 0;
-        // 확인 버튼으로 이미 맞춘 시각. 약관·닉네임을 채우는 동안은 짧은 TTL 대신 VERIFIED_TTL을 쓴다.
-        Instant verifiedAt;
-
-        Verification(String code) {
-            this.code = code;
-        }
-
-        boolean expired() {
-            Instant now = Instant.now();
-            return verifiedAt != null
-                    ? verifiedAt.plusSeconds(VERIFIED_TTL_SECONDS).isBefore(now)
-                    : issuedAt.plusSeconds(CODE_TTL_SECONDS).isBefore(now);
-        }
+    // 발급된 인증번호 (ServerState에 JSON으로 — 서버가 다시 켜져도, 서버가 여러 대여도 이어진다). 시각은 epoch 밀리초.
+    // verifiedAt: 확인 버튼으로 이미 맞춘 시각 (아직이면 0). 약관·닉네임을 채우는 동안은 짧은 TTL 대신 VERIFIED_TTL을 쓴다.
+    record Verification(String code, long issuedAt, long verifiedAt) {
     }
 
-    private record LoginFailures(int count, Instant since) {
-    }
+    private static final String CODE_KIND = "email-code";
+    // 인증번호를 틀린 횟수 (인증번호와 같이 만료)
+    private static final String CODE_TRIES_KIND = "email-code-tries";
+    // 비밀번호를 틀린 횟수 — 첫 실패부터 LOGIN_LOCK_SECONDS 동안 센다
+    private static final String LOGIN_FAIL_KIND = "login-fail";
 
-    private final Map<String, Verification> codes = new ConcurrentHashMap<>();
-    // 키는 사용자 id — 가입된 계정 수만큼만 쌓인다
-    private final Map<Long, LoginFailures> loginFailures = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
     // Render 앞단(Cloudflare)이 넣는 CF-Connecting-IP를 먼저 본다 — 클라이언트가 보낸 값을 덮어써서 위조가 안 된다.
@@ -146,10 +131,13 @@ public class AuthController {
     private final UserAvatarRepository avatars;
     private final DailyLimits limits;
     private final Admins admins;
+    private final ServerState state;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthController(AppUserRepository repository, MailService mailService, PendingSocialLinks pendingLinks,
-                          UserAvatarRepository avatars, DailyLimits limits, Admins admins) {
+                          UserAvatarRepository avatars, DailyLimits limits, Admins admins,
+                          ServerState state) {
+        this.state = state;
         this.admins = admins;
         this.repository = repository;
         this.mailService = mailService;
@@ -173,9 +161,9 @@ public class AuthController {
     }
 
     private ResponseEntity<?> issueCode(String email, String ip) {
-        Verification existing = codes.get(email);
+        Verification existing = state.get(CODE_KIND, email, Verification.class).orElse(null);
         // 어떤 규칙에 걸렸는지 구분해서 알려주지 않는다 — 규칙을 알면 그만큼 우회하기 쉽다
-        if ((existing != null && existing.issuedAt.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now()))
+        if ((existing != null && Instant.ofEpochMilli(existing.issuedAt()).plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(Instant.now()))
                 || limits.exceeded("code-target:" + email, DAILY_PER_TARGET)
                 || limits.exceeded("code-ip:" + ip, DAILY_PER_IP)
                 || limits.exceeded("code-global", DAILY_GLOBAL_EMAIL)) {
@@ -191,31 +179,37 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(new ErrorResponse("인증번호 발송에 실패했어요. 잠시 후 다시 시도해주세요."));
         }
-        codes.put(email, new Verification(code));
+        state.put(CODE_KIND, email, new Verification(code, Instant.now().toEpochMilli(), 0), Duration.ofSeconds(CODE_TTL_SECONDS));
+        state.remove(CODE_TRIES_KIND, email);
         return ResponseEntity.ok(new OkResponse("인증번호를 보냈어요. 5분 안에 입력해주세요."));
     }
 
     // null이면 통과, 아니면 그대로 응답할 에러. 통과해도 지우지 않는다 — 가입/로그인 완료 시점에 지운다.
     // 확인 버튼으로 이미 맞춘 뒤에도 매번 같은 번호를 요구한다 — "인증됨" 상태만으로 남이 통과하지 못하게.
     private ErrorResponse verifyCode(String email, String input) {
-        Verification verification = codes.get(email);
-        if (verification == null || verification.expired()) {
-            codes.remove(email);
+        Verification verification = state.get(CODE_KIND, email, Verification.class).orElse(null);
+        if (verification == null) {
             return new ErrorResponse("인증번호를 다시 받아주세요.");
         }
-        // 동시 요청으로 시도 횟수 검사를 건너뛰지 못하게
-        synchronized (verification) {
-            if (verification.attempts >= MAX_VERIFY_ATTEMPTS) {
-                codes.remove(email);
-                return new ErrorResponse("시도 횟수를 넘었어요. 인증번호를 다시 받아주세요.");
-            }
-            if (input == null || !verification.code.equals(input.trim())) {
-                verification.attempts += 1;
-                return new ErrorResponse("인증번호가 맞지 않아요.");
-            }
-            if (verification.verifiedAt == null) verification.verifiedAt = Instant.now();
-            return null;
+        if (state.counter(CODE_TRIES_KIND, email) >= MAX_VERIFY_ATTEMPTS) {
+            forgetCode(email);
+            return new ErrorResponse("시도 횟수를 넘었어요. 인증번호를 다시 받아주세요.");
         }
+        if (input == null || !verification.code().equals(input.trim())) {
+            // 틀린 횟수는 DB에서 한 번에 올린다 — 동시에 여러 번 찔러도 횟수가 덜 세지지 않는다
+            state.increment(CODE_TRIES_KIND, email, Instant.now().plusSeconds(VERIFIED_TTL_SECONDS));
+            return new ErrorResponse("인증번호가 맞지 않아요.");
+        }
+        if (verification.verifiedAt() == 0) {
+            state.put(CODE_KIND, email, new Verification(verification.code(), verification.issuedAt(), Instant.now().toEpochMilli()),
+                    Duration.ofSeconds(VERIFIED_TTL_SECONDS));
+        }
+        return null;
+    }
+
+    private void forgetCode(String email) {
+        state.remove(CODE_KIND, email);
+        state.remove(CODE_TRIES_KIND, email);
     }
 
     // 닉네임 규칙 위반이면 에러, 아니면 null
@@ -305,7 +299,7 @@ public class AuthController {
         AppUser user = new AppUser(email, encoder.encode(request.password()), nickname, null);
         user.agree(request.marketingAgreed());
         AuthResponse session = signIn(user);
-        codes.remove(email);
+        forgetCode(email);
         return ResponseEntity.ok(session);
     }
 
@@ -363,7 +357,7 @@ public class AuthController {
         user.linkProvider(pending.provider(), pending.providerId());
         user.rememberAppleRefreshToken(pending.appleRefreshToken());
         AuthResponse session = signIn(user);
-        codes.remove(email);
+        forgetCode(email);
         pendingLinks.remove(request.linkTicket());
         return ResponseEntity.ok(session);
     }
@@ -439,21 +433,17 @@ public class AuthController {
             if (user != null) recordLoginFailure(user.getId());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("비밀번호가 맞지 않아요."));
         }
-        loginFailures.remove(user.getId());
+        state.remove(LOGIN_FAIL_KIND, String.valueOf(user.getId()));
         return ResponseEntity.ok(signIn(user));
     }
 
     private boolean lockedOut(Long userId) {
-        LoginFailures f = loginFailures.get(userId);
-        return f != null && f.count() >= MAX_LOGIN_FAILURES
-                && f.since().plusSeconds(LOGIN_LOCK_SECONDS).isAfter(Instant.now());
+        return state.counter(LOGIN_FAIL_KIND, String.valueOf(userId)) >= MAX_LOGIN_FAILURES;
     }
 
-    // 첫 실패부터 15분 창 안에서 센다. 창이 지나면 새로 센다.
+    // 첫 실패부터 15분 창 안에서 센다. 창이 지나면(행이 만료되면) 새로 센다.
     private void recordLoginFailure(Long userId) {
-        Instant now = Instant.now();
-        loginFailures.merge(userId, new LoginFailures(1, now), (old, one) ->
-                old.since().plusSeconds(LOGIN_LOCK_SECONDS).isBefore(now) ? one : new LoginFailures(old.count() + 1, old.since()));
+        state.increment(LOGIN_FAIL_KIND, String.valueOf(userId), Instant.now().plusSeconds(LOGIN_LOCK_SECONDS));
     }
 
     // 비밀번호를 잊었을 때 이메일 인증번호로 로그인 (비밀번호 찾기 대용). newPassword가 오면 비밀번호도 바꾼다 —
@@ -475,10 +465,10 @@ public class AuthController {
         }
         if (newPassword != null) {
             user.changePassword(encoder.encode(newPassword));
-            loginFailures.remove(user.getId());
+            state.remove(LOGIN_FAIL_KIND, String.valueOf(user.getId()));
         }
         AuthResponse session = signIn(user);
-        codes.remove(email);
+        forgetCode(email);
         return ResponseEntity.ok(session);
     }
 }
