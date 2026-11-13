@@ -1,6 +1,8 @@
 package com.intermap.backend.review;
 
 import com.intermap.backend.auth.AppUser;
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +16,10 @@ import java.time.Instant;
 // 후기에 달리는 댓글. parentId가 있으면 그 댓글의 대댓글 (한 단계만 — 대댓글에 또 답글은 없다).
 // 엔티티 이름을 Comment로 하면 H2 예약어 COMMENT와 부딪혀 ReviewComment로 둔다.
 @Entity
+@Table(indexes = {
+        @Index(name = "idx_review_comment_review", columnList = "review_id"),
+        @Index(name = "idx_review_comment_author", columnList = "author_id")
+})
 public class ReviewComment {
 
     @Id

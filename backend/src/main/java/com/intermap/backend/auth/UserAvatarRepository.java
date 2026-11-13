@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,9 @@ public interface UserAvatarRepository extends JpaRepository<UserAvatar, Long> {
     @Query("select a.userId as userId, a.updatedAt as updatedAt from UserAvatar a")
     List<Ref> findAllRefs();
 
+    @Query("select a.userId as userId, a.updatedAt as updatedAt from UserAvatar a where a.userId in :userIds")
+    List<Ref> findRefsByUserIdIn(Collection<Long> userIds);
+
     // 캐시를 깨기 위해 갱신 시각을 v 로 붙인다. 프론트는 API_BASE 를 앞에 붙여 쓴다.
     static String url(Long userId, Instant updatedAt) {
         return "/api/users/" + userId + "/avatar?v=" + updatedAt.getEpochSecond();
@@ -29,6 +33,14 @@ public interface UserAvatarRepository extends JpaRepository<UserAvatar, Long> {
     default Map<Long, String> urlsByUserId() {
         Map<Long, String> out = new HashMap<>();
         for (Ref ref : findAllRefs()) out.put(ref.getUserId(), url(ref.getUserId(), ref.getUpdatedAt()));
+        return out;
+    }
+
+    // 위와 같지만 필요한 사람 것만 읽는다 (회원이 늘어도 조회량이 그대로)
+    default Map<Long, String> urlsByUserId(Collection<Long> userIds) {
+        Map<Long, String> out = new HashMap<>();
+        if (userIds.isEmpty()) return out;
+        for (Ref ref : findRefsByUserIdIn(userIds)) out.put(ref.getUserId(), url(ref.getUserId(), ref.getUpdatedAt()));
         return out;
     }
 

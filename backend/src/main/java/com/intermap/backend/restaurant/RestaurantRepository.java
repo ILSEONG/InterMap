@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,11 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     Optional<Restaurant> findFirstByNameAndRoadAddress(String name, String roadAddress);
 
     Optional<Restaurant> findFirstByNameAndAddress(String name, String address);
+
+    // 후기 목록에 좌표를 붙일 때 — 후기에 나온 상호들의 행을 한 번에 읽는다 (가게마다 따로 조회하지 않게).
+    // 행 = [name, roadAddress, address, lat, lng, status]. 같은 상호의 다른 지점도 섞여 오므로 주소는 호출부가 맞춘다.
+    @Query("select r.name, r.roadAddress, r.address, r.lat, r.lng, r.status from Restaurant r where r.name in :names")
+    List<Object[]> findPlaceRowsByNameIn(Collection<String> names);
 
     // 지도·검색용 조회는 status를 받는다 — 폐업 가게는 아예 내려주지 않는다 (호출부가 OPEN을 넘긴다)
     List<Restaurant> findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status status, String name);

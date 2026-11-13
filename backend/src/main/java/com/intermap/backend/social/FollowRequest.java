@@ -1,6 +1,7 @@
 package com.intermap.backend.social;
 
 import com.intermap.backend.auth.AppUser;
+import jakarta.persistence.Index;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -17,7 +18,9 @@ import java.time.Instant;
 // Follow와 따로 두는 이유: 후기 열람 범위(ReviewAudience)를 비롯해 팔로우를 읽는 모든 곳이
 // 대기 중인 요청을 팔로우로 착각할 일이 없게 — 수락 전에는 아무것도 열리지 않는다.
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"requester_id", "target_id"}))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"requester_id", "target_id"}), indexes = {
+        @Index(name = "idx_follow_request_target", columnList = "target_id")
+})
 public class FollowRequest {
 
     @Id

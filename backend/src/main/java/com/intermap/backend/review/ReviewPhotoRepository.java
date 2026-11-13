@@ -21,6 +21,10 @@ public interface ReviewPhotoRepository extends JpaRepository<ReviewPhoto, Long> 
     @Query("select p.id as id, p.review.id as reviewId, p.accessKey as accessKey, p.width as width, p.height as height from ReviewPhoto p order by p.id")
     List<Ref> findAllRefs();
 
+    // 후기 여러 개의 사진을 한 번에 (목록 조회용 — 내려줄 후기 것만)
+    @Query("select p.id as id, p.review.id as reviewId, p.accessKey as accessKey, p.width as width, p.height as height from ReviewPhoto p where p.review.id in :reviewIds order by p.id")
+    List<Ref> findRefsByReviewIdIn(Collection<Long> reviewIds);
+
     @Query("select p.id as id, p.review.id as reviewId, p.accessKey as accessKey, p.width as width, p.height as height from ReviewPhoto p where p.review.id = :reviewId order by p.id")
     List<Ref> findRefsByReviewId(Long reviewId);
 

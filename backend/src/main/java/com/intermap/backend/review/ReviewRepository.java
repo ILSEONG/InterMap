@@ -12,6 +12,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @EntityGraph(attributePaths = "author")
     List<Review> findAllByOrderByCreatedAtDesc();
 
+    // 볼 수 있는 작성자들의 후기만 — 목록 조회가 전체 후기를 읽지 않게 (작성자까지 한 번에)
+    @EntityGraph(attributePaths = "author")
+    List<Review> findByAuthorIdInOrderByCreatedAtDesc(Collection<Long> authorIds);
+
     // 한 사람은 한 가게에 후기를 하나만 남긴다 (가게 키 = 이름+주소 스냅샷)
     // 회원 탈퇴 시 그 사람 후기 전부
     List<Review> findAllByAuthor(AppUser author);

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import com.intermap.backend.web.Http;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -18,7 +19,7 @@ public class MailService {
     private static final Logger log = LoggerFactory.getLogger(MailService.class);
     private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
 
-    private final RestClient client = RestClient.create();
+    private final RestClient client = Http.client();
     private final String apiKey;
     private final String from;
     private final ExternalCalls calls;

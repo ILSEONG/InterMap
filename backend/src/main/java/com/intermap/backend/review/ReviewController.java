@@ -34,10 +34,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @RestController
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
@@ -76,10 +77,15 @@ public class ReviewController {
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
                        Instant createdAt, List<Long> photoIds, List<String> photoUrls, List<Double> photoRatios) {
         static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
+            return from(r, photos, place == null ? null : new double[]{place.getLat(), place.getLng()}, avatar);
+        }
+
+        // coords = [lat, lng], 가게를 못 찾았거나 폐업이면 null
+        static Item from(Review r, List<Photo> photos, double[] coords, String avatar) {
             AppUser a = r.getAuthor();
             return new Item(r.getId(),
                     new Place(r.getRestaurantName(), r.getRestaurantCategory(), r.getRestaurantAddress(),
-                            place == null ? null : place.getLat(), place == null ? null : place.getLng()),
+                            coords == null ? null : coords[0], coords == null ? null : coords[1]),
                     new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
                     r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
                     photos.stream().map(Photo::id).toList(),
@@ -133,28 +139,61 @@ public class ReviewController {
 
     // 볼 수 있는 후기(ReviewAudience: 로그아웃이면 주인장 것만, 로그인하면 나·팔로우한 사람·주인장)를 전부 내려준다
     // — 프론트가 가게별/작성자별로 나눈다. 로그인했으면 차단 관계인 사람의 후기와 내가 신고한 후기도 뺀다.
-    // ponytail: 후기가 수천 건 넘으면 작성자 조건을 쿼리로 내리고 bbox·기간 파라미터로 잘라 받도록 바꿀 것
+    // 볼 수 있는 작성자의 후기만 DB에서 읽고, 사진·프로필 사진·가게 좌표도 그 후기들 것만 한 번씩 읽는다
+    // (전체 후기를 읽어 와 메모리에서 거르지 않는다 — 남의 후기가 아무리 쌓여도 내 조회량은 그대로).
+    // ponytail: 한 사람이 보는 후기가 수천 건을 넘으면 bbox·기간 파라미터로 잘라 받도록 바꿀 것
     @GetMapping("/api/reviews")
     public List<Item> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
         AppUser viewer = auth.currentUser(authorization);
-        Predicate<AppUser> visible = audience.visibleAuthors(viewer);
-        Set<Long> hiddenAuthors = blocks.hiddenFor(viewer);
+        Set<Long> authorIds = new HashSet<>(audience.visibleAuthorIds(viewer));
+        authorIds.removeAll(blocks.hiddenFor(viewer));
+        if (authorIds.isEmpty()) return List.of();
         Set<Long> reported = viewer == null ? Set.of()
                 : Set.copyOf(reports.targetIdsReportedBy(viewer, Report.TargetType.REVIEW));
+        List<Review> visible = repository.findByAuthorIdInOrderByCreatedAtDesc(authorIds).stream()
+                .filter(r -> !reported.contains(r.getId()))
+                .toList();
+        if (visible.isEmpty()) return List.of();
+
         Map<Long, List<Photo>> photosByReview = new HashMap<>();
-        Map<String, Restaurant> places = new HashMap<>();
-        for (ReviewPhotoRepository.Ref ref : photos.findAllRefs()) {
+        for (ReviewPhotoRepository.Ref ref : photos.findRefsByReviewIdIn(visible.stream().map(Review::getId).toList())) {
             photosByReview.computeIfAbsent(ref.getReviewId(), k -> new ArrayList<>()).add(Photo.of(ref));
         }
-        Map<Long, String> avatarUrls = avatars.urlsByUserId();
-        return repository.findAllByOrderByCreatedAtDesc().stream()
-                .filter(r -> visible.test(r.getAuthor()))
-                .filter(r -> !hiddenAuthors.contains(r.getAuthor().getId()) && !reported.contains(r.getId()))
+        Map<Long, String> avatarUrls = avatars.urlsByUserId(
+                visible.stream().map(r -> r.getAuthor().getId()).collect(Collectors.toSet()));
+        Map<String, double[]> coords = coordsOf(visible);
+        return visible.stream()
                 .map(r -> Item.from(r, photosByReview.getOrDefault(r.getId(), List.of()),
-                        places.computeIfAbsent(r.getRestaurantName() + "|" + r.getRestaurantAddress(),
-                                k -> findPlace(r.getRestaurantName(), r.getRestaurantAddress())),
+                        coords.get(placeKey(r.getRestaurantName(), r.getRestaurantAddress())),
                         avatarUrls.get(r.getAuthor().getId())))
                 .toList();
+    }
+
+    private static String placeKey(String name, String address) {
+        return name + "|" + address;
+    }
+
+    // 후기들의 가게 좌표 — findPlace와 같은 규칙(도로명 주소 먼저, 없으면 지번 주소, 폐업이면 좌표 없음)을
+    // 가게마다 조회하지 않고 상호로 한 번에 읽어 맞춘다. 값은 [lat, lng]
+    private Map<String, double[]> coordsOf(List<Review> reviews) {
+        Set<String> names = reviews.stream().map(Review::getRestaurantName).collect(Collectors.toSet());
+        Map<String, Object[]> byRoad = new HashMap<>();
+        Map<String, Object[]> byLot = new HashMap<>();
+        for (Object[] row : restaurants.findPlaceRowsByNameIn(names)) {
+            String name = (String) row[0];
+            if (row[1] != null) byRoad.putIfAbsent(placeKey(name, (String) row[1]), row);
+            if (row[2] != null) byLot.putIfAbsent(placeKey(name, (String) row[2]), row);
+        }
+        Map<String, double[]> out = new HashMap<>();
+        for (Review r : reviews) {
+            String key = placeKey(r.getRestaurantName(), r.getRestaurantAddress());
+            if (out.containsKey(key)) continue;
+            Object[] row = byRoad.getOrDefault(key, byLot.get(key));
+            if (row != null && row[5] != Restaurant.Status.CLOSED) {
+                out.put(key, new double[]{((Number) row[3]).doubleValue(), ((Number) row[4]).doubleValue()});
+            }
+        }
+        return out;
     }
 
     // multipart: "review" 파트(JSON) + "photos" 파트(파일, 0~10장). 프론트가 1280px JPEG로 줄여서 보낸다.

@@ -1,6 +1,7 @@
 package com.intermap.backend.social;
 
 import com.intermap.backend.auth.AppUser;
+import jakarta.persistence.Index;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -14,7 +15,9 @@ import java.time.Instant;
 
 // 단방향 팔로우 (follower → followee). 받는 사람이 수동 승인이면 FollowRequest를 거쳐 수락될 때 만들어진다.
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"follower_id", "followee_id"}))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"follower_id", "followee_id"}), indexes = {
+        @Index(name = "idx_follow_followee", columnList = "followee_id")
+})
 public class Follow {
 
     @Id

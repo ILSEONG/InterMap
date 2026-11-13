@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import com.intermap.backend.web.Http;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
@@ -45,7 +46,7 @@ public class AppleLogin {
     private static final String TOKEN_URI = ISSUER + "/auth/token";
     private static final String REVOKE_URI = ISSUER + "/auth/revoke";
 
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient = Http.client();
     private final ObjectMapper mapper = new ObjectMapper();
     private final String clientId;
     private final String teamId;

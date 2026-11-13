@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import com.intermap.backend.web.Http;
 import org.springframework.web.client.RestClient;
 
 import javax.crypto.Mac;
@@ -23,7 +24,7 @@ public class SmsService {
     private static final Logger log = LoggerFactory.getLogger(SmsService.class);
     private static final String SEND_URL = "https://api.solapi.com/messages/v4/send";
 
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient = Http.client();
     private final String apiKey;
     private final String apiSecret;
     private final String from;

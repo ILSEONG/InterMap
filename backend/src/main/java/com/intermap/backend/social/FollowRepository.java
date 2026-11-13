@@ -19,6 +19,10 @@ public interface FollowRepository extends JpaRepository<Follow, Long> {
     @EntityGraph(attributePaths = "follower")
     List<Follow> findByFolloweeOrderByCreatedAtDesc(AppUser followee);
 
+    // 내가 팔로우한 사람들의 id만 — 후기 공개 범위 판정용 (사람 정보는 필요 없다)
+    @Query("select f.followee.id from Follow f where f.follower = :follower")
+    List<Long> followeeIdsOf(AppUser follower);
+
     Optional<Follow> findByFollowerAndFollowee(AppUser follower, AppUser followee);
 
     // 프로필 개요의 팔로잉·팔로워 수 — 목록을 통째로 들고 오지 않고 센다

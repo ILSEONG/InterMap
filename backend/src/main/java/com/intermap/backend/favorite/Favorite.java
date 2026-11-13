@@ -1,6 +1,8 @@
 package com.intermap.backend.favorite;
 
 import com.intermap.backend.auth.AppUser;
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,6 +15,9 @@ import java.time.Instant;
 
 // 사용자의 가게 찜. 가게는 후기와 같은 이름+주소 스냅샷으로 잇는다 (restaurant 테이블에 FK 없음).
 @Entity
+@Table(indexes = {
+        @Index(name = "idx_favorite_user", columnList = "user_id")
+})
 public class Favorite {
 
     @Id
