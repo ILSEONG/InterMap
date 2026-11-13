@@ -1,0 +1,150 @@
+# 아이폰 앱을 빌드해 TestFlight(App Store Connect)에 올린다. 맥 없이 GitHub의 맥 서버에서 서명까지 한다.
+#
+# 실행: Actions 탭 → iOS TestFlight → Run workflow (버전 이름 입력). 빌드 번호는 이 워크플로의 실행 번호로 자동으로 올라간다.
+# 올라간 빌드는 App Store Connect → TestFlight에 10~20분 뒤(Apple 처리 후) 나타난다.
+#
+# 서명 방식: App Store Connect API 키로 Xcode 자동 서명을 쓴다.
+#   - 스토어 배포용 인증서는 Apple이 클라우드에서 관리한다 (우리가 보관하는 인증서·비밀번호 없음)
+#   - 빌드 중에 Xcode가 만드는 개발 인증서는 끝나고 지운다 (.github/scripts/asc_revoke_ci_dev_certs.py)
+#
+# 필요한 저장소 설정 (Settings → Secrets and variables → Actions → Secrets)
+#   APPLE_TEAM_ID            Apple 개발자 팀 ID (10자리)
+#   APPSTORE_API_KEY_ID      App Store Connect API 키 ID
+#   APPSTORE_API_ISSUER_ID   App Store Connect API Issuer ID
+#   APPSTORE_API_PRIVATE_KEY 그 키 파일(.p8)의 내용 전체 — 권한은 관리(Admin)
+# 미리 되어 있어야 하는 것: 번들 ID com.intermap.app 등록, App Store Connect에 앱 생성
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: '버전 이름 (예: 1.1.0)'
+        required: true
+        default: '1.1.0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    # Capacitor 8 iOS 프로젝트는 Xcode 26으로 빌드한다
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: frontend
+        shell: bash -eo pipefail {0}
+    env:
+      VERSION_NAME: ${{ inputs.version_name }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: secrets
+        name: Check secrets
+        env:
+          ASC_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        run: |
+          [[ "$VERSION_NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "::error::버전 이름이 이상해요: '$VERSION_NAME' (예: 1.1.0)"; exit 1; }
+          missing=""
+          [ -n "$TEAM_ID" ] || missing="$missing APPLE_TEAM_ID"
+          [ -n "$ASC_KEY_ID" ] || missing="$missing APPSTORE_API_KEY_ID"
+          [ -n "$ASC_ISSUER_ID" ] || missing="$missing APPSTORE_API_ISSUER_ID"
+          [ -n "$ASC_PRIVATE_KEY" ] || missing="$missing APPSTORE_API_PRIVATE_KEY"
+          if [ -n "$missing" ]; then echo "::error::Secret이 비어 있어요:$missing"; exit 1; fi
+          # 키 파일은 러너 임시 폴더에만 둔다 (저장소에 남기지 않는다). 줄바꿈이 "\n" 글자로 들어와도 읽는다
+          KEY="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%b\n' "$ASC_PRIVATE_KEY" > "$KEY"
+          chmod 600 "$KEY"
+          openssl pkey -in "$KEY" -noout 2>/dev/null \
+            || { echo "::error::APPSTORE_API_PRIVATE_KEY를 키로 읽을 수 없어요 — .p8 파일 내용 전체(BEGIN/END 줄 포함)를 넣었는지 확인하세요"; exit 1; }
+          echo "ASC_KEY_PATH=$KEY" >> "$GITHUB_ENV"
+          echo "버전 $VERSION_NAME ($BUILD_NUMBER)"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build web
+        env:
+          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID || 'yrvo8lm3er' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://intermap-be.onrender.com' }}
+          VITE_WEB_BASE_URL: ${{ vars.VITE_WEB_BASE_URL }}
+          FONT_DISPLAY: block
+          # 아이폰 푸시는 아직 연결 전
+          VITE_PUSH_ENABLED: 'false'
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - id: archive
+        name: Archive
+        working-directory: frontend/ios/App
+        run: |
+          xcodebuild -version
+          xcodebuild archive \
+            -project App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$VERSION_NAME" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            > "$RUNNER_TEMP/archive.log" 2>&1 \
+            || { echo "----- archive 실패: 오류 줄 -----"; grep -E "error:|Provisioning|provisioning|Signing|No profiles|No Accounts|requires a development team" "$RUNNER_TEMP/archive.log" | sort -u | head -40 | cut -c1-500; echo "----- 로그 끝 -----"; tail -n 40 "$RUNNER_TEMP/archive.log" | cut -c1-500; exit 1; }
+          grep -E "ARCHIVE SUCCEEDED|Signing Identity|Provisioning Profile" "$RUNNER_TEMP/archive.log" | sort -u | head -10 | cut -c1-300 || true
+          test -d "$RUNNER_TEMP/App.xcarchive"
+
+      - id: upload
+        name: Export and upload to App Store Connect
+        working-directory: frontend/ios/App
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > "$RUNNER_TEMP/export.log" 2>&1 \
+            || { echo "----- 업로드 실패: 오류 줄 -----"; grep -E "error:|Error|failed|invalid|not found|already" "$RUNNER_TEMP/export.log" | sort -u | head -40 | cut -c1-600; echo "----- 로그 끝 -----"; tail -n 50 "$RUNNER_TEMP/export.log" | cut -c1-600; ls "$RUNNER_TEMP/export" 2>/dev/null || true; exit 1; }
+          grep -E "EXPORT SUCCEEDED|Upload succeeded|Uploaded|Progress 100" "$RUNNER_TEMP/export.log" | sort -u | head -10 | cut -c1-300 || true
+          echo "TestFlight에 올렸습니다: $VERSION_NAME ($BUILD_NUMBER) — App Store Connect에서 처리되는 데 10~20분 걸립니다"
+
+      # 빌드 중 Xcode가 만든 개발 인증서를 지운다 (실패해도 지운다 — 쌓이면 다음 빌드가 한도에 걸린다)
+      - name: Remove CI development certificates
+        if: always() && env.ASC_KEY_PATH != ''
+        working-directory: .
+        run: python3 .github/scripts/asc_revoke_ci_dev_certs.py || true
+
+      - name: Remove key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
