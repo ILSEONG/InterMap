@@ -1,5 +1,7 @@
 package com.intermap.backend.review;
 
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +16,9 @@ import java.util.UUID;
 // ponytail: DB(bytea)에 그대로 넣는다 — Render 디스크는 재배포 때 날아가고 오브젝트 스토리지는 키 설정이 필요해서.
 // Neon 무료 0.5GB 기준 수천 장까지. 넘어가면 S3/R2로 옮기고 여기엔 URL만 남길 것.
 @Entity
+@Table(indexes = {
+        @Index(name = "idx_review_photo_review", columnList = "review_id")
+})
 public class ReviewPhoto {
 
     @Id

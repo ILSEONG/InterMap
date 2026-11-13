@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.intermap.backend.web.Http;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -41,7 +42,7 @@ public class PushService {
 
     private final PushTokenRepository tokens;
     private final ObjectMapper mapper = new ObjectMapper();
-    private final RestClient http = RestClient.create();
+    private final RestClient http = Http.client();
     private final ExecutorService sender = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "push-sender");
         t.setDaemon(true);

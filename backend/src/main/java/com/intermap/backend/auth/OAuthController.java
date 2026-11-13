@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.intermap.backend.web.Http;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -83,7 +84,7 @@ public class OAuthController {
     private static final String APP_DEEP_LINK = "intermap://auth";
     private static final String APPLE = "apple";
 
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient = Http.client();
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, PendingState> pendingStates = new ConcurrentHashMap<>();
     private final Map<String, Outcome> outcomes = new ConcurrentHashMap<>();

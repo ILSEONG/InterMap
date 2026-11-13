@@ -1,6 +1,8 @@
 package com.intermap.backend.push;
 
 import com.intermap.backend.auth.AppUser;
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +16,9 @@ import java.time.Instant;
 // 푸시 알림을 받을 기기 (FCM 등록 토큰). 한 사람이 여러 기기를 쓸 수 있고, 토큰 하나는 한 사람에게만 붙는다 —
 // 같은 폰에서 다른 계정으로 로그인하면 그 계정으로 옮겨 간다.
 @Entity
+@Table(indexes = {
+        @Index(name = "idx_push_token_user", columnList = "user_id")
+})
 public class PushToken {
 
     @Id

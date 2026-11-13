@@ -1,6 +1,8 @@
 package com.intermap.backend.review;
 
 import com.intermap.backend.auth.AppUser;
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +16,10 @@ import java.time.Instant;
 // 사용자가 가게에 남긴 후기. 주인장(admin)이 쓴 것도 같은 테이블 — 프론트가 작성자로 구분한다.
 // 가게는 이름+주소 스냅샷으로 잇는다 (restaurant 테이블은 배치 동기화로 갈아엎힐 수 있어 FK를 걸지 않는다).
 @Entity
+@Table(indexes = {
+        @Index(name = "idx_review_author_created", columnList = "author_id, created_at"),
+        @Index(name = "idx_review_restaurant_name", columnList = "restaurant_name")
+})
 public class Review {
 
     @Id
