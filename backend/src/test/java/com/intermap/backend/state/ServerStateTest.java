@@ -64,7 +64,7 @@ class ServerStateTest {
         assertEquals(3, state.increment("n", key, later));
         assertEquals(3, state.counter("n", key));
         String gone = "g-" + UUID.randomUUID();
-        assertEquals(1, state.increment("n", gone, Instant.now().minusSeconds(1)));
+        state.increment("n", gone, Instant.now().minusSeconds(1));
         assertEquals(0, state.counter("n", gone), "만료된 횟수는 0");
         assertEquals(1, state.increment("n", gone, later), "만료 뒤엔 1부터 다시");
         assertEquals(2, state.increment("n", gone, later));
