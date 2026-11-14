@@ -133,7 +133,7 @@ export default function TopBar(props: TopBarProps) {
           <>
             <button type="button" className="topbar__open" onClick={props.onOpenSearch}>
               <SearchGlyph />
-              가게, 이웃 검색
+              {nickname ? '가게, 이웃 검색' : '가게 검색'}
             </button>
             {/* 내 계정 — 누르면 바로 마이페이지(로그인 전엔 로그인). 로그아웃은 마이페이지 안에 */}
             <button
@@ -153,6 +153,8 @@ export default function TopBar(props: TopBarProps) {
       </div>
 
       {searching ? (
+        // 이웃 검색은 로그인한 사람만 — 로그인 전에는 고를 대상이 가게뿐이라 토글을 내지 않는다
+        !nickname ? null : (
         <div className="topbar__chips" role="group" aria-label="검색 대상">
           {SEARCH_MODES.map(([value, label]) => (
             <button
@@ -166,6 +168,7 @@ export default function TopBar(props: TopBarProps) {
             </button>
           ))}
         </div>
+        )
       ) : !nickname ? null : (
         <div className="topbar__chips-wrap">
           <div className="topbar__chips">

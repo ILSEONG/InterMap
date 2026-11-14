@@ -89,6 +89,10 @@ export default function StoryViewer({
     if (!goTo(active + 1)) onClose()
   }
 
+  // 마지막 장에서 다음으로 넘기려는 쓸기 — 더 넘길 장이 없으니 닫는다 (자동 넘김·위쪽 막대 쓸기와 같은 끝맺음).
+  // 손가락을 댄 순간 이미 맨 끝이었을 때만 센다: 마지막 장으로 "도착하는" 쓸기에 닫히면 안 된다
+  const endSwipe = useRef<{ x: number; y: number } | null>(null)
+
   // 위 막대·작성자 줄은 트랙 밖에 떠 있어서 브라우저 스크롤이 트랙까지 안 간다 — 거기서 시작한 가로 쓸기는 직접 넘긴다
   const chromeSwipe = useRef<{ x: number; y: number } | null>(null)
 
@@ -146,6 +150,27 @@ export default function StoryViewer({
         <div
           ref={trackRef}
           className="story-viewer__track"
+          onTouchStart={(e) => {
+            const el = e.currentTarget
+            const t = e.touches[0]
+            const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 2
+            // 사진 줄(가로로 넘기는 썸네일)과 입력칸에서 시작한 쓸기는 그쪽 것이다
+            const elsewhere = (e.target as HTMLElement).closest('.review-card__photos, input, textarea')
+            endSwipe.current = t && atEnd && !elsewhere && e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null
+          }}
+          onTouchEnd={(e) => {
+            const s = endSwipe.current
+            const t = e.changedTouches[0]
+            endSwipe.current = null
+            if (!s || !t) return
+            const dx = t.clientX - s.x
+            // 왼쪽으로 60px 넘게, 세로보다 가로로 더 많이 움직였을 때만
+            if (dx > -60 || Math.abs(dx) < Math.abs(t.clientY - s.y) * 1.2) return
+            onClose()
+          }}
+          onTouchCancel={() => {
+            endSwipe.current = null
+          }}
           onScroll={(e) => {
             const el = e.currentTarget
             if (el.clientWidth <= 0) return
