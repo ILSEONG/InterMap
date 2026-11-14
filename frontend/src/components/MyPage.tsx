@@ -19,7 +19,7 @@ import {
   fetchMyPolls,
 } from '../lib/api'
 import type { PollSummary } from '../lib/api'
-import { kstMonth, monthLabel, timeAgo, timeLeft } from '../lib/time'
+import { kstMonth, monthLabel, reviewDate, timeLeft } from '../lib/time'
 import { categoryName } from '../lib/taste'
 import { useOpenProfile } from '../lib/openProfile'
 import { shrinkImage } from '../lib/image'
@@ -721,7 +721,7 @@ export default function MyPage({
                             <span className="my-page__review-text">
                               <span className="my-page__review-name">{r.restaurant.name}</span>
                               <span className="my-page__review-sub">
-                                {categoryName(r.restaurant.category) ?? '음식점'} · {timeAgo(r.createdAt)}
+                                {categoryName(r.restaurant.category) ?? '음식점'} · {reviewDate(r.createdAt)}
                               </span>
                             </span>
                             <span className="my-page__review-rating">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Review } from '../data/model'
 import type { Person } from '../lib/api'
 import { tasteTag } from '../lib/taste'
-import { timeAgo } from '../lib/time'
+import { reviewDate } from '../lib/time'
 import Avatar from './Avatar'
 import { RatingStar } from './Stars'
 import './ModalSheet.css'
@@ -194,7 +194,7 @@ export default function FollowingBoard({
                       </span>
                       {r.latest ? (
                         <span className="board__latest">
-                          <span className="board__when">{timeAgo(r.latest.createdAt)} ·</span> {r.latest.restaurant.name}{' '}
+                          <span className="board__when">{reviewDate(r.latest.createdAt)} ·</span> {r.latest.restaurant.name}{' '}
                           <RatingStar />
                           {r.latest.rating.toFixed(1)}
                         </span>

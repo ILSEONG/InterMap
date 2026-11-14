@@ -8,6 +8,15 @@ export function timeAgo(iso: string, now = Date.now()): string {
   return `${Math.floor(hours / 24)}일 전`
 }
 
+// 후기가 올라온 때 — 하루가 안 지났으면 "N시간 전"까지, 그 뒤로는 날짜 "2026-11-03" (한국 시간).
+// "N일 전"은 며칠인지 다시 세어야 해서 후기에는 날짜를 그대로 보여 준다
+const KST_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' })
+export function reviewDate(iso: string, now = Date.now()): string {
+  const at = Date.parse(iso)
+  if (now - at < 24 * 60 * 60_000) return timeAgo(iso, now)
+  return KST_DATE.format(new Date(at)).slice(0, 10)
+}
+
 // 한국 시간 기준 "2026-11" (월간 결산의 달 단위)
 const KST_MONTH = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' })
 export function kstMonth(date: Date | string | number = new Date()): string {

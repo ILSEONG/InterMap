@@ -6,7 +6,7 @@ import type { ProfileList } from '../lib/profileStack'
 import { cacheKey, queryClient, useServerState } from '../lib/query'
 import { categoryName, MIN_COMMON, tasteMatch } from '../lib/taste'
 import { shortLocation, topPicksOf } from '../lib/topPicks'
-import { timeAgo } from '../lib/time'
+import { reviewDate } from '../lib/time'
 import { useBackLayer } from '../lib/backLayer'
 import { RatingStar } from './Stars'
 import Avatar from './Avatar'
@@ -428,7 +428,7 @@ export default function ProfileSheet({
                                     <span className="profile-sheet__place-name">{v.name}</span>
                                     <span className="profile-sheet__place-sub">
                                       {v.category ?? '음식점'}
-                                      {v.area && ` · ${v.area}`} · {timeAgo(v.at)}
+                                      {v.area && ` · ${v.area}`} · {reviewDate(v.at)}
                                     </span>
                                   </span>
                                   <span className="profile-sheet__place-rating">

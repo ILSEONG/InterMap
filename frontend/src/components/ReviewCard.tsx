@@ -5,7 +5,7 @@ import { photoUrl } from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
 import { useBackLayer } from '../lib/backLayer'
 import { canReport, useModeration } from '../lib/moderation'
-import { timeAgo } from '../lib/time'
+import { reviewDate } from '../lib/time'
 import { STAR_SHAPE } from './Stars'
 import Avatar from './Avatar'
 import './ReportSheet.css'
@@ -75,7 +75,7 @@ export default function ReviewCard({ review, onEdit, footer }: { review: Review;
               {review.author.name}
               {owner && <span className="review-card__owner-tag">주인장</span>}
             </span>
-            <span className="review-card__time">{timeAgo(review.createdAt)}</span>
+            <span className="review-card__time">{reviewDate(review.createdAt)}</span>
           </span>
         </button>
         <span className="review-card__rating" role="img" aria-label={`별점 ${review.rating.toFixed(1)}`}>

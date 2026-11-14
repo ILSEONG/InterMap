@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Comment, Review, Story } from '../data/model'
 import { photoUrl, restaurantKey } from '../lib/api'
 import { useOpenProfile } from '../lib/openProfile'
-import { timeAgo } from '../lib/time'
+import { reviewDate } from '../lib/time'
 import Avatar from './Avatar'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
@@ -361,7 +361,7 @@ export default function StoryViewer({
                   type="button"
                   className="story-viewer__author"
                   onClick={() => openProfile(current.review.author.id)}
-                  aria-label={`${ownerName}님 프로필, ${timeAgo(current.review.createdAt)}`}
+                  aria-label={`${ownerName}님 프로필, ${reviewDate(current.review.createdAt)}`}
                 >
                   <AuthorContent story={current.story} review={current.review} />
                 </button>
@@ -395,7 +395,7 @@ function AuthorContent({ story, review }: { story: Story; review: Review }) {
         <span className="story-viewer__author-name">{story.name}</span>
         <span className="story-viewer__author-time">
           {review.author.owner && '주인장 · '}
-          {timeAgo(review.createdAt)}
+          {reviewDate(review.createdAt)}
         </span>
       </span>
     </>
