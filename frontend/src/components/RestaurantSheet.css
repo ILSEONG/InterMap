@@ -1150,7 +1150,8 @@ button.comment__author:active {
 .star-picker__fill {
   fill: var(--accent);
   stroke: var(--accent);
-  clip-path: inset(0 calc((1 - var(--f)) * 100%) 0 0);
+  /* 별 그림이 차지하는 범위(11.25% ~ 88.75%) 안에서 채운다 — 0.1도 보이고, 누른 자리와 채움 끝이 맞는다 (StarPicker의 STAR_INK_*) */
+  clip-path: inset(0 calc(11.25% + (1 - var(--f)) * 77.5%) 0 0);
 }
 
 .review-form__label {
@@ -1427,10 +1428,12 @@ button.comment__author:active {
   inset: -4px;
 }
 
+/* 삭제 — 테두리·모서리·높이는 옆의 등록 버튼(.review-form__submit)과 같게, 바탕·글씨색만 다르다 */
 .review-form__cancel--danger {
-  height: 58px;
+  height: 54px;
   padding: 0 22px;
-  border-radius: 29px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 16px;
   background: rgba(118, 118, 128, 0.12);
   color: #b8233a;
   font-size: 16px;
