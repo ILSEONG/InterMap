@@ -235,7 +235,7 @@ export default function App() {
   // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만. 실제 적용값은 아래 reviewFilter (로그아웃이면 '전체')
   const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with'>('with')
   // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
-  const [searchMode, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
+  const [searchModeChoice, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
   // 지도가 추적 중인 내 위치. 검색 결과를 가까운 순으로 정렬하는 데만 쓴다.
   // ~50m 안쪽 흔들림은 무시 — watchPosition이 자주 쏘는데 그때마다 재정렬하면 목록이 떨린다.
@@ -255,6 +255,9 @@ export default function App() {
       return null
     }
   })
+  // 이웃 검색은 로그인한 사람만 — 로그인 전에는 가게 검색뿐이다 (서버의 사용자 검색도 로그인이 필요하다).
+  // 로그아웃하면 고른 대상과 상관없이 가게 검색으로 돌아간다
+  const searchMode = session ? searchModeChoice : 'restaurant'
   // 서버 데이터(lib/query)는 로그인한 사람별로 나눈다 — 아래 데이터 훅들이 첫 렌더에서 키를 만들기 전에 정한다
   setQueryOwner(session ? `u${session.id ?? 'me'}` : 'guest')
   // 로그아웃이면 주인장 후기만 받아 이웃 후기 필터가 무의미하다 — 필터를 숨기고 전부 보여준다
