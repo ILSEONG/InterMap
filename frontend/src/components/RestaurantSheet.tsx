@@ -912,18 +912,29 @@ interface StarPickerProps {
   labelledBy: string
 }
 
+// 별 그림이 svg 칸(24)에서 실제로 차지하는 가로 범위 — 선 두께까지 2.7 ~ 21.3.
+// 채움(CSS .star-picker__fill의 clip-path)과 누른 자리 계산이 같은 범위를 써야 손끝과 채움 끝이 맞는다
+const STAR_INK_LEFT = 2.7 / 24
+const STAR_INK_WIDTH = 18.6 / 24
+
 // 큰 별 다섯 개로 고르는 별점 (0.1 ~ 5.0, 0.1 단위).
-// 별을 톡 누르면 그 별까지 정수 점수, 별 위를 좌우로 끌면 0.1 단위로 세밀하게, 키보드는 화살표 ±0.1.
+// 누르거나 끈 자리까지 0.1 단위로 정해진다 — 별 사이 빈틈은 앞 별을 다 채운 점수. 키보드는 화살표 ±0.1.
 function StarPicker({ value, onChange, labelledBy }: StarPickerProps) {
   const ref = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; moved: boolean } | null>(null)
 
   const clamp = (v: number) => Math.min(5, Math.max(0.1, Math.round(v * 10) / 10))
 
-  function ratioAt(clientX: number) {
-    const rect = ref.current?.getBoundingClientRect()
-    if (!rect || rect.width === 0) return 0
-    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+  // 그 자리의 점수 — 별마다 그림 왼쪽 끝에서 얼마나 지났는지(0~1)를 더한다
+  function valueAt(clientX: number) {
+    let sum = 0
+    for (const star of ref.current?.querySelectorAll('.star-picker__base') ?? []) {
+      const rect = star.getBoundingClientRect()
+      if (rect.width === 0) continue
+      const from = rect.left + rect.width * STAR_INK_LEFT
+      sum += Math.min(1, Math.max(0, (clientX - from) / (rect.width * STAR_INK_WIDTH)))
+    }
+    return clamp(sum)
   }
 
   function onDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -936,15 +947,15 @@ function StarPicker({ value, onChange, labelledBy }: StarPickerProps) {
     if (!drag) return
     if (!drag.moved && Math.abs(e.clientX - drag.x) < 6) return
     drag.moved = true
-    onChange(clamp(Math.ceil(ratioAt(e.clientX) * 50) / 10))
+    onChange(valueAt(e.clientX))
   }
 
   function onUp(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     dragRef.current = null
     if (!drag || drag.moved) return
-    // 톡 누름: 누른 별까지 정수 점수
-    onChange(Math.min(5, Math.floor(ratioAt(e.clientX) * 5) + 1))
+    // 톡 누름: 누른 자리 그대로
+    onChange(valueAt(e.clientX))
   }
 
   function onKey(e: React.KeyboardEvent<HTMLDivElement>) {
