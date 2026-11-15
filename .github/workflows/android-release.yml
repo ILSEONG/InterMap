@@ -1,8 +1,10 @@
-# 구글 플레이에 올릴 출시용 AAB를 빌드해 GitHub Releases에 올린다.
+# 구글 플레이에 올릴 출시용 AAB를 빌드해 GitHub Releases에 올리고, 설정이 돼 있으면 Play Console에도 바로 올린다.
 #
-# 실행 방법 (둘 중 하나)
+# 실행되는 때
+#   - main에 앱 코드(frontend/)가 들어오면 자동으로 → Play의 내부 테스트 트랙에 올라간다 (Variable PLAY_TRACK으로 바꿀 수 있다).
+#     버전 이름은 Variable ANDROID_VERSION_NAME (없으면 1.1.0)
 #   - 태그 push:  git tag android-v1.0.0 && git push origin android-v1.0.0   → versionName 1.0.0
-#   - Actions 탭 → Android Release → Run workflow (버전 이름 입력)
+#   - Actions 탭 → Android Release → Run workflow (버전 이름과 올릴 트랙 입력 — production을 고르면 바로 심사에 들어간다)
 # versionCode는 이 워크플로의 실행 번호(run_number)로 자동으로 올라간다.
 # 이미 Play에 더 큰 versionCode를 올렸다면 Variable ANDROID_VERSION_CODE_OFFSET으로 그만큼 더한다.
 #
@@ -13,27 +15,38 @@
 #     ANDROID_KEY_ALIAS         키 별칭 (예: upload)
 #     ANDROID_KEY_PASSWORD      키 비밀번호 (keytool 기본값이면 저장소 비밀번호와 같다)
 #     VITE_NAVER_MAP_CLIENT_ID  네이버 지도 Client ID (선택 — 없으면 워크플로 기본값)
+#     PLAY_SERVICE_ACCOUNT_JSON Play Console에 올릴 권한이 있는 서비스 계정의 JSON 키 내용 (선택 — 없으면 Play에는 안 올린다)
 #   Variables
 #     VITE_API_BASE_URL         백엔드 주소 (없으면 https://intermap-be.onrender.com)
+#     ANDROID_VERSION_NAME      main에서 자동으로 올릴 때 쓰는 버전 이름 (없으면 1.1.0)
+#     PLAY_TRACK                main에서 자동으로 올릴 트랙: internal(기본) · alpha · beta · production · none(안 올림)
 # 서명 Secret이 없으면 서명 안 된 AAB를 만든다 — 빌드 확인용일 뿐 Play에는 올릴 수 없다.
 name: Android Release
 
 on:
   push:
+    branches: [main]
+    paths: ['frontend/**', '.github/workflows/android-release.yml']
     tags: ['android-v*']
   workflow_dispatch:
     inputs:
       version_name:
         description: '버전 이름 (예: 1.0.0)'
         required: true
-        default: '1.0.0'
+        default: '1.1.0'
+      play_track:
+        description: 'Play에 올릴 트랙 (none이면 안 올림)'
+        type: choice
+        options: [internal, alpha, beta, production, none]
+        default: internal
 
 permissions:
   contents: write
 
+# main에 연달아 들어오면 앞선 빌드는 그만두고 마지막 것만 올린다 (수동·태그 실행은 끝까지 한다)
 concurrency:
   group: android-release
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
 
 jobs:
   build:
@@ -52,11 +65,16 @@ jobs:
         working-directory: .
         env:
           INPUT_NAME: ${{ inputs.version_name }}
+          MAIN_NAME: ${{ vars.ANDROID_VERSION_NAME || '1.1.0' }}
           OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET || '0' }}
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             NAME="${GITHUB_REF_NAME#android-v}"
             TAG="$GITHUB_REF_NAME"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            # main 자동 빌드는 매번 같은 자리(android-main)에 최신 AAB를 덮어쓴다
+            NAME="$MAIN_NAME"
+            TAG="android-main"
           else
             NAME="$INPUT_NAME"
             TAG="android-v$NAME"
@@ -178,12 +196,51 @@ jobs:
           - 서명: ${SIGN}
           - 네이버 지도 키: ${MAP}
           EOF
-          gh release delete "$RELEASE_TAG" --yes || true
+          # 태그까지 지웠다 다시 만든다 — 안 그러면 android-main 태그가 예전 커밋에 머문다
+          gh release delete "$RELEASE_TAG" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" "$FILE" \
             --title "인터맵 Android ${VERSION_NAME} (${VERSION_CODE})" \
             --notes-file notes.md \
             --target "$GITHUB_SHA" \
             --latest=false
+
+      # Play Console 업로드 — 서비스 계정 키(Secret)가 있고 서명된 AAB일 때만.
+      # 트랙: 수동 실행이면 고른 값, main·태그 push면 Variable PLAY_TRACK(없으면 internal)
+      - id: playcheck
+        name: Decide Play upload
+        working-directory: .
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          INPUT_TRACK: ${{ inputs.play_track }}
+          DEFAULT_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then TRACK="$INPUT_TRACK"; else TRACK="$DEFAULT_TRACK"; fi
+          case "$TRACK" in
+            internal|alpha|beta|production) ;;
+            *) TRACK="" ;;
+          esac
+          if [ -z "$PLAY_JSON" ]; then
+            echo "Secret PLAY_SERVICE_ACCOUNT_JSON 없음 — Play에는 올리지 않습니다" | tee -a "$RUNNER_TEMP/build.log"; TRACK=""
+          elif [ "$SIGNED" != "true" ]; then
+            echo "서명 안 된 AAB라 Play에는 올리지 않습니다" | tee -a "$RUNNER_TEMP/build.log"; TRACK=""
+          elif [ -z "$TRACK" ]; then
+            echo "트랙이 none — Play에는 올리지 않습니다" | tee -a "$RUNNER_TEMP/build.log"
+          else
+            echo "Play 업로드: $TRACK 트랙, versionCode $VERSION_CODE" | tee -a "$RUNNER_TEMP/build.log"
+          fi
+          echo "PLAY_TRACK=$TRACK" >> "$GITHUB_ENV"
+
+      - id: play
+        name: Upload to Google Play
+        if: env.PLAY_TRACK != ''
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.intermap.app
+          releaseFiles: frontend/android/app/build/outputs/bundle/release/app-release.aab
+          releaseName: ${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }})
+          track: ${{ env.PLAY_TRACK }}
+          status: completed
 
       # 실패하면 로그 끝부분을 체크 주석(annotation)으로 남긴다
       - name: Report failure
@@ -194,6 +251,7 @@ jobs:
             version=${{ steps.version.outcome }} node=${{ steps.node.outcome }} java=${{ steps.java.outcome }}
             install=${{ steps.install.outcome }} web=${{ steps.web.outcome }} sync=${{ steps.sync.outcome }}
             key=${{ steps.key.outcome }} aab=${{ steps.aab.outcome }} publish=${{ steps.publish.outcome }}
+            playcheck=${{ steps.playcheck.outcome }} play=${{ steps.play.outcome }}
         run: |
           {
             echo "steps: $OUTCOMES"
