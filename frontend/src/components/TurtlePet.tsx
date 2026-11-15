@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import happy from '../assets/turtle-happy.svg'
-import rest from '../assets/turtle-rest.svg'
-import wave from '../assets/turtle-wave.svg'
+import happy from '../assets/turtle-happy.png'
+import rest from '../assets/turtle-rest.png'
+import wave from '../assets/turtle-wave.png'
 import { chatLines, pickGreeting, rememberVisit } from '../lib/pet'
 import type { PetAction, PetLine, PetMood } from '../lib/pet'
 import './TurtlePet.css'
 
-// 자세별 그림과 원래 크기(픽셀 칸 수). 화면에는 한 칸을 SCALE px로 그린다
+// 자세별 그림(원본 시안에서 그대로 오린 것)과 화면에 그릴 크기 — 거북이 몸집이 세 장 모두 비슷하게 보이도록 맞췄다
 const ART: Record<PetMood, { src: string; w: number; h: number }> = {
-  wave: { src: wave, w: 39, h: 33 },
-  happy: { src: happy, w: 48, h: 39 },
-  rest: { src: rest, w: 51, h: 34 },
+  wave: { src: wave, w: 92, h: 90 },
+  happy: { src: happy, w: 108, h: 71 },
+  rest: { src: rest, w: 105, h: 70 },
 }
-const SCALE = 1.75
 
 // 앱을 열고 이만큼 뒤에 인사한다 (지도가 먼저 자리를 잡게)
 const GREET_AFTER_MS = 1200
@@ -74,7 +73,7 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
   return (
     <div className="pet" hidden={hidden}>
       <button type="button" className="pet__turtle" onClick={talk} aria-label={line ? '거북이 말풍선 닫기' : '거북이에게 말 걸기'}>
-        <img key={mood} src={ART[mood].src} alt="" width={Math.round(ART[mood].w * SCALE)} height={Math.round(ART[mood].h * SCALE)} />
+        <img key={mood} src={ART[mood].src} alt="" width={ART[mood].w} height={ART[mood].h} />
       </button>
       {line && (
         <div className="pet__bubble" role="status">

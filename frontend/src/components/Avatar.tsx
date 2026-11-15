@@ -1,4 +1,4 @@
-import turtleFace from '../assets/turtle-face.png'
+import turtle from '../assets/turtle-avatar.png'
 import { avatarUrl } from '../lib/api'
 
 interface AvatarProps {
@@ -14,7 +14,7 @@ interface AvatarProps {
 export default function Avatar({ src, className }: AvatarProps) {
   return (
     <span className={className} aria-hidden="true">
-      <img className={src ? 'avatar-img' : 'avatar-img avatar-img--turtle'} src={src ? avatarUrl(src) : turtleFace} alt="" />
+      <img className={src ? 'avatar-img' : 'avatar-img avatar-img--turtle'} src={src ? avatarUrl(src) : turtle} alt="" />
     </span>
   )
 }

@@ -29,8 +29,7 @@
 
 .pet__turtle img {
   display: block;
-  image-rendering: pixelated;
-  /* 숨 쉬듯 두 칸 오르내린다 — 픽셀 그림이라 계단식으로 */
+  /* 숨 쉬듯 살짝 오르내린다 — 픽셀 그림이라 계단식으로 */
   animation: pet-bob 1.6s steps(2, jump-none) infinite;
 }
 

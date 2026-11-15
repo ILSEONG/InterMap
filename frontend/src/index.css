@@ -188,10 +188,10 @@ button:active {
   display: block;
 }
 
-/* 사진이 없을 때의 거북이 — 픽셀 그림이라 작게 줄여도 선이 뭉개지지 않게 */
+/* 사진이 없을 때의 거북이 — 전체 모습이 동그라미 안에 다 들어오게 */
 .avatar-img--turtle {
   object-fit: contain;
-  image-rendering: auto;
+  border-radius: 0;
 }
 
 /* 숫자 옆 작은 별 (Stars.tsx의 RatingStar) — 글자 기호 ★ 대신 */
