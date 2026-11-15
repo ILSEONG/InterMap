@@ -179,7 +179,7 @@ export default function TopBar(props: TopBarProps) {
                 onClick={props.onOpenBoard}
               >
                 <FriendsIcon />
-                팔로잉 현황
+                팔로잉
                 {props.boardHasNew && <span className="topbar__dot" aria-label="새 후기 있음" />}
               </button>
             )}

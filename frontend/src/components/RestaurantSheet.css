@@ -177,6 +177,9 @@
   border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
   transform: translateY(calc(-1 * var(--sheet-offset, 0px)));
   transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* 시트처럼 늘 자기 레이어에 둔다 — 안 그러면 펼치는 애니메이션 동안에만 레이어가 생겼다가 끝나는 순간 합쳐지면서
+     시트 전체를 다시 그려 한 번 깜빡인다 (시트가 다 올라온 직후) */
+  will-change: transform;
 }
 
 /* ───────── 상세 화면: 이름·평균 ───────── */

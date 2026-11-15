@@ -10,6 +10,7 @@ import {
   unfollowUser,
   acceptFollowRequest,
   rejectFollowRequest,
+  logoutOtherDevices,
   setFollowApproval,
   searchUsers,
   uploadAvatar,
@@ -303,6 +304,22 @@ export default function MyPage({
     try {
       onSocialChange(await task)
       if (doneMsg) showToast(doneMsg)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // "새 기기에서 로그인했어요" 알림을 받았는데 내가 한 게 아닐 때 — 이 기기만 남기고 전부 끊는다
+  async function signOutOtherDevices() {
+    if (busy) return
+    if (!window.confirm('이 기기만 남기고 다른 기기에서 모두 로그아웃할까요?\n다른 기기에서는 다시 로그인해야 해요.')) return
+    setBusy(true)
+    setError(null)
+    try {
+      const ended = await logoutOtherDevices()
+      showToast(ended > 0 ? `다른 기기 ${ended}대를 로그아웃했어요` : '로그인된 다른 기기가 없어요')
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -834,6 +851,13 @@ export default function MyPage({
                   ))}
                 </span>
               </div>
+              <button type="button" className="my-page__row" onClick={signOutOtherDevices} disabled={busy}>
+                <span className="my-page__row-text">
+                  <span className="my-page__row-title">다른 기기 로그아웃</span>
+                  <span className="my-page__row-sub">이 기기만 남기고 모두 로그아웃해요</span>
+                </span>
+                <Chevron />
+              </button>
               {isOperator && (
                 <>
                   <button type="button" className="my-page__row" onClick={onOpenReports}>

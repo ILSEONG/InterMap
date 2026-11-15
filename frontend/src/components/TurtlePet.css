@@ -1,0 +1,153 @@
+/* 지도 왼쪽 아래 거북이 — 현재 위치·알림 버튼과 같은 높이 기준(하단 독 위)에 선다 */
+.pet {
+  position: fixed;
+  left: calc(max(0px, 50vw - 240px) + 10px);
+  right: calc(max(0px, 50vw - 240px) + 76px); /* 오른쪽 버튼들(50px)과 겹치지 않게 */
+  bottom: calc(max(env(safe-area-inset-bottom), 16px) + 6px + var(--dock-h, 0px));
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none; /* 빈 자리는 지도가 받는다 */
+  transition: bottom 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.pet[hidden] {
+  display: none;
+}
+
+.pet__turtle {
+  flex: none;
+  pointer-events: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pet__turtle img {
+  display: block;
+  width: 76px;
+  height: 60px;
+  image-rendering: pixelated;
+  /* 숨 쉬듯 두 칸 오르내린다 — 픽셀 그림이라 계단식으로 */
+  animation: pet-bob 1.6s steps(2, jump-none) infinite;
+}
+
+.pet__turtle:active img {
+  translate: 0 2px;
+}
+
+@keyframes pet-bob {
+  to {
+    transform: translateY(-2px);
+  }
+}
+
+.pet__bubble {
+  position: relative;
+  pointer-events: auto;
+  min-width: 0;
+  max-width: 250px;
+  margin-bottom: 22px;
+  padding: 11px 30px 12px 14px;
+  border: 1.5px solid #d9cfc4;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(74, 58, 46, 0.12);
+  animation: pet-pop 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 거북이 쪽으로 난 말풍선 꼬리 */
+.pet__bubble::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  bottom: 12px;
+  width: 11px;
+  height: 11px;
+  border-left: 1.5px solid #d9cfc4;
+  border-bottom: 1.5px solid #d9cfc4;
+  border-bottom-left-radius: 3px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+@keyframes pet-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
+.pet__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--ink);
+  word-break: keep-all;
+}
+
+.pet__body {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.pet__action {
+  margin-top: 8px;
+  min-height: 32px;
+  padding: 0 10px 0 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  border-radius: 16px;
+  background: #fddcbc;
+  color: #4a3a2e;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pet__action:active {
+  background: #fbcda2;
+}
+
+.pet__close {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 15px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.pet__turtle:focus-visible,
+.pet__action:focus-visible,
+.pet__close:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet,
+  .pet__bubble,
+  .pet__turtle img {
+    transition: none;
+    animation: none;
+  }
+}

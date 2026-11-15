@@ -1,5 +1,6 @@
 package com.intermap.backend.auth;
 
+import com.intermap.backend.push.PushService;
 import com.intermap.backend.state.ServerState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -91,7 +93,6 @@ public class AuthController {
     private static final long VERIFIED_TTL_SECONDS = 30 * 60;
     private static final long RESEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_VERIFY_ATTEMPTS = 5;
-    private static final long TOKEN_TTL_DAYS = 30;
     // 비밀번호 무차별 대입 방지: 계정마다 15분 안에 5번 틀리면 15분 막는다
     private static final int MAX_LOGIN_FAILURES = 5;
     private static final long LOGIN_LOCK_SECONDS = 15 * 60;
@@ -132,11 +133,15 @@ public class AuthController {
     private final DailyLimits limits;
     private final Admins admins;
     private final ServerState state;
+    private final Sessions sessions;
+    private final PushService push;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthController(AppUserRepository repository, MailService mailService, PendingSocialLinks pendingLinks,
                           UserAvatarRepository avatars, DailyLimits limits, Admins admins,
-                          ServerState state) {
+                          ServerState state, Sessions sessions, PushService push) {
+        this.sessions = sessions;
+        this.push = push;
         this.state = state;
         this.admins = admins;
         this.repository = repository;
@@ -229,12 +234,18 @@ public class AuthController {
         return null;
     }
 
-    // 새 토큰을 발급해 로그인시킨다. 소셜 로그인(OAuthController)도 이걸 쓴다.
+    // 지금 요청을 보낸 기기에 새 토큰을 발급해 로그인시킨다. 소셜 로그인(OAuthController)도 이걸 쓴다.
+    // 다른 기기의 로그인은 그대로 둔다. 처음 보는 기기면 먼저 쓰던 기기들에 알린다 (알림 목록에도 남는다 — NotificationController)
     public AuthResponse signIn(AppUser user) {
-        String token = UUID.randomUUID().toString();
-        user.issueToken(token);
+        // 가입 흐름은 아직 저장 안 한 계정을 넘기기도 한다 — 로그인 줄이 계정을 가리키려면 먼저 저장돼 있어야 한다
         repository.save(user);
-        return authResponse(user, token);
+        Sessions.Opened opened = sessions.open(user);
+        if (opened.newDevice()) {
+            push.send(user, "새 기기에서 로그인했어요",
+                    opened.session().getDeviceLabel() + "에서 내 계정에 로그인했어요. 내가 한 게 아니라면 마이페이지에서 다른 기기를 로그아웃하세요.",
+                    Map.of("type", "NEW_DEVICE"));
+        }
+        return authResponse(user, opened.token());
     }
 
     // 이메일 하나로 로그인/가입을 가른다. 계정 존재 여부가 드러나지만 요즘 흔한 흐름이라 감수한다.
@@ -365,14 +376,13 @@ public class AuthController {
     // "Authorization: Bearer <token>" 헤더로 현재 사용자를 찾는다. 없거나 만료면 null.
     // 다른 컨트롤러(후기 작성 등)도 이걸로 로그인 사용자를 확인하면 된다.
     public AppUser currentUser(String authorization) {
-        String token = bearer(authorization);
-        if (token == null) return null;
-        AppUser user = repository.findByToken(AppUser.hashToken(token)).orElse(null);
-        if (user == null || user.getTokenIssuedAt() == null
-                || user.getTokenIssuedAt().plus(TOKEN_TTL_DAYS, ChronoUnit.DAYS).isBefore(Instant.now())) {
-            return null;
-        }
-        return user;
+        Sessions.Current current = current(authorization);
+        return current == null ? null : current.user();
+    }
+
+    // 사용자와 함께 "어느 기기의 로그인인지"까지 — 탈퇴(방금 로그인했는지), 알림(이 기기는 빼고) 등이 쓴다
+    public Sessions.Current current(String authorization) {
+        return sessions.find(bearer(authorization));
     }
 
     private static String bearer(String authorization) {
@@ -409,15 +419,25 @@ public class AuthController {
         return ResponseEntity.ok(authResponse(user, bearer(authorization)));
     }
 
-    // 서버 쪽 토큰을 지워 다른 기기에 남은 사본도 무효화한다
+    // 이 기기의 로그인만 끝낸다 — 서버 쪽 토큰을 지우므로 새어 나간 사본도 못 쓴다. 다른 기기는 그대로
     @PostMapping("/api/auth/logout")
     public ResponseEntity<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        AppUser user = currentUser(authorization);
-        if (user != null) {
-            user.issueToken(null);
-            repository.save(user);
-        }
+        Sessions.Current current = current(authorization);
+        if (current != null) sessions.close(current);
         return ResponseEntity.noContent().build();
+    }
+
+    public record EndedResponse(int ended) {
+    }
+
+    // 이 기기만 남기고 다른 기기를 전부 로그아웃 — "새 기기에서 로그인했어요" 알림을 받았는데 내가 한 게 아닐 때
+    @PostMapping("/api/auth/logout-others")
+    public ResponseEntity<?> logoutOthers(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        Sessions.Current current = current(authorization);
+        if (current == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("다시 로그인해주세요."));
+        }
+        return ResponseEntity.ok(new EndedResponse(sessions.closeOthers(current)));
     }
 
     // 이메일 가입 계정과 관리자(admin). 소셜로만 가입한 계정은 passwordHash가 null이라 여기로 못 들어온다.

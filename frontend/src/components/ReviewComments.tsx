@@ -1,3 +1,4 @@
+import Avatar from './Avatar'
 import { useState } from 'react'
 import type { Comment } from '../data/model'
 import { useOpenProfile } from '../lib/openProfile'
@@ -312,15 +313,13 @@ interface CommentRowProps {
   children?: React.ReactNode
 }
 
-// 프로필 첫 글자 왼쪽, 굵은 이름 + 내용이 한 줄로 이어지고, 답글은 내용 밑에 들여 붙는다
+// 프로필 사진 왼쪽, 굵은 이름 + 내용이 한 줄로 이어지고, 답글은 내용 밑에 들여 붙는다
 function CommentRow({ comment, small, children }: CommentRowProps) {
   // 이름을 누르면 그 사람 프로필 (App이 컨텍스트로 내려준다)
   const openProfile = useOpenProfile()
   return (
     <div className={`comment${small ? ' comment--small' : ''}`}>
-      <span className={`comment__avatar tone-${Math.abs(comment.authorId) % 4}`} aria-hidden="true">
-        {comment.authorName.slice(0, 1)}
-      </span>
+      <Avatar className={`comment__avatar tone-${Math.abs(comment.authorId) % 4}`} src={comment.authorAvatar} name={comment.authorName} />
       <div className="comment__body">
         <p className="comment__line">
           {openProfile ? (

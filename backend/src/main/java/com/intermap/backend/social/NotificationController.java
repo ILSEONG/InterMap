@@ -3,6 +3,8 @@ package com.intermap.backend.social;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
+import com.intermap.backend.auth.AuthSession;
+import com.intermap.backend.auth.Sessions;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.moderation.Report;
@@ -42,6 +44,7 @@ public class NotificationController {
     }
 
     // type: COMMENT(내 후기에 댓글) · REPLY(내 댓글에 답글) · FOLLOW_REQUEST(팔로우 요청) · FOLLOW(새 팔로워) · FOLLOW_ACCEPTED(내 요청 수락)
+    //       · NEW_DEVICE(처음 보는 기기에서 내 계정에 로그인 — actor는 나, text는 기기 이름)
     // 댓글·답글이면 reviewId·restaurantName·text(댓글 내용)가 채워진다
     public record Item(String type, Actor actor, Instant createdAt, Long reviewId, String restaurantName, String text) {
     }
@@ -58,10 +61,13 @@ public class NotificationController {
     private final UserAvatarRepository avatars;
     private final Blocks blocks;
     private final ReportRepository reports;
+    private final Sessions sessions;
 
     public NotificationController(AuthController auth, AppUserRepository users, FollowRepository follows,
                                   FollowRequestRepository requests, ReviewCommentRepository comments,
-                                  UserAvatarRepository avatars, Blocks blocks, ReportRepository reports) {
+                                  UserAvatarRepository avatars, Blocks blocks, ReportRepository reports,
+                                  Sessions sessions) {
+        this.sessions = sessions;
         this.auth = auth;
         this.users = users;
         this.follows = follows;
@@ -79,23 +85,25 @@ public class NotificationController {
     @GetMapping("/api/me/notifications")
     @Transactional(readOnly = true)
     public ResponseEntity<?> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        AppUser me = auth.currentUser(authorization);
-        if (me == null) return unauthorized();
-        return ResponseEntity.ok(responseOf(me));
+        Sessions.Current current = auth.current(authorization);
+        if (current == null) return unauthorized();
+        return ResponseEntity.ok(responseOf(current));
     }
 
     // 알림 목록을 열었다 — 지금까지의 알림은 읽은 것으로
     @PostMapping("/api/me/notifications/seen")
     @Transactional
     public ResponseEntity<?> seen(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        AppUser me = auth.currentUser(authorization);
-        if (me == null) return unauthorized();
+        Sessions.Current current = auth.current(authorization);
+        if (current == null) return unauthorized();
+        AppUser me = current.user();
         me.markNotificationsSeen();
         users.save(me);
-        return ResponseEntity.ok(responseOf(me));
+        return ResponseEntity.ok(responseOf(current));
     }
 
-    private Response responseOf(AppUser me) {
+    private Response responseOf(Sessions.Current current) {
+        AppUser me = current.user();
         Instant from = Instant.now().minus(WINDOW);
         Set<Long> hidden = blocks.hiddenFor(me);
         Set<Long> reported = Set.copyOf(reports.targetIdsReportedBy(me, Report.TargetType.COMMENT));
@@ -125,6 +133,14 @@ public class NotificationController {
         for (Follow f : follows.findByFollowerOrderByCreatedAtDesc(me)) {
             if (!f.isViaRequest() || f.getCreatedAt().isBefore(from)) continue;
             items.add(new Item("FOLLOW_ACCEPTED", actor(f.getFollowee(), avatarUrls), f.getCreatedAt(), null, null, null));
+        }
+
+        // 처음 보는 기기에서 로그인 — 그 기기 자신에게는 알리지 않는다.
+        // actor를 나로 채우는 건 예전 앱 때문이다 (actor가 없으면 목록이 깨진다)
+        Long thisDevice = current.session() == null ? null : current.session().getId();
+        for (AuthSession s : sessions.newDevicesSince(me, from)) {
+            if (s.getId().equals(thisDevice)) continue;
+            items.add(new Item("NEW_DEVICE", actor(me, avatarUrls), s.getCreatedAt(), null, null, s.getDeviceLabel()));
         }
 
         items.sort(Comparator.comparing(Item::createdAt).reversed());

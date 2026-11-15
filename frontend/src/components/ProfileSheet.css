@@ -142,8 +142,8 @@
   flex: none;
   padding: 3px 8px;
   border-radius: 6px;
-  background: var(--mint-tint);
-  color: var(--mint-ink);
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;

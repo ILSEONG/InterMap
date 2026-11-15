@@ -39,6 +39,12 @@ function Line({ notice, name }: { notice: Notice; name: string }) {
       return <>{who}님이 팔로우를 요청했어요</>
     case 'FOLLOW_ACCEPTED':
       return <>{who}님이 팔로우 요청을 수락했어요</>
+    case 'NEW_DEVICE':
+      return (
+        <>
+          새 기기 <b>{notice.text ?? '알 수 없는 기기'}</b>에서 내 계정에 로그인했어요
+        </>
+      )
     default:
       return <>{who}님이 나를 팔로우하기 시작했어요</>
   }
@@ -101,12 +107,24 @@ export default function NoticeSheet({
                       className="notice__open"
                       onClick={() => (isComment && n.reviewId !== null ? onOpenReview(n.reviewId) : onOpenProfile(n.actor.id))}
                     >
-                      <Avatar className={`notice__avatar tone-${Math.abs(n.actor.id) % 4}`} src={n.actor.avatar} name={name} />
+                      {n.type === 'NEW_DEVICE' ? (
+                        <span className="notice__avatar notice__avatar--device" aria-hidden="true">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="7" y="3" width="10" height="18" rx="2.5" />
+                            <path d="M11 17.5h2" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <Avatar className={`notice__avatar tone-${Math.abs(n.actor.id) % 4}`} src={n.actor.avatar} name={name} />
+                      )}
                       <span className="notice__text">
                         <span className="notice__line">
                           <Line notice={n} name={name} />
                         </span>
                         {isComment && n.text && <span className="notice__quote">“{n.text}”</span>}
+                        {n.type === 'NEW_DEVICE' && (
+                          <span className="notice__quote">내가 한 게 아니라면 마이페이지에서 다른 기기를 로그아웃하세요</span>
+                        )}
                         <span className="notice__when">{timeAgo(n.createdAt)}</span>
                       </span>
                     </button>

@@ -17,6 +17,11 @@ export function reviewDate(iso: string, now = Date.now()): string {
   return KST_DATE.format(new Date(at)).slice(0, 10)
 }
 
+// 한국 시간 기준 오늘 날짜 "2026-11-16"
+export function kstDay(date: Date | string | number = new Date()): string {
+  return KST_DATE.format(new Date(date)).slice(0, 10)
+}
+
 // 한국 시간 기준 "2026-11" (월간 결산의 달 단위)
 const KST_MONTH = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' })
 export function kstMonth(date: Date | string | number = new Date()): string {

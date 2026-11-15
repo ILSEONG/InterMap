@@ -54,6 +54,8 @@ export interface Comment {
   id: number
   authorId: number // 내 댓글 판별용 (삭제 버튼 노출)
   authorName: string
+  // 프로필 사진 경로. 없으면 null (예전에 기기에 저장된 댓글엔 없을 수 있다)
+  authorAvatar?: string | null
   text: string
   parentId?: number | null // 있으면 해당 댓글의 대댓글
 }
