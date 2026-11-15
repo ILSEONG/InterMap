@@ -6,7 +6,13 @@ import { chatLines, pickGreeting, rememberVisit } from '../lib/pet'
 import type { PetAction, PetLine, PetMood } from '../lib/pet'
 import './TurtlePet.css'
 
-const ART: Record<PetMood, string> = { wave, happy, rest }
+// 자세별 그림과 원래 크기(픽셀 칸 수). 화면에는 한 칸을 SCALE px로 그린다
+const ART: Record<PetMood, { src: string; w: number; h: number }> = {
+  wave: { src: wave, w: 39, h: 33 },
+  happy: { src: happy, w: 48, h: 39 },
+  rest: { src: rest, w: 51, h: 34 },
+}
+const SCALE = 1.75
 
 // 앱을 열고 이만큼 뒤에 인사한다 (지도가 먼저 자리를 잡게)
 const GREET_AFTER_MS = 1200
@@ -68,7 +74,7 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
   return (
     <div className="pet" hidden={hidden}>
       <button type="button" className="pet__turtle" onClick={talk} aria-label={line ? '거북이 말풍선 닫기' : '거북이에게 말 걸기'}>
-        <img key={mood} src={ART[mood]} alt="" width="76" height="60" />
+        <img key={mood} src={ART[mood].src} alt="" width={Math.round(ART[mood].w * SCALE)} height={Math.round(ART[mood].h * SCALE)} />
       </button>
       {line && (
         <div className="pet__bubble" role="status">
