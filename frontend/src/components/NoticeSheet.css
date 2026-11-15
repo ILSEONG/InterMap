@@ -95,6 +95,12 @@
   opacity: 0.6;
 }
 
+/* 새 기기 로그인 — 사람이 아니라 기기 */
+.notice__avatar--device {
+  background: rgba(118, 118, 128, 0.14);
+  color: var(--ink-2);
+}
+
 .notice__avatar {
   flex: none;
   width: 44px;

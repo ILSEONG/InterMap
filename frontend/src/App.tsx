@@ -5,6 +5,7 @@ import { closeTopLayer } from './lib/backLayer'
 import { readBoardSeen } from './lib/boardSeen'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
+import TurtlePet from './components/TurtlePet'
 import TopBar from './components/TopBar'
 import SearchResults, { type NeighborHit } from './components/SearchResults'
 import FollowingBoard from './components/FollowingBoard'
@@ -86,7 +87,7 @@ const NO_COMMENTS: Record<number, Comment[]> = {}
 async function fetchGroupedComments(): Promise<Record<number, Comment[]>> {
   const grouped: Record<number, Comment[]> = {}
   for (const c of await fetchComments()) {
-    ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, text: c.text, parentId: c.parentId })
+    ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, authorAvatar: c.author.avatar, text: c.text, parentId: c.parentId })
   }
   return grouped
 }
@@ -353,7 +354,7 @@ export default function App() {
   const rawReviews = reviewData ?? NO_REVIEWS
   // 후기 id → 그 후기의 댓글들 (서버 /api/comments를 후기별로 나눠 둔 것)
   const [commentData, setReviewComments] = useServerState<Record<number, Comment[]>>(['comments'], fetchGroupedComments, { empty: {} })
-  const reviewComments = commentData ?? NO_COMMENTS
+  const rawComments = commentData ?? NO_COMMENTS
   // 내가 찜한 가게 키("이름|주소") 모음 — 저장은 배열로, 화면에선 Set으로
   const [favoriteKeys, setFavoriteKeys] = useServerState<string[]>(
     ['favorites'],
@@ -367,6 +368,8 @@ export default function App() {
   )
   // 헤더 별 버튼: 켜면 지도에 찜한 가게만 (후기 필터 무시, 초록 별 마커)
   const [favMode, setFavMode] = useState(false)
+  // 거북이의 "내 주변 둘러보기" — 올릴 때마다 지도가 현재 위치로 간다
+  const [locateRequest, setLocateRequest] = useState(0)
   // 하단 독이 검색 모드인지 (검색 버튼 → 입력창)
   const [searching, setSearching] = useState(false)
   // 마이페이지: 팔로잉·팔로워·별칭. 로그인하면 받아 둔다 — 후기 작성자 이름에 별칭을 씌우는 데 쓴다.
@@ -430,6 +433,20 @@ export default function App() {
       return name ? { ...rv, author: { ...rv.author, name } } : rv
     })
   }, [rawReviews, social, session])
+  // 댓글에도 내가 붙인 이름을 씌운다 (후기 작성자 이름과 같은 규칙)
+  const reviewComments = useMemo(() => {
+    const alias = new Map<number, string>()
+    for (const p of [...(social?.following ?? []), ...(social?.followers ?? [])]) if (p.alias) alias.set(p.id, p.alias)
+    if (alias.size === 0) return rawComments
+    const named: Record<number, Comment[]> = {}
+    for (const [reviewId, list] of Object.entries(rawComments)) {
+      named[Number(reviewId)] = list.map((c) => {
+        const name = alias.get(c.authorId)
+        return name ? { ...c, authorName: name } : c
+      })
+    }
+    return named
+  }, [rawComments, social])
   // 이웃 후기를 가게에 붙인다. 주인장 후기는 시트에서 따로 보여주므로 뺀다.
   // 후기 없는 가게는 객체를 그대로 둬서 마커가 다시 그려지지 않게 한다.
   // 후기 있는 가게는 줌·뷰포트와 무관하게 항상 보여야 하므로, 아직 뷰포트로 안 받은 가게는
@@ -1086,7 +1103,7 @@ export default function App() {
         ...prev,
         [reviewId]: [
           ...(prev[reviewId] ?? []),
-          { id: saved.id, authorId: saved.author.id, authorName: saved.author.name, text: saved.text, parentId: saved.parentId },
+          { id: saved.id, authorId: saved.author.id, authorName: saved.author.name, authorAvatar: saved.author.avatar, text: saved.text, parentId: saved.parentId },
         ],
       }))
       return true
@@ -1286,6 +1303,25 @@ export default function App() {
     searching ||
     favMode
   )
+  // 거북이는 지도가 그대로 보일 때만 — 찜 모드는 지도 화면이라 그대로 둔다
+  const petHidden = !!(
+    policyPage ||
+    reportTarget ||
+    recapMonth ||
+    openPoll ||
+    composerOpen ||
+    adminReportsOpen ||
+    adminOpsOpen ||
+    profileUserId !== null ||
+    boardOpen ||
+    noticesOpen ||
+    openStory ||
+    authMode ||
+    myPageOpen ||
+    selectedId ||
+    personId !== null ||
+    searching
+  )
   const historyGuard = useRef(false)
   const ignoreNextPop = useRef(false)
   const [popTick, setPopTick] = useState(0)
@@ -1323,6 +1359,7 @@ export default function App() {
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
     >
       <MapCanvas
+        locateRequest={locateRequest}
         restaurants={favMode ? favRestaurants : visibleRestaurants}
         groups={groups}
         // 요약 셀 = 후기 없는 가게 덩어리. 필터·검색으로 그런 가게가
@@ -1594,6 +1631,20 @@ export default function App() {
           // 위에 프로필·스토리가 열려 있으면 잠시 숨긴다 — 닫으면 현황판으로 돌아온다
           hidden={profileUserId !== null || openStory !== null}
           onClose={() => setBoardOpen(false)}
+        />
+      )}
+
+      {session?.id != null && (
+        <TurtlePet
+          key={session.id}
+          userId={session.id}
+          nickname={session.nickname}
+          hasFavorites={favorites.size > 0}
+          hidden={petHidden}
+          onAction={(action) => {
+            if (action === 'favorites') setFavMode(true)
+            else setLocateRequest((n) => n + 1)
+          }}
         />
       )}
 

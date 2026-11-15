@@ -36,6 +36,8 @@ interface MapCanvasProps {
   onMyLocation?: (pos: { lat: number; lng: number }) => void
   // 지도 빈 곳을 눌렀을 때 (핀·핀 목록을 누른 건 빼고) — 열린 하단 시트를 닫는 데 쓴다
   onMapTap?: () => void
+  // 값이 바뀔 때마다 현재 위치로 옮긴다 (GPS 버튼을 누른 것과 같다) — 거북이의 "내 주변 둘러보기"
+  locateRequest?: number
 }
 
 const CENTER = { lat: 37.5605, lng: 126.92 }
@@ -151,6 +153,7 @@ export default function MapCanvas({
   onViewportChange,
   onMyLocation,
   onMapTap,
+  locateRequest = 0,
 }: MapCanvasProps) {
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
@@ -239,6 +242,15 @@ export default function MapCanvas({
       .catch(() => alert('현재 위치를 가져올 수 없어요. 위치 권한을 확인해주세요.'))
       .finally(() => setLocating(false))
   }, [locating])
+
+  // 밖에서 요청한 "현재 위치로" — 요청 번호가 바뀔 때만 (goToMyLocation이 새로 만들어질 때는 아니다)
+  const goToMyLocationRef = useRef(goToMyLocation)
+  useEffect(() => {
+    goToMyLocationRef.current = goToMyLocation
+  }, [goToMyLocation])
+  useEffect(() => {
+    if (locateRequest > 0) goToMyLocationRef.current()
+  }, [locateRequest])
 
   // 현재 위치 빨간 점 — 지도가 준비되면 실시간 추적을 시작하고, 위치가 올 때마다 점만 옮긴다.
   // 권한 거부 등이면 점만 안 그린다. 안내는 GPS 버튼의 alert가 담당.

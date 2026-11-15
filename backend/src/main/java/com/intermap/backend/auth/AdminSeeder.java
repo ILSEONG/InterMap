@@ -19,9 +19,11 @@ public class AdminSeeder implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(AdminSeeder.class);
 
     private final AppUserRepository repository;
+    private final Sessions sessions;
     private final String password;
 
-    public AdminSeeder(AppUserRepository repository, @Value("${admin.password:}") String password) {
+    public AdminSeeder(AppUserRepository repository, Sessions sessions, @Value("${admin.password:}") String password) {
+        this.sessions = sessions;
         this.repository = repository;
         this.password = password;
     }
@@ -39,7 +41,7 @@ public class AdminSeeder implements ApplicationRunner {
             log.info("관리자 계정(admin) 생성");
         } else if (admin.getPasswordHash() == null || !encoder.matches(password, admin.getPasswordHash())) {
             admin.changePassword(encoder.encode(password));
-            admin.issueToken(null); // 예전 비밀번호로 받은 세션도 끊는다
+            sessions.closeAll(admin); // 예전 비밀번호로 받은 로그인도 전부 끊는다
             repository.save(admin);
             log.info("관리자 비밀번호를 ADMIN_PASSWORD로 바꿨어요");
         }

@@ -3,6 +3,8 @@ package com.intermap.backend.account;
 import com.intermap.backend.auth.AdminSeeder;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
+import com.intermap.backend.auth.AuthSessionRepository;
+import com.intermap.backend.auth.Sessions;
 import com.intermap.backend.auth.AppleLogin;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.UserAvatarRepository;
@@ -59,13 +61,15 @@ public class AccountController {
     private final ReportRepository reports;
     private final PollStore pollStore;
     private final AppleLogin appleLogin;
+    private final AuthSessionRepository sessions;
 
     public AccountController(AppUserRepository users, AuthController auth, ReviewRepository reviews,
                              ReviewCommentRepository comments, ReviewCleanup cleanup, FollowRepository follows,
                              UserAliasRepository aliases, FavoriteRepository favorites, UserAvatarRepository avatars,
                              UserBlockRepository blocks, ReportRepository reports, PollStore pollStore,
                              FollowRequestRepository followRequests, PushTokenRepository pushTokens,
-                             AppleLogin appleLogin) {
+                             AppleLogin appleLogin, AuthSessionRepository sessions) {
+        this.sessions = sessions;
         this.appleLogin = appleLogin;
         this.users = users;
         this.pushTokens = pushTokens;
@@ -86,15 +90,16 @@ public class AccountController {
     @DeleteMapping("/api/me")
     @Transactional
     public ResponseEntity<?> deleteMe(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        AppUser me = auth.currentUser(authorization);
-        if (me == null) {
+        Sessions.Current current = auth.current(authorization);
+        if (current == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthController.ErrorResponse("다시 로그인해주세요."));
         }
+        AppUser me = current.user();
         if (AdminSeeder.ADMIN_EMAIL.equals(me.getEmail())) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("운영자 계정은 탈퇴할 수 없어요."));
         }
         // 되돌릴 수 없으니 방금 로그인한 세션만 받는다 — 새어 나간 토큰 하나로 남의 계정을 지우지 못하게
-        if (me.getTokenIssuedAt().plus(REAUTH_MINUTES, ChronoUnit.MINUTES).isBefore(Instant.now())) {
+        if (current.signedInAt().plus(REAUTH_MINUTES, ChronoUnit.MINUTES).isBefore(Instant.now())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new AuthController.ErrorResponse("보안을 위해 로그아웃 후 다시 로그인한 다음 탈퇴해주세요."));
         }
@@ -115,6 +120,7 @@ public class AccountController {
         follows.deleteAllInvolving(me);
         followRequests.deleteAllInvolving(me);
         pushTokens.deleteAllByUser(me);
+        sessions.deleteAllByUser(me);
         aliases.deleteAllInvolving(me);
         favorites.deleteAllByUser(me);
         // 내가 만든 투표(후보·선택 포함)와 남의 투표에 남긴 내 선택

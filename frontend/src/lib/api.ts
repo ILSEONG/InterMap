@@ -67,11 +67,36 @@ export interface AuthSession {
 
 const SESSION_KEY = 'intermap.session'
 
-// 저장된 세션의 토큰을 Authorization 헤더로. 로그인 안 했으면 빈 객체
+const DEVICE_KEY = 'intermap.deviceId'
+let memoryDeviceId: string | null = null
+
+// 이 기기(브라우저·앱 설치본)를 가리키는 임의 값. 처음 한 번 만들어 계속 쓴다.
+// 서버는 이걸로 로그인을 기기별로 나눠 기억한다 — 다른 기기에서 로그인해도 여기는 안 풀리고,
+// 처음 보는 기기에서 로그인하면 먼저 쓰던 기기에 알려 준다. 저장소를 못 쓰면 켜져 있는 동안만 같은 값
+function deviceId(): string {
+  try {
+    const saved = localStorage.getItem(DEVICE_KEY)
+    if (saved) return saved
+  } catch {
+    // 아래에서 새로 만든다
+  }
+  if (!memoryDeviceId) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16))
+    memoryDeviceId = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+    try {
+      localStorage.setItem(DEVICE_KEY, memoryDeviceId)
+    } catch {
+      // 저장 못 해도 이번 실행 동안은 쓴다
+    }
+  }
+  return memoryDeviceId
+}
+
+// 저장된 세션의 토큰을 Authorization 헤더로 (기기 값도 함께). 로그인 안 했으면 빈 객체
 function authHeaders(): Record<string, string> {
   try {
     const session = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as AuthSession | null
-    return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+    return session?.token ? { Authorization: `Bearer ${session.token}`, 'X-Device-Id': deviceId() } : {}
   } catch {
     return {}
   }
@@ -85,14 +110,21 @@ export async function fetchMe(): Promise<AuthSession | null> {
   return res.json()
 }
 
+// 이 기기만 로그아웃한다 (다른 기기는 그대로)
 export async function logout(): Promise<void> {
   await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: authHeaders() }).catch(() => {
     // 서버에 못 닿아도 클라이언트 세션은 지운다
   })
 }
 
+// 이 기기만 남기고 다른 기기를 전부 로그아웃. 끊은 기기 수를 돌려준다
+export async function logoutOtherDevices(): Promise<number> {
+  return (await post<{ ended: number }>('/api/auth/logout-others', '')).ended
+}
+
+// 로그인 요청(아직 세션이 없다)에도 기기 값이 실려야 서버가 어느 기기인지 안다
 async function post<T>(path: string, body: BodyInit, headers: Record<string, string> = {}, method = 'POST'): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { method, headers: { ...headers, ...authHeaders() }, body })
+  const res = await fetch(`${API_BASE}${path}`, { method, headers: { 'X-Device-Id': deviceId(), ...headers, ...authHeaders() }, body })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `요청 실패 (${res.status})`)
   return data
@@ -392,7 +424,8 @@ export function setFollowApproval(manual: boolean): Promise<SocialData> {
 
 // ---- 알림 (서버 NotificationController) ----
 
-export type NoticeType = 'COMMENT' | 'REPLY' | 'FOLLOW_REQUEST' | 'FOLLOW' | 'FOLLOW_ACCEPTED'
+// NEW_DEVICE: 처음 보는 기기에서 내 계정에 로그인 — actor는 나, text는 기기 이름
+export type NoticeType = 'COMMENT' | 'REPLY' | 'FOLLOW_REQUEST' | 'FOLLOW' | 'FOLLOW_ACCEPTED' | 'NEW_DEVICE'
 
 export interface Notice {
   type: NoticeType
