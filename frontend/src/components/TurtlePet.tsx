@@ -8,9 +8,9 @@ import './TurtlePet.css'
 
 // 자세별 그림(원본 시안에서 그대로 오린 것)과 화면에 그릴 크기 — 거북이 몸집이 세 장 모두 비슷하게 보이도록 맞췄다
 const ART: Record<PetMood, { src: string; w: number; h: number }> = {
-  wave: { src: wave, w: 92, h: 90 },
-  happy: { src: happy, w: 108, h: 71 },
-  rest: { src: rest, w: 105, h: 70 },
+  wave: { src: wave, w: 66, h: 65 },
+  happy: { src: happy, w: 78, h: 51 },
+  rest: { src: rest, w: 76, h: 50 },
 }
 
 // 앱을 열고 이만큼 뒤에 인사한다 (지도가 먼저 자리를 잡게)
@@ -63,7 +63,7 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
       setLine(null)
       return
     }
-    const lines = chatLines(hasFavorites)
+    const lines = chatLines(nickname, hasFavorites)
     const next = lines[chatIndex.current % lines.length]
     chatIndex.current += 1
     setLine(next)
@@ -83,7 +83,22 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
             </svg>
           </button>
           <p className="pet__title">{line.title}</p>
-          <p className="pet__body">{line.body}</p>
+          <p className="pet__body">
+            {line.icon === 'star' ? (
+              <>
+                {/* 별이 혼자 다음 줄로 떨어지지 않게 마지막 낱말과 묶는다 */}
+                {line.body.slice(0, line.body.lastIndexOf(' ') + 1)}
+                <span className="pet__tail">
+                  {line.body.slice(line.body.lastIndexOf(' ') + 1)}
+                  <svg className="pet__star" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
+                    <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
+                  </svg>
+                </span>
+              </>
+            ) : (
+              line.body
+            )}
+          </p>
           {line.action && (
             <button
               type="button"
