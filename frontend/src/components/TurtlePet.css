@@ -48,8 +48,8 @@
   pointer-events: auto;
   min-width: 0;
   max-width: 250px;
-  margin-bottom: 26px;
-  padding: 11px 30px 12px 14px;
+  margin-bottom: 18px;
+  padding: 11px 14px 12px;
   border: 1.5px solid #d9cfc4;
   border-radius: 16px;
   background: #fff;
@@ -81,6 +81,8 @@
 
 .pet__title {
   margin: 0;
+  padding-right: 20px; /* 닫기 버튼 자리 */
+  overflow-wrap: anywhere; /* 띄어쓰기 없는 긴 닉네임도 칸 안에서 줄을 바꾼다 */
   font-size: 15px;
   font-weight: 800;
   line-height: 1.35;
@@ -90,10 +92,21 @@
 
 .pet__body {
   margin: 2px 0 0;
+  overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 1.45;
   color: var(--ink-2);
   word-break: keep-all;
+}
+
+.pet__tail {
+  white-space: nowrap;
+}
+
+.pet__star {
+  margin-left: 4px;
+  vertical-align: -2px;
+  color: #f29a4e;
 }
 
 .pet__action {
