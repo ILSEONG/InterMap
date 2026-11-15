@@ -73,7 +73,7 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
   return (
     <div className="pet" hidden={hidden}>
       <button type="button" className="pet__turtle" onClick={talk} aria-label={line ? '거북이 말풍선 닫기' : '거북이에게 말 걸기'}>
-        <img key={mood} src={ART[mood].src} alt="" width={ART[mood].w} height={ART[mood].h} />
+        <img key={mood} className={`pet__img pet__img--${mood}`} src={ART[mood].src} alt="" width={ART[mood].w} height={ART[mood].h} />
       </button>
       {line && (
         <div className="pet__bubble" role="status">

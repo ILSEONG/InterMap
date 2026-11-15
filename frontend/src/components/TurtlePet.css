@@ -27,20 +27,97 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.pet__turtle img {
-  display: block;
-  /* 숨 쉬듯 살짝 오르내린다 — 픽셀 그림이라 계단식으로 */
-  animation: pet-bob 1.6s steps(2, jump-none) infinite;
+/* 처음 나타날 때 왼쪽에서 아장아장 걸어 들어온다 */
+.pet__turtle {
+  animation: pet-enter 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-.pet__turtle:active img {
-  translate: 0 2px;
-}
-
-@keyframes pet-bob {
-  to {
-    transform: translateY(-2px);
+@keyframes pet-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
   }
+}
+
+/* 자세마다 작은 움직임 하나씩. 발밑(가운데 아래)을 축으로 움직여 땅에 붙어 보이게 한다.
+   자세가 바뀔 때의 "뿅"(scale)과 겹쳐도 되도록 rotate·translate·scale을 따로 쓴다 */
+.pet__img {
+  display: block;
+  transform-origin: 50% 100%;
+}
+
+/* 손 흔들기 — 몸을 좌우로 까딱까딱, 그러고는 잠깐 쉰다 */
+.pet__img--wave {
+  animation:
+    pet-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    pet-sway 2.8s ease-in-out 260ms infinite;
+}
+
+@keyframes pet-sway {
+  0%,
+  46%,
+  100% {
+    rotate: 0deg;
+  }
+  8%,
+  24% {
+    rotate: -5deg;
+  }
+  16%,
+  32% {
+    rotate: 5deg;
+  }
+}
+
+/* 웃기 — 신나서 두 번 콩콩 뛴다 */
+.pet__img--happy {
+  animation:
+    pet-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    pet-hop 2.6s ease-out 260ms infinite;
+}
+
+@keyframes pet-hop {
+  0%,
+  30%,
+  100% {
+    translate: 0 0;
+  }
+  8% {
+    translate: 0 -6px;
+  }
+  16% {
+    translate: 0 0;
+  }
+  23% {
+    translate: 0 -3px;
+  }
+}
+
+/* 엎드리기 — 느긋하게 숨 쉰다 */
+.pet__img--rest {
+  animation:
+    pet-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    pet-breathe 2.4s ease-in-out 260ms infinite alternate;
+}
+
+@keyframes pet-breathe {
+  to {
+    scale: 1.03 0.96;
+  }
+}
+
+/* 자세가 바뀌는 순간 */
+@keyframes pet-pop {
+  from {
+    scale: 0.86;
+  }
+}
+
+/* 누르면 살짝 눌린다 */
+.pet__turtle:active .pet__img {
+  translate: 0 2px;
+  scale: 1.04 0.94;
+  animation-play-state: paused;
 }
 
 .pet__bubble {
@@ -156,7 +233,8 @@
 @media (prefers-reduced-motion: reduce) {
   .pet,
   .pet__bubble,
-  .pet__turtle img {
+  .pet__turtle,
+  .pet__img {
     transition: none;
     animation: none;
   }
