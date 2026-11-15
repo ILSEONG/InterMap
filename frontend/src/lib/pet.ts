@@ -42,7 +42,7 @@ interface PetMemory {
 
 const KEY = 'intermap.pet'
 // 이만큼 안 들렀으면 "오랜만이에요"
-const LONG_ABSENCE_DAYS = 7
+const LONG_ABSENCE_DAYS = 3
 
 function readAll(): Record<string, PetMemory> {
   try {
