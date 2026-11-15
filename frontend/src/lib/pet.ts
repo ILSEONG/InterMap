@@ -36,8 +36,8 @@ function daysBetween(from: string, to: string): number {
 
 export const todayLine = (hasFavorites: boolean): PetLine =>
   hasFavorites
-    ? { mood: 'rest', title: '오늘은 어디로 가볼까?', body: '찜한 곳에서 골라봐도 좋아요.', action: 'favorites', actionLabel: '찜한 곳 보기' }
-    : { mood: 'rest', title: '오늘은 어디로 가볼까?', body: '내 주변부터 둘러봐도 좋아요.', action: 'nearby', actionLabel: '내 주변 둘러보기' }
+    ? { mood: 'rest', title: '오늘은 어디로 가볼까요?', body: '찜한 곳에서 골라봐도 좋아요.', action: 'favorites', actionLabel: '찜한 곳 보기' }
+    : { mood: 'rest', title: '오늘은 어디로 가볼까요?', body: '내 주변부터 둘러봐도 좋아요.', action: 'nearby', actionLabel: '내 주변 둘러보기' }
 
 // 앱을 열었을 때 건넬 인사. 오늘 이미 인사했으면 null (거북이만 조용히 앉아 있는다)
 export function pickGreeting(userId: number, nickname: string, hasFavorites: boolean, today = kstDay()): PetLine | null {
