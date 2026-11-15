@@ -237,6 +237,8 @@ public class AuthController {
     // 지금 요청을 보낸 기기에 새 토큰을 발급해 로그인시킨다. 소셜 로그인(OAuthController)도 이걸 쓴다.
     // 다른 기기의 로그인은 그대로 둔다. 처음 보는 기기면 먼저 쓰던 기기들에 알린다 (알림 목록에도 남는다 — NotificationController)
     public AuthResponse signIn(AppUser user) {
+        // 가입 흐름은 아직 저장 안 한 계정을 넘기기도 한다 — 로그인 줄이 계정을 가리키려면 먼저 저장돼 있어야 한다
+        repository.save(user);
         Sessions.Opened opened = sessions.open(user);
         if (opened.newDevice()) {
             push.send(user, "새 기기에서 로그인했어요",
