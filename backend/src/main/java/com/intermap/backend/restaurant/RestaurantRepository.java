@@ -4,7 +4,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
@@ -56,11 +55,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
     long countByStatusAndGeocodedIsNull(Restaurant.Status status);
 
-    // 예전에 폐업으로 표시만 해 둔 행을 지운다 (RestaurantRefresh). 스케줄러가 트랜잭션 밖에서 부르므로 여기서 연다
-    @Modifying
-    @Transactional
-    @Query("delete from Restaurant r where r.status = :status")
-    int deleteByStatus(Restaurant.Status status);
+    // 예전에 폐업으로 표시만 해 둔 가게 — 주간 최신화가 지운다 (RestaurantRefresh)
+    List<Restaurant> findAllByStatus(Restaurant.Status status);
 
     @Modifying
     @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = true where r.id = :id")

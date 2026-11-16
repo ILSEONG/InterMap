@@ -1,13 +1,21 @@
 package com.intermap.backend.localdata;
 
+import com.intermap.backend.auth.AppUser;
+import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.restaurant.GeocodeBackfill;
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
+import com.intermap.backend.review.Review;
+import com.intermap.backend.review.ReviewCleanup;
+import com.intermap.backend.review.ReviewComment;
+import com.intermap.backend.review.ReviewCommentRepository;
+import com.intermap.backend.review.ReviewRepository;
 import com.intermap.backend.state.ServerState;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-// 주간 음식점 최신화: 새로 연 가게는 넣고, 폐업한 가게는 지운다.
+// 주간 음식점 최신화: 새로 연 가게는 넣고, 폐업한 가게는 후기와 함께 지운다.
 @SpringBootTest(properties = "admin.password=test-admin-password")
 @Transactional
 class RestaurantRefreshTest {
@@ -36,6 +44,11 @@ class RestaurantRefreshTest {
     @Autowired RestaurantRepository repository;
     @Autowired GeocodeBackfill geocode;
     @Autowired ServerState state;
+    @Autowired ReviewRepository reviews;
+    @Autowired ReviewCommentRepository comments;
+    @Autowired ReviewCleanup cleanup;
+    @Autowired TransactionTemplate tx;
+    @Autowired AppUserRepository users;
 
     private final String tag = UUID.randomUUID().toString().substring(0, 8);
     private final List<LocalDataClient.Row> changed = new ArrayList<>();
@@ -48,7 +61,7 @@ class RestaurantRefreshTest {
                 return MAPO.equals(localCode) ? List.copyOf(changed) : List.of();
             }
         };
-        return new RestaurantRefresh(client, repository, geocode, state, MAPO + ",3140000");
+        return new RestaurantRefresh(client, repository, geocode, state, reviews, cleanup, tx, MAPO + ",3140000");
     }
 
     private String name(String base) {
@@ -71,6 +84,14 @@ class RestaurantRefreshTest {
 
     private boolean exists(Restaurant r) {
         return repository.existsById(r.getId());
+    }
+
+    private static final String LOT = "서울 마포구 서교동 1";
+
+    private Review review(String restaurantName, String restaurantAddress) {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        AppUser author = users.save(new AppUser("refresh" + suffix + "@test.local", null, "refresh" + suffix, null));
+        return reviews.saveAndFlush(new Review(author, restaurantName, "한식", restaurantAddress, 4, "후기", null));
     }
 
     @Test
@@ -163,6 +184,64 @@ class RestaurantRefreshTest {
         refresh().refresh(31);
 
         assertFalse(exists(unlinked), "관리번호가 없는 가게는 상호+주소(띄어쓰기 무시)로 맞춘다");
+    }
+
+    @Test
+    void reviewsOfAClosedRestaurantAreDeletedWithTheirComments() {
+        existing(name("문닫은집"), addr(11), "MGT-RA-" + tag);
+        existing(name("영업중인집"), addr(12), "MGT-RB-" + tag);
+        Review byRoadAddress = review(name("문닫은집"), addr(11));
+        Review byLotAddress = review(name("문닫은집"), LOT);
+        Review elsewhere = review(name("영업중인집"), addr(12));
+        Review sameAddressOtherName = review(name("옆집"), addr(11));
+        comments.saveAndFlush(new ReviewComment(byRoadAddress, byRoadAddress.getAuthor(), null, "맛있었는데"));
+        changed.add(row("MGT-RA-" + tag, name("문닫은집"), addr(11), "03", X, Y));
+
+        RestaurantRefresh.Result result = refresh().refresh(31);
+
+        assertEquals(2, result.reviewsRemoved());
+        assertFalse(reviews.existsById(byRoadAddress.getId()), "도로명 주소로 남긴 후기");
+        assertFalse(reviews.existsById(byLotAddress.getId()), "지번 주소로 남긴 후기");
+        assertTrue(comments.idsByReviewId(byRoadAddress.getId()).isEmpty(), "댓글도 같이 지운다");
+        assertTrue(reviews.existsById(elsewhere.getId()), "영업중인 가게의 후기는 그대로");
+        assertTrue(reviews.existsById(sameAddressOtherName.getId()), "주소만 같은 다른 가게의 후기는 그대로");
+    }
+
+    @Test
+    void reviewsStayWhenTheRestaurantReopensUnderTheSameName() {
+        existing(name("주인바뀐집"), addr(13), "MGT-RO-" + tag);
+        Review kept = review(name("주인바뀐집"), addr(13));
+        changed.add(row("MGT-RO-" + tag, name("주인바뀐집"), addr(13), "03", X, Y));
+        changed.add(row("MGT-RN-" + tag, name("주인바뀐집"), addr(13), "01", X, Y));
+
+        RestaurantRefresh.Result result = refresh().refresh(31);
+
+        assertEquals(0, result.reviewsRemoved());
+        assertTrue(reviews.existsById(kept.getId()), "같은 자리에 같은 이름으로 다시 열면 후기를 남긴다");
+    }
+
+    @Test
+    void reviewsOfARestaurantMarkedClosedEarlierAreDeleted() {
+        Restaurant marked = existing(name("표시만해둔집"), addr(14), "MGT-RM-" + tag);
+        marked.markStatus(Restaurant.Status.CLOSED, "MGT-RM-" + tag);
+        repository.saveAndFlush(marked);
+        Review gone = review(name("표시만해둔집"), addr(14));
+
+        refresh().refresh(31);
+
+        assertFalse(exists(marked));
+        assertFalse(reviews.existsById(gone.getId()));
+    }
+
+    @Test
+    void reviewsOfPlacesOutsideTheListAreNeverTouched() {
+        // 가게 목록에 없는 곳(서울 밖, 직접 검색해 남긴 곳)의 후기는 폐업 여부를 모른다 — 건드리지 않는다
+        Review outside = review(name("목록에없는집"), "부산광역시 해운대구 1");
+        changed.add(row("MGT-RX-" + tag, name("목록에없는집"), "부산광역시 해운대구 1", "03", X, Y));
+
+        refresh().refresh(31);
+
+        assertTrue(reviews.existsById(outside.getId()));
     }
 
     @Test
