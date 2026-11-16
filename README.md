@@ -3,7 +3,7 @@
 친구(이웃)들이 다녀온 맛집을 지도 위에 올려 보는 서비스. 제품 정의는 [PRODUCT.md](PRODUCT.md), 모바일 앱 빌드는 [docs/mobile-app-guide.md](docs/mobile-app-guide.md).
 
 - `frontend/` — React 19 + Vite + TypeScript, Naver Map. Vercel 배포, Capacitor로 iOS/Android 패키징.
-- `backend/` — Spring Boot. Render 배포, DB는 Neon Postgres (로컬은 H2 파일).
+- `backend/` — Spring Boot. Render 배포, DB는 Supabase Postgres, 사진은 Cloudflare R2 (로컬은 H2 파일).
 
 이 문서는 **성능 개선 기록**이다. 무엇이 느렸고, 왜 그 방식으로 풀었는지, 다음에 규모가 커지면 어디를 건드려야 하는지를 남긴다.
 
@@ -114,5 +114,4 @@
 | 검색 `LIKE '%q%'` | 인덱스 못 탐 | 가게 수만 건 | Postgres `pg_trgm` GIN 인덱스 |
 | `visibleRestaurants` 필터 | 타건마다 5,000건 문자열 조합·소문자화 | 검색이 다시 답답해지면 | `toRestaurant`에서 `searchKey` 한 번 만들어 두기 |
 | `pinsWhenFar` | 검색·후기 있음 필터에서 개별 핀 전부 표시 | 후기 가게 수백 건 넘으면 | 그 경로에도 군집 반경 확대 또는 서버 bbox 필터 |
-| `ReviewPhoto.data` | 사진 바이트를 Postgres에 저장 | Neon 무료 0.5GB 근접 | S3/R2로 옮기고 URL만 저장 |
 | Render 무료 티어 | 첫 요청 콜드스타트 ~30초 | 사용자 생기면 | 유료 플랜 또는 외부 ping |

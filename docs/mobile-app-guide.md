@@ -18,7 +18,7 @@
 Render 대시보드(https://dashboard.render.com)에서 GitHub 저장소를 Web Service로 연결한다. `backend/Dockerfile`로 빌드된다.
 
 - 서비스 이름: `intermap-be` → 주소 `https://intermap-be.onrender.com`
-- DB는 Neon Postgres. Environment 탭에 `JDBC_URL`(Neon 접속 문자열)과 `LOCALDATA_AUTH_KEY`,
+- DB는 Supabase Postgres. Environment 탭에 `JDBC_URL`(Supabase 세션 풀러 주소)과 `LOCALDATA_AUTH_KEY`,
   `BREVO_API_KEY`(이메일 인증번호 발송, Render 무료 티어는 SMTP 차단이라 Brevo API 사용), OAuth 키,
   `ADMIN_PASSWORD`(관리자 계정 비밀번호 — 기본값이 없어 비우면 관리자 계정이 안 생긴다. 바꾸고 재배포하면 교체된다)를 넣는다.
 - 가게 좌표 보정: `NCP_MAP_KEY_ID`, `NCP_MAP_KEY`(NCP 콘솔 > AI·NAVER API > Application에서 **Geocoding**을 켠 앱의 Client ID / Client Secret).

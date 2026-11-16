@@ -29,8 +29,8 @@
 
 - **비밀값은 Render 환경변수·GitHub Secrets에만.** 저장소가 공개라 코드·커밋·이슈에 한 번 올라가면 지워도 남는다. 올라갔다면 그 값은 바로 폐기하고 새로 발급.
 - **GitHub**: 계정 2단계 인증, 저장소 Settings → Code security에서 Secret scanning·Push protection·Dependabot alerts 켜기, main 브랜치 보호(직접 push 금지).
-- **Render·Neon·Brevo·Google·Apple·Naver·Kakao 계정**: 전부 2단계 인증. 관리자 비밀번호(`ADMIN_PASSWORD`)는 다른 곳에서 쓰는 것과 겹치지 않게.
-- **Neon DB**: 접속 주소(`JDBC_URL`)가 새면 DB 전체가 열린다. 의심되면 Neon에서 비밀번호를 재발급하고 Render 값을 바꾼다. 백업(시점 복구) 보관 기간 확인.
+- **Render·Supabase·Cloudflare·Brevo·Google·Apple·Naver·Kakao 계정**: 전부 2단계 인증. 관리자 비밀번호(`ADMIN_PASSWORD`)는 다른 곳에서 쓰는 것과 겹치지 않게.
+- **Supabase DB**: 접속 주소(`JDBC_URL`)가 새면 DB 전체가 열린다. 의심되면 Supabase에서 비밀번호를 재설정하고 Render 값을 바꾼다. Data API는 꺼 둔다(서버가 DB에 직접 붙으므로 필요 없다). 무료 플랜은 자동 백업이 없다 — `pg_dump`로 직접 받아 둔다.
 - **서버 상태 화면**을 가끔 열어 "요청 제한에 걸림" 경고와 로그인 실패가 몰리는지 본다.
 
 ## 아직 안 한 것

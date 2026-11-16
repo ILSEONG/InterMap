@@ -11,27 +11,25 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 // 운영자(admin) 전용 수동 실행. 둘 다 가게 전체를 훑는 무거운 작업이라 로그인한 운영자만 부른다.
 @RestController
 // https://intermap.app:8443 은 모바일 앱(Capacitor WebView)의 origin, *.vercel.app 은 웹 배포본
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class SyncController {
 
-    // 주간 동기화가 8일이라 한 달이면 밀린 것도 충분히 따라잡는다
-    private static final int MAX_DAYS_BACK = 31;
+    // 주간 최신화가 보는 범위와 같다
+    private static final int MAX_DAYS_BACK = RestaurantRefresh.DAYS_BACK;
 
-    private final StatusSyncService syncService;
+    private final RestaurantRefresh refresh;
     private final RestaurantImportService importService;
     private final AuthController auth;
     private final GeocodeBackfill geocode;
     private final Admins admins;
 
-    public SyncController(StatusSyncService syncService, RestaurantImportService importService, AuthController auth,
+    public SyncController(RestaurantRefresh refresh, RestaurantImportService importService, AuthController auth,
                           GeocodeBackfill geocode, Admins admins) {
         this.admins = admins;
-        this.syncService = syncService;
+        this.refresh = refresh;
         this.importService = importService;
         this.auth = auth;
         this.geocode = geocode;
@@ -45,15 +43,15 @@ public class SyncController {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("운영자만 실행할 수 있어요."));
     }
 
-    /** 수동 동기화 트리거 (운영/테스트용) */
+    /** 음식점 최신화를 지금 한 번 돌린다 (운영/테스트용) — 새 가게 추가, 폐업 가게 삭제 */
     @PostMapping("/api/admin/sync-status")
     public ResponseEntity<?> sync(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                  @RequestParam(defaultValue = "8") int daysBack) {
+                                  @RequestParam(defaultValue = "31") int daysBack) {
         if (!isAdmin(authorization)) return forbidden();
         if (daysBack < 1 || daysBack > MAX_DAYS_BACK) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("daysBack은 1~" + MAX_DAYS_BACK + "이에요."));
         }
-        return ResponseEntity.ok(Map.of("updated", syncService.syncOnce(daysBack)));
+        return ResponseEntity.ok(refresh.refresh(daysBack));
     }
 
     /** 지자체 영업중 음식점 전량 백필 (예: localCode=3130000 마포구) */
