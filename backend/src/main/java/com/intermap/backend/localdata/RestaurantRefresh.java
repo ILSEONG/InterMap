@@ -46,6 +46,8 @@ public class RestaurantRefresh implements ApplicationRunner {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int BATCH_SIZE = 500;
     static final int DAYS_BACK = 31;
+    // 실패한 뒤 따라잡기를 다시 해 보기까지 두는 간격
+    private static final Duration RETRY_AFTER = Duration.ofHours(6);
 
     public record Result(int fetched, int added, int removed) {
     }
@@ -83,6 +85,8 @@ public class RestaurantRefresh implements ApplicationRunner {
             return;
         }
         if (!last.isBefore(latestSlot(ZonedDateTime.now(KST)))) return;
+        // 방금 실패한 것을 서버가 켜질 때마다 다시 부르지 않는다 (무료 서버는 하루에도 여러 번 켜진다 — 공공 API 호출 한도를 아낀다)
+        if (state.get("restaurant-refresh", "attempt").isPresent()) return;
         Thread worker = new Thread(this::runOnce, "restaurant-refresh");
         worker.setDaemon(true);
         worker.start();
@@ -96,17 +100,18 @@ public class RestaurantRefresh implements ApplicationRunner {
         return slot.toInstant();
     }
 
-    // 스케줄·따라잡기용: 실패해도 예외를 밖으로 내지 않고, 성공했을 때만 돈 시각을 적는다 (실패하면 다음에 켜질 때 다시 한다)
+    // 스케줄·따라잡기용: 실패해도 예외를 밖으로 내지 않고, 성공했을 때만 돈 시각을 적는다 (실패하면 나중에 켜질 때 다시 한다)
     private void runOnce() {
         if (!client.isConfigured()) return;
         if (!running.compareAndSet(false, true)) return;
         Instant startedAt = Instant.now();
         try {
+            state.put("restaurant-refresh", "attempt", startedAt.toString(), RETRY_AFTER);
             Result result = refresh(DAYS_BACK);
             remember(startedAt);
             log.info("음식점 최신화 끝: 변경분 {}건, 새 가게 {}곳 추가, 폐업 {}곳 삭제", result.fetched(), result.added(), result.removed());
         } catch (RuntimeException e) {
-            log.warn("음식점 최신화 실패 — 다음에 서버가 켜질 때 다시 해요: {}", e.getMessage());
+            log.warn("음식점 최신화 실패 — 6시간 뒤부터, 서버가 켜질 때 다시 해요: {}", e.getMessage());
         } finally {
             running.set(false);
         }
