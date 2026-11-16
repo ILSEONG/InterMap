@@ -3,7 +3,7 @@
 서버 사양을 올리는 것 말고, 구조에서 고쳐야 할 것들을 모아 둔다. 2026-11-13에 코드 기준으로 점검했고, 그날 할 수 있는 것은 반영했다.
 새로 발견한 것은 여기에 추가하고, 끝낸 것은 "한 것"으로 옮긴다.
 
-지금 구성: Render 웹 서비스 1대(Spring Boot) + Neon PostgreSQL + Cloudflare R2(사진) + Vercel(웹) + 안드로이드/iOS 앱(Capacitor).
+지금 구성: Render 웹 서비스 1대(Spring Boot) + Supabase PostgreSQL + Cloudflare R2(사진) + Vercel(웹) + 안드로이드/iOS 앱(Capacitor).
 
 ## 한눈에
 
@@ -87,7 +87,7 @@
 - 3번이 끝나 로그인·인증 상태는 서버 사이에 공유된다. 남은 걸림돌:
   - 예약 작업(`@Scheduled` — 투표 정리, 인허가 상태 동기화, 만료 상태 정리)이 서버마다 한 번씩 돈다. 한 대만 돌게 잠금(DB 행 잠금이나 ShedLock)이 필요하다.
   - 요청 통계(7번)가 서버마다 따로 쌓인다.
-  - DB 연결 수: 서버 대수 × 풀 크기가 Neon 한도를 넘지 않게, 필요하면 Neon의 연결 풀러(pgbouncer) 주소를 쓴다.
+  - DB 연결 수: 서버 대수 × 풀 크기가 Supabase 세션 풀러 한도(계정당 15개)를 넘지 않게. 넘으면 트랜잭션 풀러(6543)로 바꾼다 — 그때는 JDBC 주소에 `prepareThreshold=0`이 필요하다.
 
 ## 운영 메모
 - 운영 관리자 추가: Render 환경변수 `ADMIN_EMAILS`에 이메일을 쉼표로 이어 넣고 재배포.
