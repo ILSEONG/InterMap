@@ -36,8 +36,11 @@ android {
             if (releaseKeystore) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8으로 안 쓰는 코드를 덜어내고 이름을 줄인다 (Play Console의 "DEX 코드 최적화" 기준).
+            // 플러그인·브리지처럼 이름으로 찾는 클래스는 proguard-rules.pro와 Capacitor가 주는 규칙이 지킨다.
+            // 리소스 줄이기(shrinkResources)는 켜지 않는다 — 이름으로 찾는 리소스가 빠질 수 있다
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
