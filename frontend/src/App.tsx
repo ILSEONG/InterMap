@@ -389,13 +389,33 @@ export default function App() {
   const notices = sessionToken ? (noticeData ?? null) : null
   const [noticesOpen, setNoticesOpen] = useState(false)
   const [noticeBusy, setNoticeBusy] = useState(false)
-  // 앱을 켜 둔 동안 1분마다 새 알림·팔로우 요청을 확인한다 (화면이 꺼져 있으면 건너뛴다)
+  // 앱을 쓰는 동안 1분마다 새 알림·팔로우 요청을 확인한다. 화면이 꺼져 있거나, 켜 둔 채 3분 넘게 손대지 않으면 멈춘다 —
+  // 탭 하나를 열어만 둬도 서버와 DB가 하루 종일 깨어 있게 되기 때문이다 (DB는 쉬는 시간만큼 요금·무료 한도를 아낀다).
+  // 다시 만지면 그때 바로 한 번 확인하고 이어서 1분마다 확인한다
   useEffect(() => {
     if (sessionToken === null) return
+    const IDLE_AFTER_MS = 3 * 60_000
+    let lastTouch = Date.now()
+    let lastCheck = Date.now()
+    const check = () => {
+      lastCheck = Date.now()
+      refresh('notices', 'social')
+    }
+    const onTouch = () => {
+      const now = Date.now()
+      const wasIdle = now - lastTouch > IDLE_AFTER_MS
+      lastTouch = now
+      if (wasIdle && now - lastCheck > 60_000 && document.visibilityState === 'visible') check()
+    }
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refresh('notices', 'social')
+      if (document.visibilityState === 'visible' && Date.now() - lastTouch <= IDLE_AFTER_MS) check()
     }, 60_000)
-    return () => window.clearInterval(timer)
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+    for (const e of events) window.addEventListener(e, onTouch, { passive: true })
+    return () => {
+      window.clearInterval(timer)
+      for (const e of events) window.removeEventListener(e, onTouch)
+    }
   }, [sessionToken])
   useEffect(() => {
     if (sessionToken === null) setNoticesOpen(false)
