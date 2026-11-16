@@ -3,6 +3,7 @@ package com.intermap.backend.review;
 import com.intermap.backend.auth.AppUser;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
 import java.util.List;
@@ -24,6 +25,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByAuthorOrderByCreatedAtAsc(AppUser author);
 
     boolean existsByAuthorAndRestaurantNameAndRestaurantAddress(AppUser author, String restaurantName, String restaurantAddress);
+
+    // 한 가게에 달린 후기들 (가게 키 = 이름+주소 스냅샷) — 폐업한 가게의 후기를 지울 때
+    @Query("select r.id from Review r where r.restaurantName = :name and r.restaurantAddress = :address")
+    List<Long> idsByPlace(String name, String address);
 
     // 프로필의 "후기 N개" — 팔로우 전에도 개수는 보여준다 (내용은 안 보낸다)
     long countByAuthor(AppUser author);

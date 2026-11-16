@@ -5,6 +5,8 @@ import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.MailService;
 import com.intermap.backend.moderation.ModerationController;
+import com.intermap.backend.review.Review;
+import com.intermap.backend.review.ReviewRepository;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,7 @@ class OpsTest {
     @Autowired AppUserRepository users;
     @Autowired ExternalCalls external;
     @Autowired ErrorLog errorLog;
+    @Autowired ReviewRepository reviews;
     @MockitoBean MailService mail;
 
     private AuthController.AuthResponse signIn(String email) {
@@ -86,6 +89,29 @@ class OpsTest {
         assertTrue(body.data().users() >= 1);
         assertEquals(RequestMetrics.HOURS, body.traffic().hours().size());
         assertTrue(body.server().heapMaxMb() > 0);
+    }
+
+    @Test
+    void newestMembersAndReviewsAreListed() {
+        AuthController.AuthResponse admin = signIn("ops-admin@test.local");
+        AuthController.AuthResponse member = signIn("newcomer-" + UUID.randomUUID() + "@test.local");
+        AppUser author = users.findById(member.id()).orElseThrow();
+        Review review = reviews.saveAndFlush(new Review(author, "새 후기 식당", "한식", "서울 중구 1", 4.5, "후기", null));
+
+        OpsController.Data data = ((OpsController.Ops) ops.ops("Bearer " + admin.token()).getBody()).data();
+
+        OpsController.NewUser newest = data.newUsers().get(0);
+        assertEquals(member.id(), newest.id(), "방금 가입한 회원이 맨 위");
+        assertEquals(member.nickname(), newest.nickname());
+        assertEquals(null, newest.provider(), "이메일로 가입했으면 provider가 없다");
+        assertNotNull(newest.joinedAt());
+        assertTrue(data.newUsers().size() <= 10);
+
+        OpsController.NewReview latest = data.newReviews().get(0);
+        assertEquals(review.getId(), latest.id(), "방금 올라온 후기가 맨 위");
+        assertEquals("새 후기 식당", latest.restaurantName());
+        assertEquals(member.nickname(), latest.author());
+        assertEquals(4.5, latest.rating());
     }
 
     @Test

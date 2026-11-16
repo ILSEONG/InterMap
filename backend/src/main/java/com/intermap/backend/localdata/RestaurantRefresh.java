@@ -3,6 +3,9 @@ package com.intermap.backend.localdata;
 import com.intermap.backend.restaurant.GeocodeBackfill;
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
+import com.intermap.backend.moderation.Report;
+import com.intermap.backend.review.ReviewCleanup;
+import com.intermap.backend.review.ReviewRepository;
 import com.intermap.backend.state.ServerState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +14,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -22,6 +26,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,14 +35,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * 서울 음식점 목록 최신화 — 매주 목요일 22시(한국시간).
  * 인허가 데이터(LOCALDATA)의 최근 변경분을 받아, 새로 문을 연 가게는 넣고 폐업한 가게는 지운다.
+ * 폐업한 가게에 달린 후기도 (사진·댓글까지) 같이 지운다.
  *
  * - 변경분은 매번 한 달 치를 다시 본다. 넣기·지우기 모두 이미 반영된 행에는 아무 일도 하지 않으므로,
  *   한두 주를 건너뛰어도, 중간에 실패해도 다음 번에 따라잡는다.
- * - 무료 서버는 잠들어 있으면 스케줄이 돌지 않는다. 그래서 마지막으로 돈 시각을 적어 두고,
- *   서버가 켜질 때 지난 목요일 22시 것을 아직 안 했으면 그때 돈다. 목요일 22시에 서버를 깨우는 것은
- *   .github/workflows/restaurant-refresh.yml 이 한다.
+ * - 목요일 22시에 서버가 꺼져 있었으면(재배포·재시작) 스케줄이 돌지 않는다. 그래서 마지막으로 돈 시각을 적어 두고,
+ *   서버가 켜질 때 지난 목요일 22시 것을 아직 안 했으면 그때 돈다.
+ * - 같은 자리에 같은 이름으로 다시 연 가게(주인만 바뀐 경우)는 가게도 후기도 남는다.
  * - 이름·주소가 바뀐 가게는 건드리지 않는다 — 후기가 상호+주소로 가게를 찾아서, 고치면 그 후기가 가게를 잃는다.
- * - 폐업한 가게에 달린 후기는 남는다. 가게 행이 없으니 지도에 핀만 서지 않는다 (예전에 폐업으로 표시했을 때와 같다).
  */
 @Service
 public class RestaurantRefresh implements ApplicationRunner {
@@ -49,18 +54,32 @@ public class RestaurantRefresh implements ApplicationRunner {
     // 실패한 뒤 따라잡기를 다시 해 보기까지 두는 간격
     private static final Duration RETRY_AFTER = Duration.ofHours(6);
 
-    public record Result(int fetched, int added, int removed) {
+    public record Result(int fetched, int added, int removed, int reviewsRemoved) {
+    }
+
+    // 지워지는 가게의 이름과 주소 (후기는 이름+주소로 가게에 묶여 있다)
+    private record Place(String name, String roadAddress, String address) {
+        static Place of(Restaurant r) {
+            return new Place(r.getName(), r.getRoadAddress(), r.getAddress());
+        }
     }
 
     private final LocalDataClient client;
     private final RestaurantRepository repository;
     private final GeocodeBackfill geocode;
     private final ServerState state;
+    private final ReviewRepository reviews;
+    private final ReviewCleanup cleanup;
+    private final TransactionTemplate tx;
     private final List<String> localCodes;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public RestaurantRefresh(LocalDataClient client, RestaurantRepository repository, GeocodeBackfill geocode,
-                             ServerState state, @Value("${localdata.local-codes}") String localCodesCsv) {
+                             ServerState state, ReviewRepository reviews, ReviewCleanup cleanup, TransactionTemplate tx,
+                             @Value("${localdata.local-codes}") String localCodesCsv) {
+        this.reviews = reviews;
+        this.cleanup = cleanup;
+        this.tx = tx;
         this.client = client;
         this.repository = repository;
         this.geocode = geocode;
@@ -85,7 +104,7 @@ public class RestaurantRefresh implements ApplicationRunner {
             return;
         }
         if (!last.isBefore(latestSlot(ZonedDateTime.now(KST)))) return;
-        // 방금 실패한 것을 서버가 켜질 때마다 다시 부르지 않는다 (무료 서버는 하루에도 여러 번 켜진다 — 공공 API 호출 한도를 아낀다)
+        // 방금 실패한 것을 서버가 켜질 때마다 다시 부르지 않는다 (공공 API 호출 한도를 아낀다)
         if (state.get("restaurant-refresh", "attempt").isPresent()) return;
         Thread worker = new Thread(this::runOnce, "restaurant-refresh");
         worker.setDaemon(true);
@@ -109,7 +128,8 @@ public class RestaurantRefresh implements ApplicationRunner {
             state.put("restaurant-refresh", "attempt", startedAt.toString(), RETRY_AFTER);
             Result result = refresh(DAYS_BACK);
             remember(startedAt);
-            log.info("음식점 최신화 끝: 변경분 {}건, 새 가게 {}곳 추가, 폐업 {}곳 삭제", result.fetched(), result.added(), result.removed());
+            log.info("음식점 최신화 끝: 변경분 {}건, 새 가게 {}곳 추가, 폐업 {}곳 삭제, 폐업한 가게의 후기 {}개 삭제",
+                    result.fetched(), result.added(), result.removed(), result.reviewsRemoved());
         } catch (RuntimeException e) {
             log.warn("음식점 최신화 실패 — 6시간 뒤부터, 서버가 켜질 때 다시 해요: {}", e.getMessage());
         } finally {
@@ -137,8 +157,11 @@ public class RestaurantRefresh implements ApplicationRunner {
         if (!client.isConfigured()) {
             throw new IllegalStateException("LOCALDATA_AUTH_KEY 환경변수가 설정되지 않았습니다");
         }
-        // 예전에 폐업으로 표시만 해 둔 행부터 지운다
-        int removed = repository.deleteByStatus(Restaurant.Status.CLOSED);
+        // 예전에 폐업으로 표시만 해 둔 가게. 맨 끝에 지운다 — 그 자리에 다시 연 가게가 이번 변경분에 있으면
+        // 먼저 들어와 있어야 후기를 남길지 가릴 수 있다. 아래 키에서는 빼서, 다시 연 가게가 "이미 있다"로 걸러지지 않게 한다.
+        List<Restaurant> marked = repository.findAllByStatus(Restaurant.Status.CLOSED);
+        Set<Long> markedIds = new HashSet<>();
+        for (Restaurant r : marked) markedIds.add(r.getId());
 
         // 기존 가게는 키만 올린다 (엔티티 전체는 서울 규모에서 메모리를 넘긴다) — [id, name, roadAddress, mgtNo]
         Map<String, Long> idByMgtNo = new HashMap<>();
@@ -146,6 +169,7 @@ public class RestaurantRefresh implements ApplicationRunner {
         Set<Long> unlinked = new HashSet<>(); // 관리번호가 아직 없는 가게
         for (Object[] r : repository.findAllKeys()) {
             Long id = (Long) r[0];
+            if (markedIds.contains(id)) continue;
             if (r[3] != null) idByMgtNo.put((String) r[3], id);
             else unlinked.add(id);
             idByNameAddr.put(RestaurantImportService.key((String) r[1], (String) r[2]), id);
@@ -153,7 +177,7 @@ public class RestaurantRefresh implements ApplicationRunner {
 
         LocalDate to = LocalDate.now(KST);
         LocalDate from = to.minusDays(daysBack);
-        int fetched = 0, added = 0;
+        int fetched = 0, added = 0, removed = 0, reviewsRemoved = 0;
         for (String localCode : localCodes) {
             List<LocalDataClient.Row> rows = client.fetchChangedSince(localCode.trim(), from, to);
             fetched += rows.size();
@@ -187,17 +211,55 @@ public class RestaurantRefresh implements ApplicationRunner {
             }
 
             List<Long> ids = new ArrayList<>(remove);
-            for (int i = 0; i < ids.size(); i += BATCH_SIZE) {
-                repository.deleteAllByIdInBatch(ids.subList(i, Math.min(ids.size(), i + BATCH_SIZE)));
-            }
+            List<Place> closed = repository.findAllById(ids).stream().map(Place::of).toList();
+            deleteRestaurants(ids);
             for (int i = 0; i < add.size(); i += BATCH_SIZE) {
                 repository.saveAll(add.subList(i, Math.min(add.size(), i + BATCH_SIZE)));
             }
+            // 새 가게를 넣은 다음에 본다 — 같은 자리에 다시 연 가게의 후기는 남긴다
+            int reviewsGone = deleteReviewsOf(closed);
             removed += ids.size();
             added += add.size();
-            log.info("LOCALDATA {} 변경분 {}건: 추가 {}곳, 삭제 {}곳", localCode, rows.size(), add.size(), ids.size());
+            reviewsRemoved += reviewsGone;
+            log.info("LOCALDATA {} 변경분 {}건: 추가 {}곳, 삭제 {}곳, 후기 삭제 {}개", localCode, rows.size(), add.size(), ids.size(), reviewsGone);
         }
+
+        deleteRestaurants(new ArrayList<>(markedIds));
+        removed += marked.size();
+        reviewsRemoved += deleteReviewsOf(marked.stream().map(Place::of).toList());
+
         if (added > 0) geocode.start(); // 새 가게 좌표를 네이버 기준으로 고친다
-        return new Result(fetched, added, removed);
+        return new Result(fetched, added, removed, reviewsRemoved);
+    }
+
+    private void deleteRestaurants(List<Long> ids) {
+        for (int i = 0; i < ids.size(); i += BATCH_SIZE) {
+            repository.deleteAllByIdInBatch(ids.subList(i, Math.min(ids.size(), i + BATCH_SIZE)));
+        }
+    }
+
+    // 지워진 가게에 달린 후기를 지운다 (사진·댓글·걸린 신고까지 — ReviewCleanup). 가게 행을 지운 뒤에 부른다.
+    // 후기는 가게를 이름+주소(도로명 또는 지번)로 찾는다 (ReviewController.findPlace) — 같은 규칙으로 맞추고,
+    // 그 이름+주소의 가게가 아직 있으면(같은 자리에 다시 연 가게) 남긴다.
+    private int deleteReviewsOf(List<Place> places) {
+        int deleted = 0;
+        for (Place place : places) {
+            Set<String> addresses = new LinkedHashSet<>();
+            if (place.roadAddress() != null && !place.roadAddress().isBlank()) addresses.add(place.roadAddress());
+            if (place.address() != null && !place.address().isBlank()) addresses.add(place.address());
+            for (String address : addresses) {
+                boolean stillThere = repository.findFirstByNameAndRoadAddress(place.name(), address).isPresent()
+                        || repository.findFirstByNameAndAddress(place.name(), address).isPresent();
+                if (stillThere) continue;
+                for (Long id : reviews.idsByPlace(place.name(), address)) {
+                    // 후기 하나씩 따로 커밋한다 — 하나가 실패해도 나머지는 지워지고, R2의 사진도 그때 지워진다
+                    deleted += tx.execute(s -> reviews.findById(id).map(review -> {
+                        cleanup.deleteReview(review, Report.Status.GONE);
+                        return 1;
+                    }).orElse(0));
+                }
+            }
+        }
+        return deleted;
     }
 }

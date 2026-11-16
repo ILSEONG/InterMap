@@ -172,6 +172,16 @@
   white-space: nowrap;
 }
 
+/* 회원 닉네임·가게 이름 — 경로(.admin-ops__route)와 달리 본문 글꼴로 */
+.admin-ops__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .admin-ops__route,
 .admin-ops__code {
   margin: 0;

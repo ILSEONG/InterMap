@@ -4,6 +4,7 @@ import com.intermap.backend.auth.Admins;
 import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.moderation.Report;
+import com.intermap.backend.review.Review;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
 import jakarta.persistence.EntityManager;
@@ -37,10 +38,22 @@ public class OpsController {
     public record Traffic(long total, long errors, long avgMs, List<RequestMetrics.Hour> hours) {
     }
 
-    // dbBytes·photoBytes는 PostgreSQL에서만 (로컬 H2에선 null)
-    public record Data(long users, long usersToday, long usersWeek, long reviews, long reviewsToday, long comments,
-                       long openReports, long pushDevices, Long dbBytes, Long photoBytes) {
+    // 최근에 가입한 회원. provider = 간편 로그인 종류(naver·kakao·google·apple), 이메일로 가입했으면 null.
+    // 이메일 주소는 싣지 않는다 — 누가 들어왔는지는 닉네임으로 충분하다
+    public record NewUser(Long id, String nickname, String provider, Instant joinedAt) {
     }
+
+    // 최근에 올라온 후기
+    public record NewReview(Long id, String restaurantName, String author, double rating, Instant createdAt) {
+    }
+
+    // dbBytes·photoBytes는 PostgreSQL에서만 (로컬 H2에선 null). newUsers·newReviews는 새것부터 RECENT개씩
+    public record Data(long users, long usersToday, long usersWeek, long reviews, long reviewsToday, long comments,
+                       long openReports, long pushDevices, Long dbBytes, Long photoBytes,
+                       List<NewUser> newUsers, List<NewReview> newReviews) {
+    }
+
+    private static final int RECENT = 10;
 
     public record Logs(long errors, long warnings, List<ErrorLog.Entry> recent) {
     }
@@ -119,7 +132,14 @@ public class OpsController {
                         .setParameter("status", Report.Status.OPEN).getSingleResult(),
                 count("select count(distinct t.user) from PushToken t"),
                 bytes("select pg_database_size(current_database())"),
-                bytes("select pg_total_relation_size('review_photo') + pg_total_relation_size('user_avatar')"));
+                bytes("select pg_total_relation_size('review_photo') + pg_total_relation_size('user_avatar')"),
+                em.createQuery("select u from AppUser u order by u.createdAt desc, u.id desc", AppUser.class)
+                        .setMaxResults(RECENT).getResultList().stream()
+                        .map(u -> new NewUser(u.getId(), u.getNickname(), u.getProvider(), u.getCreatedAt())).toList(),
+                em.createQuery("select r from Review r join fetch r.author order by r.createdAt desc, r.id desc", Review.class)
+                        .setMaxResults(RECENT).getResultList().stream()
+                        .map(r -> new NewReview(r.getId(), r.getRestaurantName(), r.getAuthor().getNickname(),
+                                r.getRating(), r.getCreatedAt())).toList());
     }
 
     private long count(String jpql) {
