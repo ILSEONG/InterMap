@@ -8,7 +8,7 @@ export interface PetLine {
   mood: PetMood
   title: string
   body: string
-  // 본문 끝에 붙는 작은 그림 — 별(찜)
+  // 본문 끝에 붙는 작은 그림 — 별(별점)
   icon?: 'star'
   action?: PetAction
   actionLabel?: string
@@ -18,7 +18,7 @@ export interface PetLine {
 const WELCOME = (nickname: string): PetLine => ({
   mood: 'happy',
   title: `반가워요, ${nickname}님!`,
-  body: '마음에 드는 곳에 별을 남겨보세요.',
+  body: '오늘 다녀온 곳, 후기로 남겨주세요.',
   icon: 'star',
 })
 const LONG_TIME = (nickname: string): PetLine => ({
@@ -28,11 +28,11 @@ const LONG_TIME = (nickname: string): PetLine => ({
   action: 'nearby',
   actionLabel: '내 주변 둘러보기',
 })
-// 찜한 곳이 아직 없으면 "찜한 곳 보기"가 빈 화면으로 가므로, 별을 남겨 보라는 말로 바꾼다
+// 찜한 곳이 아직 없으면 "찜한 곳 보기"가 빈 화면으로 가므로, 후기를 남겨 달라는 말로 바꾼다
 const TODAY = (hasFavorites: boolean): PetLine =>
   hasFavorites
     ? { mood: 'rest', title: '오늘은 어디로 가볼까요?', body: '찜한 곳에서 골라봐도 좋아요.', action: 'favorites', actionLabel: '찜한 곳 보기' }
-    : { mood: 'rest', title: '오늘은 어디로 가볼까요?', body: '마음에 드는 곳에 별을 남겨보세요.', icon: 'star' }
+    : { mood: 'rest', title: '오늘은 어디로 가볼까요?', body: '오늘 다녀온 곳, 후기로 남겨주세요.', icon: 'star' }
 
 // 사람별로 마지막으로 들른 날과 인사한 날을 기기에 적어 둔다 (서버에는 안 보낸다)
 interface PetMemory {
