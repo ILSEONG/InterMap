@@ -36,7 +36,10 @@ public class PhotoSizeBackfill implements ApplicationRunner {
             List<Long> ids = photos.idsWithoutSize();
             for (Long id : ids) {
                 // 엔티티를 고쳐 두면 트랜잭션이 끝날 때 저장된다
-                tx.executeWithoutResult(s -> photos.findById(id).ifPresent(p -> p.setSize(PhotoSize.of(p.getData()))));
+                tx.executeWithoutResult(s -> photos.findById(id)
+                        // 목록을 읽은 뒤 R2로 옮겨졌으면 바이트가 없다 — 그때는 옮기면서 크기를 채웠다
+                        .filter(p -> p.getStorageKey() == null)
+                        .ifPresent(p -> p.setSize(PhotoSize.of(p.getData()))));
             }
             if (!ids.isEmpty()) log.info("사진 크기 {}장 채움", ids.size());
         } catch (RuntimeException e) {

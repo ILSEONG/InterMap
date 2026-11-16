@@ -1,5 +1,6 @@
 package com.intermap.backend.auth;
 
+import com.intermap.backend.storage.PhotoStore;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 
 // 프로필 사진. 올리기/지우기는 본인만, 보기는 누구나 (후기·팔로우 목록에서 그린다).
 @RestController
@@ -41,13 +43,26 @@ public class AvatarController {
         return null;
     }
 
+    // 사진 응답 (후기 사진도 이걸 쓴다). 주소가 바뀌어야 내용이 바뀌므로 1년 캐시.
+    // data가 null이면 R2에서 못 받은 것 — 캐시되지 않게 503으로 답해 다음에 다시 받게 한다
+    public static ResponseEntity<byte[]> served(String contentType, byte[] data) {
+        if (data == null) return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header("X-Content-Type-Options", "nosniff")
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
+                .body(data);
+    }
+
     public record AvatarResponse(String avatar) {
     }
 
     private final UserAvatarRepository avatars;
     private final AuthController auth;
+    private final PhotoStore store;
 
-    public AvatarController(UserAvatarRepository avatars, AuthController auth) {
+    public AvatarController(UserAvatarRepository avatars, AuthController auth, PhotoStore store) {
+        this.store = store;
         this.avatars = avatars;
         this.auth = auth;
     }
@@ -70,7 +85,10 @@ public class AvatarController {
         if (type == null) {
             return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("JPG, PNG, WEBP 사진만 올릴 수 있어요."));
         }
-        UserAvatar saved = avatars.save(new UserAvatar(me.getId(), type, data));
+        // 새 사진을 올리고 행을 바꾼 다음에야 예전 사진을 R2에서 지운다 — 중간에 실패해도 예전 사진이 남게
+        String previous = avatars.findStorageKey(me.getId()).orElse(null);
+        UserAvatar saved = avatars.save(new UserAvatar(me.getId(), type, data, store.save("avatars", type, data)));
+        if (previous != null) store.deleteAfterCommit(List.of(previous));
         return ResponseEntity.ok(new AvatarResponse(UserAvatarRepository.url(me.getId(), saved.getUpdatedAt())));
     }
 
@@ -78,7 +96,9 @@ public class AvatarController {
     public ResponseEntity<?> delete(@RequestHeader(value = "Authorization", required = false) String authorization) {
         AppUser me = auth.currentUser(authorization);
         if (me == null) return unauthorized();
+        String previous = avatars.findStorageKey(me.getId()).orElse(null);
         avatars.deleteById(me.getId());
+        if (previous != null) store.deleteAfterCommit(List.of(previous));
         return ResponseEntity.ok(new AvatarResponse(null));
     }
 
@@ -86,11 +106,8 @@ public class AvatarController {
     @GetMapping("/api/users/{id}/avatar")
     public ResponseEntity<byte[]> photo(@PathVariable Long id) {
         return avatars.findById(id)
-                .map(a -> ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(a.getContentType()))
-                        .header("X-Content-Type-Options", "nosniff")
-                        .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
-                        .body(a.getData()))
+                .map(a -> served(a.getContentType(),
+                        a.getStorageKey() == null ? a.getData() : store.load(a.getStorageKey())))
                 .orElse(ResponseEntity.notFound().build());
     }
 }

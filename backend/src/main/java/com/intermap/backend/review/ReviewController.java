@@ -11,7 +11,7 @@ import com.intermap.backend.moderation.Report;
 import com.intermap.backend.moderation.ReportRepository;
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
-import org.springframework.http.CacheControl;
+import com.intermap.backend.storage.PhotoStore;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +30,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,7 +94,7 @@ public class ReviewController {
     }
 
     static final int MAX_PHOTOS = 10;
-    // 프론트가 1280px JPEG로 줄여 보내 보통 0.5MB 아래다. 사진은 DB에 들어가므로 작게 묶는다.
+    // 프론트가 1280px JPEG로 줄여 보내 보통 0.5MB 아래다. 사진을 서버가 받아 넘기므로(힙 256MB) 작게 묶는다.
     static final long MAX_PHOTO_BYTES = 1024 * 1024;
     // 계정 하나가 하루에 올릴 수 있는 양 — 도배와 DB 저장 공간 채우기 방지
     static final int DAILY_REVIEWS = 20;
@@ -111,10 +110,12 @@ public class ReviewController {
     private final ReportRepository reports;
     private final DailyLimits limits;
     private final ReviewAudience audience;
+    private final PhotoStore store;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
                             AuthController auth, UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                            ReportRepository reports, DailyLimits limits, ReviewAudience audience) {
+                            ReportRepository reports, DailyLimits limits, ReviewAudience audience, PhotoStore store) {
+        this.store = store;
         this.limits = limits;
         this.audience = audience;
         this.restaurants = restaurants;
@@ -275,6 +276,7 @@ public class ReviewController {
             return tooMany();
         }
         review.edit(request.rating(), text, menu);
+        store.deleteAfterCommit(photos.storageKeys(dropped));
         photos.deleteAllByIdInBatch(dropped);
         List<Photo> result = new ArrayList<>(kept);
         for (MultipartFile f : uploads) {
@@ -334,7 +336,8 @@ public class ReviewController {
     // 형식은 파일 바이트로 판별한 값을 저장한다 (checkPhotos를 통과한 파일만 온다)
     private Photo savePhoto(Review review, MultipartFile f) throws IOException {
         byte[] data = f.getBytes();
-        ReviewPhoto saved = photos.save(new ReviewPhoto(review, AvatarController.imageType(data), data));
+        String type = AvatarController.imageType(data);
+        ReviewPhoto saved = photos.save(new ReviewPhoto(review, type, data, store.save("reviews", type, data)));
         return Photo.of(saved.getId(), saved.getAccessKey(), saved.getWidth(), saved.getHeight());
     }
 
@@ -350,16 +353,14 @@ public class ReviewController {
     }
 
     // 사진은 한 번 올라가면 안 바뀐다 — 1년 캐시. 키가 맞아야 준다 (볼 수 있는 후기 응답에만 키가 실린다).
+    // 바이트는 R2에서 받아 넘긴다 — 주소와 키 검사가 그대로라 앱은 어디에 저장됐는지 모른다.
     @GetMapping("/api/photos/{id}/{key}")
     public ResponseEntity<byte[]> photo(@PathVariable Long id, @PathVariable String key) {
         return photos.findById(id)
                 .filter(p -> p.getAccessKey() != null && MessageDigest.isEqual(
                         p.getAccessKey().getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8)))
-                .map(p -> ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(p.getContentType()))
-                        .header("X-Content-Type-Options", "nosniff")
-                        .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
-                        .body(p.getData()))
+                .map(p -> AvatarController.served(p.getContentType(),
+                        p.getStorageKey() == null ? p.getData() : store.load(p.getStorageKey())))
                 .orElse(ResponseEntity.notFound().build());
     }
 }

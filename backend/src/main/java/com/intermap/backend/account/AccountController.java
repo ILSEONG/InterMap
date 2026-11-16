@@ -22,6 +22,7 @@ import com.intermap.backend.push.PushTokenRepository;
 import com.intermap.backend.social.FollowRepository;
 import com.intermap.backend.social.FollowRequestRepository;
 import com.intermap.backend.social.UserAliasRepository;
+import com.intermap.backend.storage.PhotoStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.List;
 
 // 회원 탈퇴 — 계정과 그 사람이 남긴 것을 즉시, 되돌릴 수 없게 지운다 (Google Play 계정 삭제 정책).
 // 남이 그 사람 글을 신고한 기록은 사본과 함께 남겨 운영 기록으로 쓴다 (작성자 id·닉네임 사본만 남는다).
@@ -62,13 +64,15 @@ public class AccountController {
     private final PollStore pollStore;
     private final AppleLogin appleLogin;
     private final AuthSessionRepository sessions;
+    private final PhotoStore photoStore;
 
     public AccountController(AppUserRepository users, AuthController auth, ReviewRepository reviews,
                              ReviewCommentRepository comments, ReviewCleanup cleanup, FollowRepository follows,
                              UserAliasRepository aliases, FavoriteRepository favorites, UserAvatarRepository avatars,
                              UserBlockRepository blocks, ReportRepository reports, PollStore pollStore,
                              FollowRequestRepository followRequests, PushTokenRepository pushTokens,
-                             AppleLogin appleLogin, AuthSessionRepository sessions) {
+                             AppleLogin appleLogin, AuthSessionRepository sessions, PhotoStore photoStore) {
+        this.photoStore = photoStore;
         this.sessions = sessions;
         this.appleLogin = appleLogin;
         this.users = users;
@@ -127,6 +131,7 @@ public class AccountController {
         pollStore.deleteAllFor(me);
         blocks.deleteAllInvolving(me);
         reports.deleteAllByReporter(me);
+        avatars.findStorageKey(id).ifPresent(key -> photoStore.deleteAfterCommit(List.of(key)));
         if (avatars.existsById(id)) avatars.deleteById(id);
         // Apple로 로그인한 계정이면 Apple 쪽에서도 이 앱과의 연결을 끊는다 (App Store 심사 지침).
         // Apple이 응답하지 않아도 탈퇴는 그대로 끝낸다
