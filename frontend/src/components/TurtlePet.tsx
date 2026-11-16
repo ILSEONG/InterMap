@@ -21,7 +21,6 @@ const BUBBLE_MS = 8000
 interface TurtlePetProps {
   userId: number
   nickname: string
-  hasFavorites: boolean
   // 다른 화면이 지도를 덮고 있으면 잠시 숨는다 (말풍선 타이머는 계속 간다)
   hidden: boolean
   onAction: (action: PetAction) => void
@@ -29,20 +28,20 @@ interface TurtlePetProps {
 
 // 지도 왼쪽 아래에 사는 거북이. 앱을 열면 상황에 맞는 한마디를 건네고(lib/pet), 말풍선은 곧 사라진다.
 // 거북이는 작게 남아 있다가, 누르면 한마디 더 한다.
-export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAction }: TurtlePetProps) {
+export default function TurtlePet({ userId, nickname, hidden, onAction }: TurtlePetProps) {
   const [line, setLine] = useState<PetLine | null>(null)
   // 걸어 들어올 때는 서 있는 자세로 — 자리를 잡으면 인사하는 자세로, 오늘 이미 인사했으면 엎드린다
   const [mood, setMood] = useState<PetMood>('wave')
   const chatIndex = useRef(0)
-  // 인사는 사람마다 앱을 켠 동안 한 번 — 즐겨찾기 목록이 늦게 와서 다시 그려져도 또 인사하지 않는다
-  const latest = useRef({ nickname, hasFavorites })
+  // 인사는 사람마다 앱을 켠 동안 한 번 — 닉네임이 바뀌어 다시 그려져도 또 인사하지 않는다
+  const latestNickname = useRef(nickname)
   useEffect(() => {
-    latest.current = { nickname, hasFavorites }
-  }, [nickname, hasFavorites])
+    latestNickname.current = nickname
+  }, [nickname])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const greeting = pickGreeting(userId, latest.current.nickname, latest.current.hasFavorites)
+      const greeting = pickGreeting(userId, latestNickname.current)
       rememberVisit(userId, greeting !== null)
       if (greeting) setLine(greeting)
       setMood(greeting ? greeting.mood : 'rest')
@@ -62,7 +61,7 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
       setLine(null)
       return
     }
-    const lines = chatLines(nickname, hasFavorites)
+    const lines = chatLines(nickname)
     const next = lines[chatIndex.current % lines.length]
     chatIndex.current += 1
     setLine(next)
@@ -82,22 +81,7 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
             </svg>
           </button>
           <p className="pet__title">{line.title}</p>
-          <p className="pet__body">
-            {line.icon === 'star' ? (
-              <>
-                {/* 별이 혼자 다음 줄로 떨어지지 않게 마지막 낱말과 묶는다 */}
-                {line.body.slice(0, line.body.lastIndexOf(' ') + 1)}
-                <span className="pet__tail">
-                  {line.body.slice(line.body.lastIndexOf(' ') + 1)}
-                  <svg className="pet__star" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
-                    <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
-                  </svg>
-                </span>
-              </>
-            ) : (
-              line.body
-            )}
-          </p>
+          <p className="pet__body">{line.body}</p>
           {line.action && (
             <button
               type="button"

@@ -1639,7 +1639,6 @@ export default function App() {
           key={session.id}
           userId={session.id}
           nickname={session.nickname}
-          hasFavorites={favorites.size > 0}
           hidden={petHidden}
           onAction={(action) => {
             if (action === 'favorites') setFavMode(true)
