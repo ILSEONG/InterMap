@@ -20,7 +20,7 @@ export const TASTE_THEMES: TasteTheme[] = [
   { id: 'ink', name: '잉크', bg: '#161b26', fg: '#eef1f6', accent: '#ff8a6b', line: 'rgba(238,241,246,0.12)' },
 ]
 
-const FONT = '"Noto Sans KR", system-ui, sans-serif'
+const FONT = '"Pretendard Variable", Pretendard, system-ui, sans-serif'
 // 360×640 기준으로 그리고 3배로 키운다
 const S = 3
 const W = 360

@@ -9,7 +9,7 @@ import { monthLabel } from './time'
 
 export const CARD_WIDTH = 1080
 export const CARD_HEIGHT = 1920
-const FONT = '"Noto Sans KR", system-ui, sans-serif'
+const FONT = '"Pretendard Variable", Pretendard, system-ui, sans-serif'
 const PAD = 90
 
 // 이 달을 한마디로 — 많이 간 장르 → 동네 → 별점 성향 → 다닌 양 순으로 본다
@@ -64,7 +64,7 @@ function ratingWord(avg: number | null): string {
 }
 
 const INK = '#141414'
-const ROUND = 'Jua, "Noto Sans KR", sans-serif'
+const ROUND = 'Jua, "Pretendard Variable", sans-serif'
 // 친구 동그라미 색 (앱 아바타 파스텔 톤과 같은 계열을 진하게)
 const FRIEND_COLORS = ['#3e63f2', '#e5486e', '#35c89a']
 
