@@ -1,0 +1,30 @@
+name: Restaurant refresh
+
+# 매주 목요일 22시(한국시간)에 서울 음식점 목록을 최신화한다 — 새로 연 가게 추가, 폐업한 가게 삭제.
+# 실제 작업은 백엔드가 한다 (backend/.../localdata/RestaurantRefresh.java). 이 워크플로는 백엔드를 깨워 둘 뿐이다:
+# Render 무료 서버는 15분간 요청이 없으면 잠들고, 잠든 동안에는 서버 안의 스케줄이 돌지 않는다.
+#   - 22시 전에 깨어나면 서버의 목요일 22시 스케줄이 돈다.
+#   - GitHub 스케줄이 밀려 22시 뒤에 깨어나면, 서버가 켜지면서 "지난 목요일 22시 것을 아직 안 했다"를 보고 바로 돈다.
+# 작업이 끝날 때까지 잠들지 않게 5분마다 30분 동안 부른다. 비밀 값은 쓰지 않는다 (공개 페이지만 부른다).
+
+on:
+  schedule:
+    # 목요일 21:55 KST = 목요일 12:55 UTC
+    - cron: '55 12 * * 4'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Keep the backend awake while it refreshes
+        run: |
+          for i in 1 2 3 4 5 6 7; do
+            # 잠든 서버는 첫 응답까지 1분쯤 걸린다. 실패해도 다음 차례에 다시 부른다
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 150 https://intermap-be.onrender.com/privacy.html || true)
+            echo "$(date -u +%H:%M:%S) UTC  ping $i → HTTP ${code:-실패}"
+            if [ "$i" -lt 7 ]; then sleep 300; fi
+          done

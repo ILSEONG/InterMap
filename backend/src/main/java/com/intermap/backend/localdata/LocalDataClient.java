@@ -23,8 +23,8 @@ public class LocalDataClient {
 
     private static final String BASE_URL = "https://apis.data.go.kr/1741000/general_restaurants/info";
     private static final int PAGE_SIZE = 100; // API max
-    // ponytail: 페이지 상한 고정 — 주간 델타 조회엔 충분, 전체 백필이 필요해지면 상한 올리기
-    private static final int MAX_PAGES = 50;
+    // 변경분 조회 상한 (구 하나, 3만 건). 한 달 치 변경분이 이걸 넘으면 뒤쪽이 잘린다 — 잘리면 로그에 남긴다
+    private static final int MAX_PAGES = 300;
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -41,6 +41,10 @@ public class LocalDataClient {
     ) {
         public boolean isClosed() {
             return "03".equals(trdStateGbn) || "04".equals(trdStateGbn); // 03 폐업, 04 취소/말소
+        }
+
+        public boolean isOpen() {
+            return "01".equals(trdStateGbn); // 01 영업/정상 (fetchAllOpen이 거르는 값과 같다)
         }
     }
 
@@ -120,6 +124,7 @@ public class LocalDataClient {
             all.addAll(rows);
             if (page % 10 == 0) log.info("LOCALDATA 조회 중... {}페이지, 누적 {}건", page, all.size());
             if (rows.size() < PAGE_SIZE) break;
+            if (page == maxPages) log.warn("LOCALDATA 조회가 상한({}페이지)에서 잘렸어요 — 뒤쪽 행은 못 받음", maxPages);
         }
         return all;
     }

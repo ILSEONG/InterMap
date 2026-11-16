@@ -17,11 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.intermap.backend.localdata.StatusSyncService.normalize;
-
 /**
  * 지자체 인허가 데이터(영업중 일반음식점 전량)를 받아 신규 가게를 등록하는 백필 서비스.
- * 이미 있는 가게는 관리번호(mgtNo)만 채워 이후 폐업 동기화의 정확 매칭을 돕는다.
+ * 이미 있는 가게는 관리번호(mgtNo)만 채워 이후 주간 최신화(RestaurantRefresh)의 정확 매칭을 돕는다.
  */
 @Service
 public class RestaurantImportService {
@@ -83,8 +81,7 @@ public class RestaurantImportService {
                 continue;
             }
 
-            String roadAddr = blankToNull(row.rdnWhlAddr()) != null ? row.rdnWhlAddr() : row.lotnoAddr();
-            String k = key(row.bplcNm(), roadAddr);
+            String k = key(row);
             Long foundId = idByNameAddr.get(k);
             if (foundId != null) {
                 // 기존 가게 — 관리번호 백필 (이후 동기화가 문자열 매칭 없이 정확 매칭됨)
@@ -98,21 +95,11 @@ public class RestaurantImportService {
                 continue;
             }
 
-            double[] latLng = toLatLng(row.crdX(), row.crdY());
-            if (latLng == null) {
+            Restaurant restaurant = toRestaurant(row);
+            if (restaurant == null) {
                 skipped++;
                 continue;
             }
-
-            Restaurant restaurant = new Restaurant(
-                row.bplcNm(),
-                blankToNull(row.category()) != null ? row.category() : "음식점",
-                row.rdnWhlAddr(),
-                row.lotnoAddr(),
-                latLng[0],
-                latLng[1]
-            );
-            restaurant.markStatus(Restaurant.Status.OPEN, row.mgtNo());
             batch.add(restaurant);
             idByNameAddr.put(k, null); // 새로 만든 건 id가 아직 없다 — 중복 행만 걸러내면 된다
             created++;
@@ -135,8 +122,34 @@ public class RestaurantImportService {
         return new Result(rows.size(), created, matched, skipped);
     }
 
-    private static String key(String name, String roadAddr) {
+    // 같은 가게인지 가리는 키 — 상호|주소, 띄어쓰기는 무시한다
+    static String key(String name, String roadAddr) {
         return normalize(name) + "|" + normalize(roadAddr);
+    }
+
+    // 인허가 행의 키. 도로명 주소가 없는 행은 지번 주소로 (가게를 만들 때 넣는 값과 같은 규칙)
+    static String key(LocalDataClient.Row row) {
+        return key(row.bplcNm(), blankToNull(row.rdnWhlAddr()) != null ? row.rdnWhlAddr() : row.lotnoAddr());
+    }
+
+    static String normalize(String s) {
+        return s == null ? "" : s.replaceAll("\\s+", "");
+    }
+
+    /** 인허가 행으로 영업중 가게를 만든다. 좌표가 없거나 한국 밖이면 null */
+    static Restaurant toRestaurant(LocalDataClient.Row row) {
+        double[] latLng = toLatLng(row.crdX(), row.crdY());
+        if (latLng == null) return null;
+        Restaurant restaurant = new Restaurant(
+            row.bplcNm(),
+            blankToNull(row.category()) != null ? row.category() : "음식점",
+            row.rdnWhlAddr(),
+            row.lotnoAddr(),
+            latLng[0],
+            latLng[1]
+        );
+        restaurant.markStatus(Restaurant.Status.OPEN, row.mgtNo());
+        return restaurant;
     }
 
     private static String blankToNull(String s) {
