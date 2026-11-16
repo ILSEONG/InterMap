@@ -689,6 +689,10 @@ export interface OpsData {
     pushDevices: number
     dbBytes: number | null
     photoBytes: number | null
+    // 새것부터 10개씩. provider = naver·kakao·google·apple, 이메일 가입이면 null
+    // (배포 직후 잠깐은 서버가 아직 예전 것이라 없을 수 있다)
+    newUsers?: { id: number; nickname: string; provider: string | null; joinedAt: string }[]
+    newReviews?: { id: number; restaurantName: string; author: string; rating: number; createdAt: string }[]
   }
 }
 

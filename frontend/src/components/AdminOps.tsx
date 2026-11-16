@@ -7,7 +7,8 @@ import './AdminOps.css'
 import SheetGrip from './SheetGrip'
 
 // 운영 관리자 전용 — 서버가 잘 돌고 있는지 한 화면에서 본다.
-// 위에서부터: 요약 → 바깥 서비스(메일·푸시·간편 로그인) → 시간대별 요청 → 시간을 많이 쓰는 API → 최근 경고·오류 → 쌓인 데이터.
+// 위에서부터: 요약 → 바깥 서비스(메일·푸시·간편 로그인) → 시간대별 요청 → 시간을 많이 쓰는 API → 최근 경고·오류 → 쌓인 데이터
+// → 새로 가입한 회원 → 새로 올라온 후기.
 // 요청·오류 숫자는 서버 메모리에 있어 서버가 다시 켜지면 0부터 다시 센다 (맨 위에 켜진 지 얼마나 됐는지 적는다).
 
 const EXTERNAL_NAMES: Record<string, string> = {
@@ -18,6 +19,9 @@ const EXTERNAL_NAMES: Record<string, string> = {
   'login:google': 'Google 로그인',
   'login:apple': 'Apple 로그인',
 }
+
+// 가입 방법 (서버의 provider 값 → 화면 이름). 없으면 이메일 가입
+const JOINED_WITH: Record<string, string> = { naver: '네이버', kakao: '카카오', google: 'Google', apple: 'Apple' }
 
 const num = (n: number) => n.toLocaleString('ko-KR')
 const ms = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}초` : `${n}ms`)
@@ -319,6 +323,42 @@ export default function AdminOps({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                 </dl>
+              </section>
+
+              <section className="admin-ops__section">
+                <h3>새로 가입한 회원</h3>
+                {(data.data.newUsers ?? []).length === 0 ? (
+                  <p className="admin-ops__empty">아직 가입한 회원이 없어요.</p>
+                ) : (
+                  <ul className="admin-ops__list">
+                    {(data.data.newUsers ?? []).map((u) => (
+                      <li key={u.id} className="admin-ops__item">
+                        <p className="admin-ops__name">{u.nickname}</p>
+                        <p className="admin-ops__meta">
+                          {(u.provider && JOINED_WITH[u.provider]) || '이메일'} 가입 · {timeAgo(u.joinedAt)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="admin-ops__section">
+                <h3>새로 올라온 후기</h3>
+                {(data.data.newReviews ?? []).length === 0 ? (
+                  <p className="admin-ops__empty">아직 올라온 후기가 없어요.</p>
+                ) : (
+                  <ul className="admin-ops__list">
+                    {(data.data.newReviews ?? []).map((r) => (
+                      <li key={r.id} className="admin-ops__item">
+                        <p className="admin-ops__name">{r.restaurantName}</p>
+                        <p className="admin-ops__meta">
+                          {r.author} · 평점 {r.rating.toFixed(1)} · {timeAgo(r.createdAt)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             </>
           )}
