@@ -206,16 +206,6 @@
   word-break: keep-all;
 }
 
-.pet__tail {
-  white-space: nowrap;
-}
-
-.pet__star {
-  margin-left: 4px;
-  vertical-align: -2px;
-  color: #f29a4e;
-}
-
 .pet__action {
   margin-top: 8px;
   min-height: 32px;

@@ -162,6 +162,8 @@
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  /* 낱말 중간에서 끊지 않는다 ("하우/스"). 띄어쓰기 없이 아주 긴 이름만 칸에 맞춰 끊는다 */
+  word-break: keep-all;
   overflow-wrap: anywhere;
 }
 

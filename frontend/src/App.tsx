@@ -96,7 +96,7 @@ async function fetchGroupedComments(): Promise<Record<number, Comment[]>> {
   THESIS: the map is always the ground; everything else floats over it as
   Liquid Glass — translucent capsules and sheets that keep the map visible.
   OWN-WORLD: frosted glass controls, concentric radii, one rose accent,
-  Noto Sans KR, primary actions gathered in a bottom dock for one-handed use.
+  Pretendard, primary actions gathered in a bottom dock for one-handed use.
   STORY: open app -> see illustrated map with friends' story chips and
   colored pins -> tap a pin -> read neighbor reviews and their comments.
   FIRST VIEWPORT: full-bleed illustrated map, floating pill header (필터 +
@@ -1639,7 +1639,6 @@ export default function App() {
           key={session.id}
           userId={session.id}
           nickname={session.nickname}
-          hasFavorites={favorites.size > 0}
           hidden={petHidden}
           onAction={(action) => {
             if (action === 'favorites') setFavMode(true)
