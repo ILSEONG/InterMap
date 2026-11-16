@@ -5,6 +5,8 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,8 +62,10 @@ public class AvatarController {
     private final UserAvatarRepository avatars;
     private final AuthController auth;
     private final PhotoStore store;
+    private final JdbcTemplate jdbc;
 
-    public AvatarController(UserAvatarRepository avatars, AuthController auth, PhotoStore store) {
+    public AvatarController(UserAvatarRepository avatars, AuthController auth, PhotoStore store, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.store = store;
         this.avatars = avatars;
         this.auth = auth;
@@ -105,9 +109,14 @@ public class AvatarController {
     // URL에 ?v= 갱신 시각이 붙으므로 1년 캐시해도 바뀐 사진은 새 URL로 받는다
     @GetMapping("/api/users/{id}/avatar")
     public ResponseEntity<byte[]> photo(@PathVariable Long id) {
-        return avatars.findById(id)
-                .map(a -> served(a.getContentType(),
-                        a.getStorageKey() == null ? a.getData() : store.load(a.getStorageKey())))
-                .orElse(ResponseEntity.notFound().build());
+        // JDBC로 읽고 연결을 바로 돌려준다 — R2에서 받는 동안 DB 연결을 쥐지 않게 (ReviewController.photo와 같은 이유)
+        String[] row = jdbc.query("select content_type, storage_key from user_avatar where user_id = ?",
+                (ResultSetExtractor<String[]>) rs -> rs.next() ? new String[]{rs.getString(1), rs.getString(2)} : null,
+                id);
+        if (row == null) return ResponseEntity.notFound().build();
+        byte[] data = row[1] != null ? store.load(row[1])
+                : jdbc.query("select data from user_avatar where user_id = ?",
+                        (ResultSetExtractor<byte[]>) rs -> rs.next() ? rs.getBytes(1) : null, id);
+        return served(row[0], data);
     }
 }

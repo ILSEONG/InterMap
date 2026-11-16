@@ -66,7 +66,8 @@ final class S3Client {
         signed.put("x-amz-content-sha256", payloadHash);
         signed.put("x-amz-date", amzDate);
         HttpRequest.Builder request = HttpRequest.newBuilder(uri)
-                .timeout(Duration.ofSeconds(20))
+                // 사진을 받는 쪽은 화면이 기다린다 — 올리기(20초)보다 짧게
+                .timeout(Duration.ofSeconds("GET".equals(method) ? 10 : 20))
                 .header("x-amz-content-sha256", payloadHash)
                 .header("x-amz-date", amzDate)
                 .header("Authorization", S3Signer.authorization(method, uri, signed, payloadHash,

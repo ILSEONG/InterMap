@@ -51,6 +51,7 @@
 - 기존 사진: 서버 시작 때 뒤에서 한 장씩 R2로 옮긴다(`storage/PhotoOffload`). 올린 것을 다시 받아 원본과 같을 때만 DB의 바이트를 비운다. 로그에 "사진 N장을 R2로 옮겼어요. DB에 남은 사진: 0장"이 찍히면 끝난 것.
 - R2가 잠깐 안 될 때: 올리기는 DB에 두었다가 다음 시작 때 옮기고, 받기는 캐시되지 않는 503으로 답한다.
 - AWS SDK 없이 요청 서명(SigV4)을 직접 만든다 — SDK가 힙 256MB에 부담이라. AWS 문서의 예제 값으로 확인한다(`S3SignerTest`).
+- 사진 행은 JDBC로 읽고 DB 연결을 바로 돌려준다. JPA로 읽으면 응답이 끝날 때까지 연결을 쥐어서(open-in-view), R2가 느릴 때 사진 요청이 연결을 다 잡는다.
 - 남은 것: 사진을 받을 때 여전히 앱 서버를 거친다. 조회가 늘면 R2 주소로 바로 받게(서명된 주소로 넘기기) 바꾼다. 트랜잭션이 되돌려진 직후 서버가 죽으면 R2에 주인 없는 사진이 남을 수 있다 — 용량이 문제 되면 정리 작업을 만든다.
 - PostgreSQL은 비운 자리를 바로 돌려주지 않는다. DB 용량 숫자를 줄이려면 `VACUUM FULL review_photo`를 하거나 DB를 덤프해 새로 올린다.
 - 코드: `storage/PhotoStore`, `storage/S3Client`, `storage/S3Signer`, `storage/PhotoOffload`

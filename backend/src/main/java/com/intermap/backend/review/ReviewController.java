@@ -15,6 +15,8 @@ import com.intermap.backend.storage.PhotoStore;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -111,10 +113,13 @@ public class ReviewController {
     private final DailyLimits limits;
     private final ReviewAudience audience;
     private final PhotoStore store;
+    private final JdbcTemplate jdbc;
 
     public ReviewController(ReviewRepository repository, ReviewPhotoRepository photos, RestaurantRepository restaurants,
                             AuthController auth, UserAvatarRepository avatars, ReviewCleanup cleanup, Blocks blocks,
-                            ReportRepository reports, DailyLimits limits, ReviewAudience audience, PhotoStore store) {
+                            ReportRepository reports, DailyLimits limits, ReviewAudience audience, PhotoStore store,
+                            JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.store = store;
         this.limits = limits;
         this.audience = audience;
@@ -352,15 +357,23 @@ public class ReviewController {
                 .body(new AuthController.ErrorResponse("오늘은 더 올릴 수 없어요. 내일 다시 해주세요."));
     }
 
+    private record StoredPhoto(String contentType, String accessKey, String storageKey, byte[] data) {
+    }
+
     // 사진은 한 번 올라가면 안 바뀐다 — 1년 캐시. 키가 맞아야 준다 (볼 수 있는 후기 응답에만 키가 실린다).
     // 바이트는 R2에서 받아 넘긴다 — 주소와 키 검사가 그대로라 앱은 어디에 저장됐는지 모른다.
+    // 행은 JDBC로 읽는다: JPA로 읽으면 응답이 끝날 때까지 DB 연결을 쥐고 있어서(open-in-view),
+    // R2가 느릴 때 사진 요청 몇 개가 연결을 다 잡아 다른 API까지 멈춘다.
     @GetMapping("/api/photos/{id}/{key}")
     public ResponseEntity<byte[]> photo(@PathVariable Long id, @PathVariable String key) {
-        return photos.findById(id)
-                .filter(p -> p.getAccessKey() != null && MessageDigest.isEqual(
-                        p.getAccessKey().getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8)))
-                .map(p -> AvatarController.served(p.getContentType(),
-                        p.getStorageKey() == null ? p.getData() : store.load(p.getStorageKey())))
-                .orElse(ResponseEntity.notFound().build());
+        StoredPhoto p = jdbc.query("select content_type, access_key, storage_key, data from review_photo where id = ?",
+                (ResultSetExtractor<StoredPhoto>) rs -> rs.next()
+                        ? new StoredPhoto(rs.getString(1), rs.getString(2), rs.getString(3), rs.getBytes(4)) : null,
+                id);
+        if (p == null || p.accessKey() == null || !MessageDigest.isEqual(
+                p.accessKey().getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8))) {
+            return ResponseEntity.notFound().build();
+        }
+        return AvatarController.served(p.contentType(), p.storageKey() == null ? p.data() : store.load(p.storageKey()));
     }
 }
