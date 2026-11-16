@@ -172,6 +172,28 @@ jobs:
           ./gradlew bundleRelease --no-daemon --stacktrace \
             -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
+      # 줄인 뒤에도 이름으로 찾는 클래스가 남아 있는지 본다 — 빠지면 앱이 켜지자마자 플러그인을 못 찾는다.
+      # (기기에서 돌려 보는 건 아니다. 내부 테스트 트랙에 올라간 빌드를 폰에서 한 번 확인할 것)
+      - id: shrinkcheck
+        name: Check classes survived shrinking
+        working-directory: frontend/android
+        run: |
+          rm -rf "$RUNNER_TEMP/aab" && mkdir -p "$RUNNER_TEMP/aab"
+          unzip -q -o app/build/outputs/bundle/release/app-release.aab 'base/dex/*' -d "$RUNNER_TEMP/aab"
+          NEED=$(python3 -c "import json;print('\n'.join(p['classpath'] for p in json.load(open('app/src/main/assets/capacitor.plugins.json'))))")
+          NEED="$NEED
+          com.intermap.app.MainActivity
+          com.getcapacitor.Bridge
+          com.getcapacitor.MessageHandler"
+          MISSING=0
+          for c in $NEED; do
+            d="L$(echo "$c" | tr . /);"
+            if cat "$RUNNER_TEMP"/aab/base/dex/*.dex | grep -a -q -F "$d"; then echo "ok   $c"; else echo "없음 $c"; MISSING=1; fi
+          done 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+          cat "$RUNNER_TEMP"/aab/base/dex/*.dex | grep -a -c -F 'Lcom/getcapacitor/' > /dev/null
+          ! grep -q '^없음' "$RUNNER_TEMP/build.log" || { echo "줄이는 과정에서 필요한 클래스가 빠졌어요" | tee -a "$RUNNER_TEMP/build.log"; exit 1; }
+          ls -la app/build/outputs/mapping/release/mapping.txt | tee -a "$RUNNER_TEMP/build.log"
+
       - id: publish
         name: Publish to Releases
         working-directory: .
@@ -241,6 +263,8 @@ jobs:
           releaseName: ${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }})
           track: ${{ env.PLAY_TRACK }}
           status: completed
+          # 줄인 이름을 원래 이름으로 풀어 읽는 표 — Play Console의 비정상 종료 보고서가 읽을 수 있게 된다
+          mappingFile: frontend/android/app/build/outputs/mapping/release/mapping.txt
 
       # 실패하면 로그 끝부분을 체크 주석(annotation)으로 남긴다
       - name: Report failure
@@ -250,7 +274,7 @@ jobs:
           OUTCOMES: >-
             version=${{ steps.version.outcome }} node=${{ steps.node.outcome }} java=${{ steps.java.outcome }}
             install=${{ steps.install.outcome }} web=${{ steps.web.outcome }} sync=${{ steps.sync.outcome }}
-            key=${{ steps.key.outcome }} aab=${{ steps.aab.outcome }} publish=${{ steps.publish.outcome }}
+            key=${{ steps.key.outcome }} aab=${{ steps.aab.outcome }} shrinkcheck=${{ steps.shrinkcheck.outcome }} publish=${{ steps.publish.outcome }}
             playcheck=${{ steps.playcheck.outcome }} play=${{ steps.play.outcome }}
         run: |
           {
