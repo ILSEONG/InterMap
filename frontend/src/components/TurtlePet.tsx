@@ -13,8 +13,8 @@ const ART: Record<PetMood, { src: string; w: number; h: number }> = {
   rest: { src: rest, w: 76, h: 50 },
 }
 
-// 앱을 열고 이만큼 뒤에 인사한다 (지도가 먼저 자리를 잡게)
-const GREET_AFTER_MS = 1200
+// 앱을 열고 이만큼 뒤에 인사한다 — 거북이가 걸어 들어와 자리를 잡은 직후 (TurtlePet.css의 pet-enter: 450ms 기다렸다 1200ms)
+const GREET_AFTER_MS = 1750
 // 말풍선이 떠 있는 시간 — 인사는 잠깐
 const BUBBLE_MS = 8000
 
@@ -31,7 +31,8 @@ interface TurtlePetProps {
 // 거북이는 작게 남아 있다가, 누르면 한마디 더 한다.
 export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAction }: TurtlePetProps) {
   const [line, setLine] = useState<PetLine | null>(null)
-  const [mood, setMood] = useState<PetMood>('rest')
+  // 걸어 들어올 때는 서 있는 자세로 — 자리를 잡으면 인사하는 자세로, 오늘 이미 인사했으면 엎드린다
+  const [mood, setMood] = useState<PetMood>('wave')
   const chatIndex = useRef(0)
   // 인사는 사람마다 앱을 켠 동안 한 번 — 즐겨찾기 목록이 늦게 와서 다시 그려져도 또 인사하지 않는다
   const latest = useRef({ nickname, hasFavorites })
@@ -43,10 +44,8 @@ export default function TurtlePet({ userId, nickname, hasFavorites, hidden, onAc
     const timer = window.setTimeout(() => {
       const greeting = pickGreeting(userId, latest.current.nickname, latest.current.hasFavorites)
       rememberVisit(userId, greeting !== null)
-      if (greeting) {
-        setLine(greeting)
-        setMood(greeting.mood)
-      }
+      if (greeting) setLine(greeting)
+      setMood(greeting ? greeting.mood : 'rest')
     }, GREET_AFTER_MS)
     return () => window.clearTimeout(timer)
   }, [userId])

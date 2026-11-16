@@ -27,15 +27,45 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 처음 나타날 때 왼쪽에서 아장아장 걸어 들어온다 */
+/* 처음 나타날 때 왼쪽 화면 밖에서 뒤뚱뒤뚱 걸어 들어온다 — 한 걸음마다 몸이 좌우로 기울고 살짝 들린다.
+   지도가 먼저 보인 뒤에 시작하도록 조금 기다린다 (그동안은 0% 상태 = 안 보임) */
 .pet__turtle {
-  animation: pet-enter 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  transform-origin: 50% 100%;
+  animation: pet-enter 1200ms linear 450ms both;
 }
 
 @keyframes pet-enter {
-  from {
+  0% {
     opacity: 0;
-    transform: translateX(-36px);
+    translate: -96px 0;
+    rotate: -7deg;
+  }
+  8% {
+    opacity: 1;
+  }
+  17% {
+    translate: -80px -4px;
+    rotate: 7deg;
+  }
+  34% {
+    translate: -62px 0;
+    rotate: -7deg;
+  }
+  51% {
+    translate: -44px -4px;
+    rotate: 7deg;
+  }
+  68% {
+    translate: -27px 0;
+    rotate: -6deg;
+  }
+  84% {
+    translate: -11px -3px;
+    rotate: 5deg;
+  }
+  100% {
+    translate: 0 0;
+    rotate: 0deg;
   }
 }
 
