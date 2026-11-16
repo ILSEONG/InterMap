@@ -2,6 +2,7 @@ package com.intermap.backend.review;
 
 import com.intermap.backend.moderation.Report;
 import com.intermap.backend.moderation.ReportRepository;
+import com.intermap.backend.storage.PhotoStore;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -17,9 +18,11 @@ public class ReviewCleanup {
     private final ReviewPhotoRepository photos;
     private final ReviewCommentRepository comments;
     private final ReportRepository reports;
+    private final PhotoStore store;
 
     public ReviewCleanup(ReviewRepository reviews, ReviewPhotoRepository photos, ReviewCommentRepository comments,
-                         ReportRepository reports) {
+                         ReportRepository reports, PhotoStore store) {
+        this.store = store;
         this.reviews = reviews;
         this.photos = photos;
         this.comments = comments;
@@ -30,8 +33,10 @@ public class ReviewCleanup {
     public void deleteReview(Review review, Report.Status status) {
         Long id = review.getId();
         List<Long> commentIds = comments.idsByReviewId(id);
-        // 사진 먼저 지운다 (FK)
-        photos.deleteAllByIdInBatch(photos.findRefsByReviewId(id).stream().map(ReviewPhotoRepository.Ref::getId).toList());
+        // 사진 먼저 지운다 (FK). R2에 있는 바이트는 커밋된 뒤에 지워진다
+        List<Long> photoIds = photos.findRefsByReviewId(id).stream().map(ReviewPhotoRepository.Ref::getId).toList();
+        store.deleteAfterCommit(photos.storageKeys(photoIds));
+        photos.deleteAllByIdInBatch(photoIds);
         comments.deleteAllByReviewId(id);
         reviews.delete(review);
         closeReports(Report.TargetType.REVIEW, List.of(id), status);

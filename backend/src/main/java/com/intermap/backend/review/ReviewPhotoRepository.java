@@ -39,7 +39,20 @@ public interface ReviewPhotoRepository extends JpaRepository<ReviewPhoto, Long> 
     @Query("update ReviewPhoto p set p.accessKey = :key where p.id = :id")
     void setKey(Long id, String key);
 
-    @Query("select p.id from ReviewPhoto p where p.width is null order by p.id")
+    // R2로 옮긴 사진은 바이트가 여기 없어 크기를 못 읽는다 — 옮길 때 채운다 (ReviewPhoto.movedTo)
+    @Query("select p.id from ReviewPhoto p where p.width is null and p.storageKey is null order by p.id")
     List<Long> idsWithoutSize();
+
+    // 바이트가 아직 DB에 있는 사진 (PhotoOffload가 R2로 옮길 것)
+    @Query("select p.id from ReviewPhoto p where p.storageKey is null order by p.id")
+    List<Long> idsInDatabase();
+
+    @Query("select p.storageKey from ReviewPhoto p where p.id in :ids and p.storageKey is not null")
+    List<String> storageKeysByIdIn(Collection<Long> ids);
+
+    // 사진 행을 지우기 전에, R2에서 같이 지울 위치들
+    default List<String> storageKeys(Collection<Long> ids) {
+        return ids.isEmpty() ? List.of() : storageKeysByIdIn(ids);
+    }
 
 }

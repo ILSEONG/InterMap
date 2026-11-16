@@ -13,8 +13,8 @@ import jakarta.persistence.ManyToOne;
 import java.util.UUID;
 
 // 후기 사진. 프론트가 1280px JPEG로 줄여 올리므로 한 장 수백 KB.
-// ponytail: DB(bytea)에 그대로 넣는다 — Render 디스크는 재배포 때 날아가고 오브젝트 스토리지는 키 설정이 필요해서.
-// Neon 무료 0.5GB 기준 수천 장까지. 넘어가면 S3/R2로 옮기고 여기엔 URL만 남길 것.
+// 바이트는 R2에 두고 여기엔 위치(storageKey)만 남긴다 (storage/PhotoStore.java).
+// R2 설정이 없거나 올리지 못했을 때만 바이트가 data에 들어 있다.
 @Entity
 @Table(indexes = {
         @Index(name = "idx_review_photo_review", columnList = "review_id")
@@ -31,9 +31,13 @@ public class ReviewPhoto {
     @Column(nullable = false)
     private String contentType;
 
-    // H2는 length로 VARBINARY 크기를 잡고, Postgres는 bytea라 length를 무시한다
+    // H2는 length로 VARBINARY 크기를 잡고, Postgres는 bytea라 length를 무시한다.
+    // R2에 있는 사진은 빈 배열 (NOT NULL 칸이라 null 대신)
     @Column(nullable = false, length = 10_000_000)
     private byte[] data;
+
+    // R2 안의 위치. null이면 바이트가 data에 있다
+    private String storageKey;
 
     // 사진 주소(/api/photos/{id}/{accessKey})에 들어가는 추측 불가 키. <img>는 로그인 헤더를 못 보내므로
     // 볼 수 있는 후기 응답에만 이 키를 실어 준다 — id만으로 1, 2, 3… 훑어 남의 사진을 받지 못하게.
@@ -50,11 +54,24 @@ public class ReviewPhoto {
     }
 
     public ReviewPhoto(Review review, String contentType, byte[] data) {
+        this(review, contentType, data, null);
+    }
+
+    // storageKey = PhotoStore.save가 돌려준 위치. null이면 바이트를 여기에 둔다
+    public ReviewPhoto(Review review, String contentType, byte[] data, String storageKey) {
         this.review = review;
         this.contentType = contentType;
-        this.data = data;
         this.accessKey = newKey();
         setSize(PhotoSize.of(data));
+        this.data = storageKey == null ? data : new byte[0];
+        this.storageKey = storageKey;
+    }
+
+    // DB에 있던 바이트를 R2로 옮긴 뒤 부른다 (PhotoOffload)
+    public void movedTo(String storageKey) {
+        if (width == null) setSize(PhotoSize.of(data));
+        this.storageKey = storageKey;
+        this.data = new byte[0];
     }
 
     static String newKey() {
@@ -73,4 +90,5 @@ public class ReviewPhoto {
     public Review getReview() { return review; }
     public String getContentType() { return contentType; }
     public byte[] getData() { return data; }
+    public String getStorageKey() { return storageKey; }
 }

@@ -48,6 +48,14 @@ public interface UserAvatarRepository extends JpaRepository<UserAvatar, Long> {
     @Query("select a.updatedAt from UserAvatar a where a.userId = :userId")
     Optional<Instant> findUpdatedAt(Long userId);
 
+    // R2 안의 위치 (없거나 DB에 있으면 비어 있다) — 사진을 바꾸거나 지울 때 R2에서도 지우려고
+    @Query("select a.storageKey from UserAvatar a where a.userId = :userId")
+    Optional<String> findStorageKey(Long userId);
+
+    // 바이트가 아직 DB에 있는 사진 (PhotoOffload가 R2로 옮길 것)
+    @Query("select a.userId from UserAvatar a where a.storageKey is null order by a.userId")
+    List<Long> idsInDatabase();
+
     default String urlOf(Long userId) {
         return findUpdatedAt(userId).map(at -> url(userId, at)).orElse(null);
     }
