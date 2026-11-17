@@ -14,6 +14,8 @@ const TITLES: Record<PolicyPage, string> = {
 // 약관·개인정보처리방침을 앱 안에서 연다. 문서는 public/*.html 정적 페이지라
 // 웹(Vercel)에서는 스토어 등록용 주소로 그대로 열리고, 앱에서는 이 시트의 iframe으로 본다
 // (앱 WebView에서 페이지를 직접 이동하면 지도 앱 상태가 날아가므로).
+// 웹에서도 같은 iframe으로 열므로, 배포 설정(vercel.json)의 X-Frame-Options·frame-ancestors가
+// 같은 사이트 안에서의 iframe은 허용해야 한다 (DENY / 'none'이면 세 문서가 전부 빈 화면으로 뜬다).
 export default function PolicyViewer({ page, onClose }: { page: PolicyPage; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
