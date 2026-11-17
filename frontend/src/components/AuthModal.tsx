@@ -14,8 +14,6 @@ import {
 } from '../lib/api'
 import type { AuthSession, SocialTicket } from '../lib/api'
 import './AuthModal.css'
-import { FcGoogle } from 'react-icons/fc'
-import { RiKakaoTalkFill } from 'react-icons/ri'
 import { SiApple, SiNaver } from 'react-icons/si'
 
 // start: 소셜 버튼 + 이메일 입력. 이메일이 기존 회원이면 로그인, 아니면 가입으로 이어진다.
@@ -35,10 +33,18 @@ const SOCIAL_PROVIDERS = [
 // Apple로 로그인 — 서버에 Apple 키가 들어 있을 때만 보인다 (fetchOAuthProviders).
 // 아이폰·아이패드에선 맨 위에, 그 밖에선 맨 아래에 둔다 (아이폰에서 가입한 사람이 다른 기기에서도 들어올 수 있게).
 // 버튼 모양과 문구는 Apple 지침을 따른다: 검은 바탕에 흰 로고, "Apple로 계속하기"
+// (Apple은 Sign in with / Sign up with / Continue with 세 가지 문구만 허용한다)
 const APPLE_PROVIDER = { id: 'apple', name: 'Apple' } as const
 type SocialProvider = (typeof SOCIAL_PROVIDERS)[number] | typeof APPLE_PROVIDER
 const ALL_PROVIDERS: readonly SocialProvider[] = [...SOCIAL_PROVIDERS, APPLE_PROVIDER]
-const socialLabel = (p: SocialProvider) => (p.id === 'apple' ? 'Apple로 계속하기' : `${p.name}로 시작하기`)
+// 버튼 문구는 각 사의 로그인 버튼 가이드가 정한 것을 쓴다 — 우리 말투("…로 시작하기")로 통일하지 않는다
+const SOCIAL_LABELS: Record<SocialProvider['id'], string> = {
+  naver: '네이버 로그인',
+  kakao: '카카오 로그인',
+  google: 'Google로 계속하기',
+  apple: 'Apple로 계속하기',
+}
+const socialLabel = (p: SocialProvider) => SOCIAL_LABELS[p.id]
 const ON_APPLE_DEVICE =
   /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
@@ -114,33 +120,46 @@ function Icon({ name, size = 20, strokeWidth = 2 }: { name: keyof typeof ICONS; 
   )
 }
 
-// 소셜 버튼 앞 로고 — 아이콘 라이브러리(react-icons)의 브랜드 로고.
-// 네이버는 초록 네모 안 흰 N, 카카오는 노란 네모 안 검은 말풍선(각 사 로그인 버튼 안내 형태), Google은 컬러 G
+// 소셜 버튼의 로고. 버튼 색·로고·문구는 각 사의 로그인 버튼 가이드를 따른다 (AuthModal.css의 버튼별 색 참고).
+//   네이버: 초록 바탕에 흰 N                       카카오: 노란 바탕에 검은 말풍선 심볼(글자 없는 것 — 카카오톡 로고가 아니다)
+//   Google: 흰 바탕에 표준 색 G 로고(색·모양 변경 금지)   Apple: 검은 바탕에 흰 로고
 function SocialIcon({ id }: { id: SocialProvider['id'] }) {
   if (id === 'apple') {
     return (
       <span className="auth-modal__social-icon" aria-hidden="true">
-        <SiApple size={20} />
+        <SiApple size={22} />
       </span>
     )
   }
   if (id === 'naver') {
     return (
-      <span className="auth-modal__social-icon auth-modal__social-icon--naver" aria-hidden="true">
-        <SiNaver size={12} />
+      <span className="auth-modal__social-icon" aria-hidden="true">
+        <SiNaver size={15} />
       </span>
     )
   }
   if (id === 'kakao') {
     return (
-      <span className="auth-modal__social-icon auth-modal__social-icon--kakao" aria-hidden="true">
-        <RiKakaoTalkFill size={18} />
+      <span className="auth-modal__social-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 18 18">
+          <path
+            fill="#000000"
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M9 0.6C4.029 0.6 0 3.713 0 7.552c0 2.387 1.558 4.492 3.931 5.743l-.999 3.648c-.088.322.28.579.563.392l4.376-2.888c.369.036.745.057 1.129.057 4.971 0 9-3.113 9-6.952C18 3.713 13.971.6 9 .6"
+          />
+        </svg>
       </span>
     )
   }
   return (
     <span className="auth-modal__social-icon" aria-hidden="true">
-      <FcGoogle size={22} />
+      <svg width="20" height="20" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+      </svg>
     </span>
   )
 }
