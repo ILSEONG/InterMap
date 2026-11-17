@@ -109,7 +109,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
 
 <main id="main" class="wrap">
   <h1 id="top">개인정보처리방침</h1>
-  <p class="meta">시행일: 2026년 10월 27일 · 최근 개정: 2026년 11월 16일</p>
+  <p class="meta">시행일: 2026년 10월 27일 · 최근 개정: 2026년 11월 24일 시행(11월 17일 공지)</p>
   <p class="lead">인터맵(이하 “서비스”)을 운영하는 일성게임즈(대표 최일성, 이하 “운영자”)는 「개인정보 보호법」 등 관련 법령을 지키며, 이용자의 개인정보를 필요한 만큼만 다루고 안전하게 보호하기 위해 다음과 같이 개인정보처리방침을 정합니다.</p>
 
   <section class="card summary" aria-labelledby="summary-title">
@@ -118,7 +118,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
       <li>서비스에 꼭 필요한 정보(이메일, 닉네임, 내가 올린 후기·사진·댓글 등)만 처리합니다.</li>
       <li>현재 위치는 기기 안에서만 쓰고, 운영자의 서버로 보내거나 저장하지 않습니다.</li>
       <li>개인정보를 제3자에게 제공하거나 판매하지 않습니다. 광고와 유료 기능도 없습니다.</li>
-      <li>서버와 데이터베이스는 해외(미국 등)에 서버를 둘 수 있는 클라우드 업체에 맡겨 운영합니다.</li>
+      <li>서버와 데이터베이스는 해외(싱가포르 등)에 있는 클라우드 업체에 맡겨 운영합니다. 업체와 국가는 7번에 적혀 있습니다.</li>
       <li>마이페이지에서 언제든 탈퇴할 수 있고, 탈퇴하면 정보가 즉시 영구 삭제됩니다. 다른 이용자가 내 게시물을 신고한 기록만 일정 기간 보관합니다.</li>
     </ul>
   </section>
@@ -183,6 +183,11 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
               <td>서비스가 자동으로 생성</td>
             </tr>
             <tr>
+              <th scope="row">이용 중 자동으로 처리</th>
+              <td>접속 IP 주소. 지나치게 많은 요청을 막는 데만 씁니다. 분당 요청 수는 서버 메모리에서 약 1분 동안 세고, 인증번호 요청 횟수는 IP 주소를 되돌릴 수 없게 변환한 값으로 그날 자정까지만 데이터베이스에 둡니다. 서버를 호스팅하는 업체의 접속 기록에도 IP 주소가 남을 수 있습니다.</td>
+              <td>서비스 이용 과정에서 자동으로 전달</td>
+            </tr>
+            <tr>
               <th scope="row">선택</th>
               <td>마케팅 정보 수신 동의 시각</td>
               <td>가입 시 동의한 경우에만</td>
@@ -207,7 +212,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
       </div>
       <ul>
         <li>카카오 로그인은 현재 닉네임만 제공받으며 이메일은 받지 않습니다. 따라서 카카오로 가입한 계정에는 이메일이 없을 수 있습니다.</li>
-        <li>이메일 가입 시 보내는 <strong>6자리 인증번호</strong>는 확인을 위해 서버 메모리에 잠시 보관할 뿐, 데이터베이스에 영구 저장하지 않습니다.</li>
+        <li>이메일 가입 시 보내는 <strong>6자리 인증번호</strong>는 확인이 끝날 때까지만 데이터베이스에 잠시 두고(5분 뒤 자동으로 지워짐), 이때 이메일 주소는 되돌릴 수 없게 변환한 값으로 둡니다. 영구 저장하지 않습니다.</li>
         <li>비밀번호는 원래 값을 알아낼 수 없는 해시 값으로만 저장하므로 운영자도 이용자의 비밀번호를 알 수 없습니다.</li>
         <li><strong>현재 위치</strong>는 기기 안에서만 쓰고 서버에 저장하지 않습니다(<a href="#location">12. 위치정보의 처리</a> 참고).</li>
         <li>후기 사진에 다른 사람의 얼굴, 차량 번호 등 개인정보가 담기지 않도록 주의해 주세요.</li>
@@ -232,7 +237,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
       <p>운영자는 이용자가 <strong>회원 탈퇴할 때까지</strong> 개인정보를 보유하고 이용하며, 탈퇴하면 즉시 삭제합니다. 다만 다음은 예외입니다.</p>
       <ul>
         <li><strong>다른 이용자가 내 게시물을 신고한 기록:</strong> 신고 사유와 신고 당시 게시물 내용의 사본은 악용 방지와 분쟁 대응을 위해 탈퇴 후에도 신고 접수일로부터 최대 1년 동안 보관한 뒤 삭제합니다(운영자 방침).</li>
-        <li><strong>이메일 인증번호:</strong> 인증 과정 동안만 서버 메모리에 잠시 보관하며 영구 저장하지 않습니다.</li>
+        <li><strong>이메일 인증번호:</strong> 보낸 뒤 5분 동안만 데이터베이스에 두었다가 자동으로 지우며, 영구 저장하지 않습니다. 인증번호 요청·로그인 실패 횟수 같은 제한용 기록도 길어야 하루 안에 지워집니다.</li>
         <li><strong>로그인 토큰과 로그인 기기 기록:</strong> 토큰은 마지막으로 쓴 뒤 90일이 지나면 효력이 없어집니다. 1년 동안 쓰지 않은 기기의 기록은 자동으로 삭제하고, 탈퇴하면 모두 즉시 삭제합니다.</li>
         <li><strong>“어디 갈래?” 투표:</strong> 투표와 참여 기록(회원이 아닌 참여자가 적은 이름 포함)은 마감 후 30일이 지나면 자동으로 삭제합니다. 만든 사람은 그 전에도 언제든 지울 수 있습니다.</li>
         <li>관계 법령에 따라 보존해야 하는 정보가 있으면 해당 법령에서 정한 기간 동안 보관합니다.</li>
@@ -296,8 +301,8 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
             </tr>
             <tr>
               <th scope="row">NAVER Cloud Platform</th>
-              <td>지도 표시, 가게 검색</td>
-              <td>지도 표시 요청, 가게 검색어</td>
+              <td>지도 표시</td>
+              <td>지도 표시 요청(화면에 표시하는 지역)</td>
             </tr>
             <tr>
               <th scope="row">네이버, 카카오, Google, Apple</th>
@@ -308,14 +313,59 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
         </table>
       </div>
       <h3>국외 이전</h3>
-      <p>위 업체 중 일부는 서버를 대한민국 밖(예: 미국)에 두고 있을 수 있어, 개인정보가 국외에서 저장·처리될 수 있습니다.</p>
+      <p>위 업체 중 아래 업체는 서버가 대한민국 밖에 있어, 개인정보가 국외에서 저장·처리됩니다. 서비스를 제공하는 데(회원과의 계약을 이행하는 데) 필요한 처리 위탁·보관이므로, 「개인정보 보호법」 제28조의8 제1항 제3호 가목에 따라 별도 동의 대신 아래 내용을 이 방침에 공개합니다.</p>
+      <div class="table-wrap" role="region" aria-labelledby="transfer-caption" tabindex="0">
+        <table>
+          <caption id="transfer-caption">개인정보를 이전받는 국외 업체</caption>
+          <thead>
+            <tr><th scope="col">이전받는 자(연락처)</th><th scope="col">이전 국가</th><th scope="col">이전 항목</th><th scope="col">이용 목적</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Render Services, Inc.<br>privacy@render.com</th>
+              <td>싱가포르(서버 위치)</td>
+              <td>서비스 이용 중 서버로 전송되고 처리되는 정보(2번 항목 전체)</td>
+              <td>백엔드 서버 호스팅</td>
+            </tr>
+            <tr>
+              <th scope="row">Supabase, Inc.<br>privacy@supabase.com</th>
+              <td>싱가포르(서버 위치)</td>
+              <td>서버에 저장되는 개인정보(2번 항목 전체)</td>
+              <td>데이터베이스 호스팅</td>
+            </tr>
+            <tr>
+              <th scope="row">Cloudflare, Inc.<br>privacyquestions@cloudflare.com</th>
+              <td>R2_LOCATION_TO_CONFIRM</td>
+              <td>후기 사진, 프로필 사진</td>
+              <td>사진 파일 보관</td>
+            </tr>
+            <tr>
+              <th scope="row">Vercel Inc.<br>privacy@vercel.com</th>
+              <td>미국 등(접속한 곳과 가까운 서버)</td>
+              <td>웹 화면을 불러오는 과정에서 전달되는 접속 정보(IP 주소 등)</td>
+              <td>웹 화면 제공</td>
+            </tr>
+            <tr>
+              <th scope="row">Brevo SAS<br>dpo@brevo.com</th>
+              <td>프랑스 등</td>
+              <td>이메일 주소, 인증번호</td>
+              <td>인증번호 이메일 발송</td>
+            </tr>
+            <tr>
+              <th scope="row">Google LLC<br>googlekrsupport@google.com</th>
+              <td>미국 등</td>
+              <td>기기 토큰, 알림 문구(보낸 사람 닉네임, 가게 이름, 댓글 내용 일부)</td>
+              <td>앱 푸시 알림 전달(알림을 허용한 경우에만)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <ul>
-        <li><strong>이전받는 자와 목적:</strong> 위 표의 업체, 위 표의 위탁 업무</li>
-        <li><strong>이전 항목:</strong> 위 표의 처리되는 정보</li>
-        <li><strong>이전 국가:</strong> 각 업체의 서버가 있는 국가(미국 등)</li>
-        <li><strong>이전 시기와 방법:</strong> 서비스를 이용할 때마다 암호화된 네트워크(HTTPS 등)를 통해 전송</li>
+        <li><strong>이전 시기와 방법:</strong> 가입하거나 서비스를 이용할 때마다 암호화된 네트워크(HTTPS)를 통해 전송합니다.</li>
+        <li><strong>이전받는 자의 이용 목적:</strong> 위 표의 목적(운영자가 맡긴 업무)으로만 처리합니다.</li>
         <li><strong>보유·이용 기간:</strong> 회원 탈퇴 시 또는 위탁 계약이 끝날 때까지(4번의 예외 포함)</li>
-        <li><strong>거부 방법과 효과:</strong> 서버·데이터베이스 호스팅은 서비스 운영에 꼭 필요하므로, 국외 이전을 원하지 않으면 가입하지 않거나 탈퇴할 수 있습니다. 소셜 로그인은 선택 사항이므로 이메일로 가입하면 소셜 로그인 제공자를 거치지 않습니다.</li>
+        <li><strong>거부 방법, 절차와 효과:</strong> 서버·데이터베이스·사진 보관은 서비스 운영에 꼭 필요하므로, 국외 이전을 원하지 않으면 가입하지 않거나 마이페이지에서 탈퇴하면 됩니다(앱을 쓸 수 없으면 <a href="mailto:intermap0@gmail.com">intermap0@gmail.com</a>로 요청). 이 경우 서비스를 이용할 수 없습니다. 푸시 알림은 기기에서 알림을 끄면 기기 토큰이 전달되지 않으며, 알림을 받지 못할 뿐 다른 기능은 그대로 쓸 수 있습니다.</li>
+        <li><strong>소셜 로그인:</strong> 네이버와 카카오는 국내 업체입니다. Google·Apple 로그인은 이용자가 직접 해당 업체(미국)의 화면에서 로그인하는 것이며, 운영자는 그 결과로 닉네임·이메일·사용자 식별자를 받습니다. 소셜 로그인은 선택 사항이므로 이메일로 가입하면 이 업체들을 거치지 않습니다.</li>
       </ul>
       <p>위탁 업체가 바뀌면 이 방침을 통해 알려 드립니다.</p>
     </section>
@@ -349,7 +399,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
         <li><strong>비밀번호 해시 저장:</strong> 비밀번호는 BCrypt 방식의 해시 값으로만 저장하며 원래 비밀번호는 저장하지 않습니다.</li>
         <li><strong>전송 구간 암호화:</strong> 앱·웹과 서버 사이의 통신은 HTTPS로 암호화합니다.</li>
         <li><strong>접근 통제:</strong> 로그인 토큰으로 이용자를 확인하여 본인 계정의 정보에만 접근할 수 있게 하고, 토큰은 마지막으로 쓴 뒤 90일이 지나면 만료됩니다. 처음 보는 기기에서 로그인하면 먼저 쓰던 기기에 알리고, 이용자는 다른 기기의 로그인을 한꺼번에 끊을 수 있습니다. 관리 기능은 운영자의 관리자 계정으로만 이용할 수 있습니다.</li>
-        <li><strong>최소 보관:</strong> 이메일 인증번호처럼 잠시만 필요한 정보는 영구 저장하지 않습니다.</li>
+        <li><strong>최소 보관:</strong> 이메일 인증번호처럼 잠시만 필요한 정보는 정해진 시간이 지나면 자동으로 지우고 영구 저장하지 않습니다.</li>
       </ul>
       <p>인터넷 서비스에서 완벽한 보안을 보장할 수는 없으므로, 이용자도 비밀번호를 다른 서비스와 다르게 정하고 남에게 알려 주지 않도록 주의해 주세요.</p>
     </section>
@@ -368,7 +418,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
       <ul>
         <li><strong>사용 목적:</strong> 지도를 내 현재 위치로 옮기는 것, 가게 검색 결과를 가까운 순으로 정렬하는 것, 이 두 가지에만 사용합니다.</li>
         <li><strong>권한 요청:</strong> 기기의 위치 권한은 이용자가 허용한 경우에만 사용합니다. 허용하지 않아도 현재 위치 이동과 거리순 정렬을 제외한 기능은 이용할 수 있습니다.</li>
-        <li><strong>권한 철회:</strong> Android 기기 설정의 앱 권한 메뉴에서 인터맵의 위치 권한을 언제든 끌 수 있으며, 웹에서는 브라우저의 사이트 권한 설정에서 끌 수 있습니다.</li>
+        <li><strong>권한 철회:</strong> Android·iOS 기기 설정의 앱 권한(위치) 메뉴에서 인터맵의 위치 권한을 언제든 끌 수 있으며, 웹에서는 브라우저의 사이트 권한 설정에서 끌 수 있습니다.</li>
       </ul>
       <p class="small">지도 화면 자체는 NAVER Cloud Platform에서 불러오므로, 화면에 표시하는 지역의 지도를 불러오는 요청은 네이버에 전달됩니다.</p>
     </section>
@@ -401,6 +451,7 @@ ol.steps>li::before{content:counter(step);position:absolute;left:0;top:12px;widt
       <p><strong>2026년 11월 16일 개정:</strong> 로그인을 기기별로 관리하게 되면서 로그인한 기기를 구분하기 위한 임의 값과 기기 종류를 저장하는 내용, 로그인 토큰의 유효 기간(마지막 사용 후 90일)을 반영했습니다.</p>
       <p><strong>2026년 11월 16일 개정(2):</strong> 후기 사진과 프로필 사진 파일을 보관하는 업체로 Cloudflare(R2)를 위탁 업체 표에 추가했습니다. 수집하는 항목과 이용 목적은 바뀌지 않았습니다.</p>
       <p><strong>2026년 11월 17일 개정:</strong> 데이터베이스를 호스팅하는 업체가 Neon에서 Supabase로 바뀌어 위탁 업체 표를 고쳤습니다. 수집하는 항목과 이용 목적은 바뀌지 않았습니다.</p>
+      <p><strong>2026년 11월 24일 개정(11월 17일 공지):</strong> 실제 처리 내용에 맞게 문구를 바로잡았습니다. 국외 이전을 업체별로(국가, 연락처, 이전 항목, 목적) 다시 적고 법적 근거를 밝혔습니다. 이메일 인증번호를 서버 메모리가 아니라 데이터베이스에 5분 동안 둔다는 점, 지나친 요청을 막기 위해 접속 IP 주소를 잠시 처리한다는 점, iOS 기기에서 위치 권한을 끄는 방법을 추가했고, NAVER Cloud Platform에는 가게 검색어를 보내지 않으므로 그 내용을 뺐습니다. 수집하는 항목과 이용 목적은 바뀌지 않았습니다.</p>
       <a class="to-top" href="#top">맨 위로</a>
     </section>
   </article>

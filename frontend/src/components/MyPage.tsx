@@ -882,6 +882,9 @@ export default function MyPage({
                   <button type="button" onClick={() => onOpenPolicy('privacy')}>
                     개인정보처리방침
                   </button>
+                  <button type="button" onClick={() => onOpenPolicy('licenses')}>
+                    오픈소스 라이선스
+                  </button>
                   <button type="button" onClick={onLogout}>
                     로그아웃
                   </button>

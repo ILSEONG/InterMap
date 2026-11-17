@@ -2,12 +2,13 @@ import { useEffect } from 'react'
 import './ModalSheet.css'
 import SheetGrip from './SheetGrip'
 
-export type PolicyPage = 'privacy' | 'terms' | 'account-deletion'
+export type PolicyPage = 'privacy' | 'terms' | 'account-deletion' | 'licenses'
 
 const TITLES: Record<PolicyPage, string> = {
   privacy: '개인정보처리방침',
   terms: '이용약관',
   'account-deletion': '계정 삭제 안내',
+  licenses: '오픈소스 라이선스',
 }
 
 // 약관·개인정보처리방침을 앱 안에서 연다. 문서는 public/*.html 정적 페이지라
