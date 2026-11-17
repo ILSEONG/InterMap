@@ -21,13 +21,9 @@ Render 대시보드(https://dashboard.render.com)에서 GitHub 저장소를 Web 
 - DB는 Supabase Postgres. Environment 탭에 `JDBC_URL`(Supabase 세션 풀러 주소)과 `LOCALDATA_AUTH_KEY`,
   `BREVO_API_KEY`(이메일 인증번호 발송, Render 무료 티어는 SMTP 차단이라 Brevo API 사용), OAuth 키,
   `ADMIN_PASSWORD`(관리자 계정 비밀번호 — 기본값이 없어 비우면 관리자 계정이 안 생긴다. 바꾸고 재배포하면 교체된다)를 넣는다.
-- 가게 좌표 보정: `JUSO_SEARCH_KEY`, `JUSO_COORD_KEY`(행정안전부 주소기반산업지원서비스 business.juso.go.kr > 주소정보 API 연계에서 받는
-  **도로명주소 검색 API** 승인키와 **좌표제공 검색 API** 승인키, 둘 다 운영용). 둘 다 넣으면 서버가 뒤에서 가게 좌표를 건물 좌표로 하나씩 고친다.
-  승인키에 하루 한도가 있어 서울 전체(약 11만 건)는 며칠에 나눠 끝난다(매일 새벽 4시 20분에 이어서). 로그에 "가게 좌표 보정 끝"이 찍히면 완료.
+- 가게 좌표 보정: `NCP_MAP_KEY_ID`, `NCP_MAP_KEY`(NCP 콘솔 > AI·NAVER API > Application에서 **Geocoding**을 켠 앱의 Client ID / Client Secret).
+  넣으면 서버가 뒤에서 가게 좌표를 네이버 지오코딩 좌표로 하나씩 고친다(서울 전체 약 11만 건, 몇 시간). 로그에 "가게 좌표 보정 끝"이 찍히면 완료.
   인허가 좌표는 필지 기준이라 실제 가게 자리와 어긋나고, 한강공원 매점은 강 위에 찍힌다.
-- **네이버 지오코딩은 쓰지 않는다.** 네이버 Maps 서비스 이용약관 제7조가 결과 데이터를 저장해 다시 쓰는 것을 금지한다(지도 표시는 그대로 써도 된다).
-  예전에 저장한 네이버 좌표는 위 보정이 돌면서 주소 좌표나 인허가 좌표로 모두 바뀐다. 로그의 "네이버 좌표가 아직 남은 가게"가 안 나오면 다 걷어낸 것.
-  `NCP_MAP_KEY_ID`, `NCP_MAP_KEY` 환경변수는 더 쓰지 않으니 지워도 된다.
 - 환경변수 저장 시 자동 재배포된다. 로그는 Logs 탭.
 - 확인: `https://intermap-be.onrender.com/api/restaurants?q=김밥` 접속 시 JSON 응답.
 
