@@ -34,8 +34,9 @@ class GeocodeBackfillTest {
 
             public Optional<double[]> locate(String road, String lot) {
                 asked.incrementAndGet();
-                double[] p = answers.get(AddressText.cleanRoad(road));
-                if (p == null) p = answers.get(AddressText.cleanLot(lot));
+                String roadQuery = AddressText.cleanRoad(road), lotQuery = AddressText.cleanLot(lot);
+                double[] p = roadQuery == null ? null : answers.get(roadQuery);
+                if (p == null && lotQuery != null) p = answers.get(lotQuery);
                 return Optional.ofNullable(p);
             }
         };

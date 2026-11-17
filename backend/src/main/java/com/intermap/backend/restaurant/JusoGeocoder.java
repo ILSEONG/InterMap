@@ -9,6 +9,7 @@ import org.locationtech.proj4j.ProjCoordinate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
@@ -120,7 +121,8 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         Map<String, String> search = new LinkedHashMap<>();
         search.put("currentPage", "1");
         search.put("countPerPage", "10");
-        search.put("keyword", query);
+        // 검색어에 넣을 수 없는 글자(%, =, <, > 등)는 뺀다 — 넣으면 그 주소만 계속 거절된다
+        search.put("keyword", query.replaceAll("[%=<>\\[\\]]", " ").trim());
         Juso building = null;
         for (Juso j : call("/addrLinkApi.do", searchKey, search)) {
             if (road ? sameRoad(query, j.roadAddrPart1()) : sameLot(query, j.jibunAddr())) {
@@ -165,7 +167,16 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
             .queryParam("confmKey", key)
             .queryParam("resultType", "json");
         params.forEach(uri::queryParam);
-        String body = client.get().uri(uri.encode().build().toUri()).retrieve().body(String.class);
+        final String body;
+        try {
+            body = client.get().uri(uri.encode().build().toUri()).retrieve().body(String.class);
+        } catch (RestClientResponseException e) {
+            int status = e.getStatusCode().value();
+            if (status == 401 || status == 403) throw new GeocodeBackfill.Unavailable("HTTP " + status);
+            // 그 주소 하나가 거절된 것(허용되지 않는 글자 등) — 못 찾은 것으로 넘어간다. 같은 행을 끝없이 다시 묻지 않게
+            if (status >= 400 && status < 500 && status != 429) return List.of();
+            throw e; // 429·5xx는 잠깐 뒤 다시 물어볼 일
+        }
         final Envelope envelope;
         try {
             envelope = mapper.readValue(body, Envelope.class);

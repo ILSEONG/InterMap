@@ -141,6 +141,21 @@ class JusoGeocoderTest {
     }
 
     @Test
+    void refusedAddressIsSkippedButServerTroubleIsNot() {
+        JusoGeocoder geocoder = geocoder(1000);
+        server.removeContext("/addrlink/addrLinkApi.do");
+        server.createContext("/addrlink/addrLinkApi.do", exchange -> {
+            int status = exchange.getRequestURI().getQuery().contains("거절") ? 400 : 503;
+            exchange.sendResponseHeaders(status, -1);
+            exchange.close();
+        });
+
+        assertTrue(geocoder.locate("서울특별시 중구 거절로 1", null).isEmpty(), "그 주소만 거절되면 못 찾은 것으로 넘어간다");
+        assertThrows(RuntimeException.class, () -> geocoder.locate("서울특별시 중구 세종대로 110", null),
+            "서버가 안 되는 건 다음에 다시 물어볼 일");
+    }
+
+    @Test
     void dailyBudgetStopsTheRun() {
         searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
         JusoGeocoder geocoder = geocoder(2);
