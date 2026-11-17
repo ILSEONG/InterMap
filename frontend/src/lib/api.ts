@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { reportReach } from './reach'
 import type { Review } from '../data/model'
 
 export interface RestaurantRecord {
@@ -36,18 +37,32 @@ export interface BBox {
 // 좌표를 다시 크게 고치면 올린다.
 const COORDS_VERSION = '2'
 
+// 모든 요청이 지나는 곳 — 서버에 닿았는지 기록한다 (lib/reach, 연결 안 됨 알림). 응답 처리는 부르는 쪽이 그대로 한다
+async function send(input: string, init?: RequestInit): Promise<Response> {
+  let res: Response
+  try {
+    res = await fetch(input, init)
+  } catch (e) {
+    reportReach(false)
+    throw e
+  }
+  // 502~504는 서버가 아니라 앞단(배포 중·재시작 중)이 대신 답한 것
+  reportReach(res.status < 502 || res.status > 504)
+  return res
+}
+
 export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]> {
   const params = bbox
     ? `?${new URLSearchParams([...Object.entries(bbox).map(([k, v]) => [k, String(v)]), ['v', COORDS_VERSION]])}`
     : ''
-  const res = await fetch(`${API_BASE}/api/restaurants${params}`)
+  const res = await send(`${API_BASE}/api/restaurants${params}`)
   if (!res.ok) throw new Error(`음식점 목록 조회 실패 (${res.status})`)
   return res.json()
 }
 
 // 이름으로 서버 검색 (상한 50건). 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
 export async function searchRestaurants(q: string): Promise<RestaurantRecord[]> {
-  const res = await fetch(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}`)
+  const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}`)
   if (!res.ok) throw new Error(`음식점 검색 실패 (${res.status})`)
   return res.json()
 }
@@ -104,7 +119,7 @@ function authHeaders(): Record<string, string> {
 
 // 서버가 세션을 인정하는지 확인. 만료·로그아웃이면 401 → null
 export async function fetchMe(): Promise<AuthSession | null> {
-  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/auth/me`, { headers: authHeaders() })
   if (res.status === 401) return null
   if (!res.ok) throw new Error(`세션 확인 실패 (${res.status})`)
   return res.json()
@@ -112,7 +127,7 @@ export async function fetchMe(): Promise<AuthSession | null> {
 
 // 이 기기만 로그아웃한다 (다른 기기는 그대로)
 export async function logout(): Promise<void> {
-  await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: authHeaders() }).catch(() => {
+  await send(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: authHeaders() }).catch(() => {
     // 서버에 못 닿아도 클라이언트 세션은 지운다
   })
 }
@@ -124,7 +139,7 @@ export async function logoutOtherDevices(): Promise<number> {
 
 // 로그인 요청(아직 세션이 없다)에도 기기 값이 실려야 서버가 어느 기기인지 안다
 async function post<T>(path: string, body: BodyInit, headers: Record<string, string> = {}, method = 'POST'): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { method, headers: { 'X-Device-Id': deviceId(), ...headers, ...authHeaders() }, body })
+  const res = await send(`${API_BASE}${path}`, { method, headers: { 'X-Device-Id': deviceId(), ...headers, ...authHeaders() }, body })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `요청 실패 (${res.status})`)
   return data
@@ -221,7 +236,7 @@ export function closeOAuthBrowser(): void {
 
 // 서버에 키가 들어 있어 쓸 수 있는 간편 로그인 목록. Apple은 설정 전엔 빠져 있다 (버튼을 숨긴다)
 export async function fetchOAuthProviders(): Promise<OAuthProvider[]> {
-  const res = await fetch(`${API_BASE}/api/auth/oauth/providers`)
+  const res = await send(`${API_BASE}/api/auth/oauth/providers`)
   if (!res.ok) throw new Error(`간편 로그인 목록 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -270,7 +285,7 @@ export async function verifyEmailCode(email: string, emailCode: string): Promise
 }
 
 export async function checkNickname(nickname: string): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/api/auth/check-nickname?value=${encodeURIComponent(nickname)}`)
+  const res = await send(`${API_BASE}/api/auth/check-nickname?value=${encodeURIComponent(nickname)}`)
   if (!res.ok) throw new Error(`닉네임 확인 실패 (${res.status})`)
   return (await res.json()).available
 }
@@ -296,7 +311,7 @@ export function restaurantKey(r: { name: string; address: string }): string {
 // 내가 볼 수 있는 후기 전체. 초기 규모라 한 번에 받는다 (서버 ReviewController·ReviewAudience 참고)
 // 토큰이 없으면 주인장 후기만, 있으면 나·팔로우한 사람·주인장 후기에서 차단·신고한 것을 빼고 준다
 export async function fetchReviews(): Promise<Review[]> {
-  const res = await fetch(`${API_BASE}/api/reviews`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/reviews`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`후기 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -382,20 +397,20 @@ export interface UserProfile {
 }
 
 export async function fetchUserProfile(userId: number): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/users/${userId}`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`프로필 조회 실패 (${res.status})`)
   return res.json()
 }
 
 // 다른 사람의 팔로잉·팔로워 목록 (별칭·관계는 내 기준). 내가 팔로우 중인 사람만 — 아니면 403
 export async function fetchUserSocial(userId: number): Promise<SocialData> {
-  const res = await fetch(`${API_BASE}/api/users/${userId}/social`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/users/${userId}/social`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`팔로우 목록 조회 실패 (${res.status})`)
   return res.json()
 }
 
 export async function fetchSocial(): Promise<SocialData> {
-  const res = await fetch(`${API_BASE}/api/me/social`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me/social`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`팔로우 목록 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -444,7 +459,7 @@ export interface NoticeData {
 }
 
 export async function fetchNotices(): Promise<NoticeData> {
-  const res = await fetch(`${API_BASE}/api/me/notifications`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me/notifications`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`알림 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -471,7 +486,7 @@ export function setAlias(userId: number, alias: string): Promise<SocialData> {
 
 // 닉네임 부분 일치 상위 20, 본인 제외. 로그인 필요
 export async function searchUsers(q: string): Promise<UserItem[]> {
-  const res = await fetch(`${API_BASE}/api/users?q=${encodeURIComponent(q)}`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/users?q=${encodeURIComponent(q)}`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`사용자 검색 실패 (${res.status})`)
   return res.json()
 }
@@ -483,7 +498,7 @@ export function changeNickname(nickname: string): Promise<AuthSession> {
 
 // 내 후기 삭제 (사진 포함). 서버가 본인 확인.
 export async function deleteReview(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/reviews/${id}`, { method: 'DELETE', headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/reviews/${id}`, { method: 'DELETE', headers: authHeaders() })
   if (!res.ok) {
     const data = await res.json().catch(() => null)
     throw new Error(data?.message ?? `후기 삭제 실패 (${res.status})`)
@@ -502,7 +517,7 @@ export interface CommentRecord {
 
 // 전체 댓글 (오래된 순). 후기 목록처럼 통으로 받고 프론트가 후기별로 나눈다.
 export async function fetchComments(): Promise<CommentRecord[]> {
-  const res = await fetch(`${API_BASE}/api/comments`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/comments`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`댓글 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -514,7 +529,7 @@ export function postComment(reviewId: number, text: string, parentId?: number): 
 
 // 내 댓글 삭제. 원댓글이면 서버가 답글까지 지운다.
 export async function deleteComment(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/comments/${id}`, { method: 'DELETE', headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/comments/${id}`, { method: 'DELETE', headers: authHeaders() })
   if (!res.ok) {
     const data = await res.json().catch(() => null)
     throw new Error(data?.message ?? `댓글 삭제 실패 (${res.status})`)
@@ -529,7 +544,7 @@ export interface FavoritePlace {
 }
 
 export async function fetchFavorites(): Promise<FavoritePlace[]> {
-  const res = await fetch(`${API_BASE}/api/me/favorites`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me/favorites`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`찜 목록 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -563,7 +578,7 @@ export async function deleteAvatar(): Promise<void> {
 
 export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom, v: COORDS_VERSION }).map(([k, v]) => [k, String(v)]))
-  const res = await fetch(`${API_BASE}/api/restaurants/summary?${params}`)
+  const res = await send(`${API_BASE}/api/restaurants/summary?${params}`)
   if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -572,7 +587,7 @@ export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<Cl
 
 // 계정과 내가 남긴 후기·사진·댓글·찜·팔로우를 즉시 지운다. 되돌릴 수 없다.
 export async function deleteAccount(): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/me`, { method: 'DELETE', headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me`, { method: 'DELETE', headers: authHeaders() })
   if (!res.ok) {
     const data = await res.json().catch(() => null)
     throw new Error(data?.message ?? `탈퇴 실패 (${res.status})`)
@@ -605,7 +620,7 @@ export interface BlockedPerson {
 }
 
 export async function fetchBlocks(): Promise<BlockedPerson[]> {
-  const res = await fetch(`${API_BASE}/api/me/blocks`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me/blocks`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`차단 목록 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -639,7 +654,7 @@ export interface AdminReport {
 }
 
 export async function fetchAdminReports(status: ReportStatus = 'OPEN'): Promise<AdminReport[]> {
-  const res = await fetch(`${API_BASE}/api/admin/reports?status=${status}`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/admin/reports?status=${status}`, { headers: authHeaders() })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `신고 목록 조회 실패 (${res.status})`)
   return data
@@ -697,7 +712,7 @@ export interface OpsData {
 }
 
 export async function fetchOps(): Promise<OpsData> {
-  const res = await fetch(`${API_BASE}/api/admin/ops`, { headers: authHeaders(), cache: 'no-store' })
+  const res = await send(`${API_BASE}/api/admin/ops`, { headers: authHeaders(), cache: 'no-store' })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `서버 상태 조회 실패 (${res.status})`)
   return data
@@ -791,7 +806,7 @@ export function createPoll(title: string, hours: number, options: PollCandidate[
 }
 
 export async function fetchPoll(token: string): Promise<PollView> {
-  const res = await fetch(`${API_BASE}/api/polls/${encodeURIComponent(token)}?voter=${guestVoterKey()}`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/polls/${encodeURIComponent(token)}?voter=${guestVoterKey()}`, { headers: authHeaders() })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `투표를 불러오지 못했어요 (${res.status})`)
   return data
@@ -807,7 +822,7 @@ export function closePoll(token: string): Promise<PollView> {
 }
 
 export async function deletePoll(token: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/polls/${encodeURIComponent(token)}`, { method: 'DELETE', headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/polls/${encodeURIComponent(token)}`, { method: 'DELETE', headers: authHeaders() })
   if (!res.ok) {
     const data = await res.json().catch(() => null)
     throw new Error(data?.message ?? `투표 삭제 실패 (${res.status})`)
@@ -815,7 +830,7 @@ export async function deletePoll(token: string): Promise<void> {
 }
 
 export async function fetchMyPolls(): Promise<PollSummary[]> {
-  const res = await fetch(`${API_BASE}/api/me/polls`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me/polls`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`투표 목록 조회 실패 (${res.status})`)
   return res.json()
 }
@@ -851,7 +866,7 @@ export interface Recap {
 }
 
 export async function fetchRecap(month?: string): Promise<Recap> {
-  const res = await fetch(`${API_BASE}/api/me/recap${month ? `?month=${month}` : ''}`, { headers: authHeaders() })
+  const res = await send(`${API_BASE}/api/me/recap${month ? `?month=${month}` : ''}`, { headers: authHeaders() })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `결산을 불러오지 못했어요 (${res.status})`)
   return data

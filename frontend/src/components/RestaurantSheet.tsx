@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useProgressiveCount } from '../lib/useProgressiveCount'
 import { useBackLayer } from '../lib/backLayer'
 import { sheetDefaultHeight } from '../lib/sheetGeometry'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
@@ -465,6 +466,8 @@ function SheetBody({
 
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
   const myGroups = groups.filter((g) => restaurant.groupIds.includes(g.id))
+  // 후기 카드는 나눠 그린다 (이웃 후기 → 주인장 후기 순으로 이어서 센다). 가게가 바뀌면 처음부터
+  const reviewsShown = useProgressiveCount(restaurant.reviews.length + ownerReviews.length, restaurant.id, 4, 12)
   // 다녀간 이웃 — 아바타 묶음과 "N명" (한 사람이 한 가게에 후기 하나라 보통 후기 수와 같다)
   const visitors = [...new Map(restaurant.reviews.map((r) => [r.author.id, r.author])).values()]
 
@@ -850,7 +853,7 @@ function SheetBody({
             <p className="restaurant-sheet__empty">아직 이웃 후기가 없어요. 첫 후기를 남겨보세요!</p>
           ) : (
             <div className="restaurant-sheet__review-list">
-              {restaurant.reviews.map((review) => (
+              {restaurant.reviews.slice(0, reviewsShown).map((review) => (
                 <ReviewCard
                   key={review.id}
                   review={review}
@@ -875,7 +878,7 @@ function SheetBody({
             <h3 className="restaurant-sheet__section-title">주인장의 후기</h3>
             {/* 주인장 후기엔 댓글을 달지 않는다 */}
             <div className="restaurant-sheet__review-list">
-              {ownerReviews.map((review) => (
+              {ownerReviews.slice(0, Math.max(0, reviewsShown - restaurant.reviews.length)).map((review) => (
                 <ReviewCard key={review.id} review={review} onEdit={editHandler(review)} />
               ))}
             </div>

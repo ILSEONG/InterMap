@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react'
+import { useProgressiveCount } from '../lib/useProgressiveCount'
 import { refresh, useServerState } from '../lib/query'
 import { useDebounced } from '../lib/useDebounced'
 import { useBackLayer } from '../lib/backLayer'
@@ -263,6 +264,8 @@ export default function MyPage({
     }
   }, [open, serverQuery])
 
+  // 내 후기 줄은 나눠 그린다 (열 때마다 처음부터)
+  const reviewRows = useProgressiveCount(open ? myReviews.length : 0, open, 12, 24)
   if (!open) return null
 
   const followingIds = new Set((social?.following ?? []).map((p) => p.id))
@@ -732,7 +735,7 @@ export default function MyPage({
                     <p className="my-page__empty">아직 남긴 후기가 없어요.</p>
                   ) : (
                     <ol className="my-page__list">
-                      {sortedReviews.map((r) => (
+                      {sortedReviews.slice(0, reviewRows).map((r) => (
                         <li key={r.id}>
                           <button type="button" className="my-page__review" onClick={() => onOpenReview(r)}>
                             <span className="my-page__review-text">
@@ -946,6 +949,7 @@ interface PersonListProps {
 // 다른 사람 프로필의 팔로잉·팔로워 목록(ProfileSheet)도 이걸 쓴다.
 export function PersonList({ title, people, empty, renderAction }: PersonListProps) {
   const openProfile = useOpenProfile()
+  const shown = useProgressiveCount(people.length, title, 12, 24)
   return (
     <section className="my-page__column">
       <h3 className="my-page__section-title my-page__section-title--small">
@@ -955,7 +959,7 @@ export function PersonList({ title, people, empty, renderAction }: PersonListPro
         <p className="my-page__empty">{empty}</p>
       ) : (
         <ul className="my-page__card my-page__people">
-          {people.map((p) => {
+          {people.slice(0, shown).map((p) => {
             const label = p.alias ?? p.nickname
             return (
               <li key={p.id} className="my-page__person">

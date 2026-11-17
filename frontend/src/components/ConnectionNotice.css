@@ -1,0 +1,37 @@
+/* 서버에 연결하지 못할 때 — 검색 줄·필터 칩·스토리 줄을 가리지 않게 그 아래 가운데.
+   어떤 화면 위에서도 보이게 맨 위 층에 둔다 */
+.connection-notice {
+  position: fixed;
+  top: calc(max(env(safe-area-inset-top), 14px) + 196px);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 8px 8px 8px 16px;
+  background: rgba(28, 28, 30, 0.9);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-float);
+  white-space: nowrap;
+}
+
+.connection-notice__retry {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.connection-notice__retry:active {
+  background: rgba(255, 255, 255, 0.3);
+}

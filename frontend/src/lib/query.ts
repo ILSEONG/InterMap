@@ -59,6 +59,11 @@ export function refresh(...names: string[]) {
   for (const name of names) void queryClient.invalidateQueries({ queryKey: [owner, name] })
 }
 
+// 화면에 쓰이는 것 전부를 지금 다시 받는다 (연결 안 됨 알림의 "다시 시도")
+export function refreshAll() {
+  void queryClient.refetchQueries({ type: 'active' })
+}
+
 // useState처럼 [값, 바꾸기]를 돌려주는 서버 데이터 훅. 키에 로그인한 사람이 자동으로 붙는다.
 // empty: 아직 받은 게 없을 때 바꾸기 함수가 이전 값으로 받는 값 (예: 빈 목록)
 export function useServerState<T>(
