@@ -113,10 +113,17 @@
   justify-content: center;
 }
 
+/* 시작 화면의 거북이 — 도트 그림이라 키워도 번지지 않게 */
+.auth-modal__mascot {
+  width: 92px;
+  height: auto;
+  image-rendering: pixelated;
+}
+
 .auth-modal__brand {
-  margin: 16px 0 0;
+  margin: 10px 0 0;
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 34px;
   line-height: 1.1;
   font-weight: 900;
   letter-spacing: -0.04em;
@@ -124,8 +131,8 @@
 }
 
 .auth-modal__tagline {
-  margin: 10px 0 0;
-  font-size: 16px;
+  margin: 8px 0 0;
+  font-size: 15.5px;
   line-height: 1.55;
   font-weight: 500;
   color: var(--ink-2);
@@ -133,21 +140,22 @@
 
 /* ── 소셜 버튼 ── */
 .auth-modal__social {
-  margin-top: 26px;
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 /* 간편 로그인 버튼 — 색·로고·문구는 각 사의 로그인 버튼 가이드를 따른다 (우리 디자인으로 통일하지 않는다).
    로고와 글자는 붙여서 가운데에 둔다. 모서리는 카카오가 정한 12px에 넷을 맞춘다 (Apple·Google은 둥글기가 자유). */
 .auth-modal__social-btn {
-  --social-h: 56px;
+  --social-h: 48px;
   height: var(--social-h);
   border: 1px solid transparent;
   border-radius: 12px;
   font-family: inherit;
-  font-size: 16px;
+  /* 카카오: 레이블 높이는 버튼 높이의 1/3을 넘지 않는다 — 넷을 같은 크기로 맞춘다 */
+  font-size: min(15px, calc(var(--social-h) / 3));
   font-weight: 700;
   letter-spacing: -0.02em;
   display: flex;
@@ -190,7 +198,8 @@
   background: #000000;
   color: #ffffff;
   font-size: calc(var(--social-h) * 0.43);
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   gap: 6px;
 }
 
@@ -585,8 +594,8 @@
     border-radius: 16px;
   }
   .auth-modal__brand {
-    margin-top: 12px;
-    font-size: 32px;
+    margin-top: 6px;
+    font-size: 30px;
   }
   .auth-modal__tagline {
     margin-top: 6px;
@@ -599,12 +608,14 @@
   .auth-modal__divider {
     margin: 12px 0;
   }
-  .auth-modal__social-btn,
   .auth-modal__submit {
     height: 50px;
   }
   .auth-modal__social-btn {
-    --social-h: 50px;
+    --social-h: 44px;
+  }
+  .auth-modal__mascot {
+    width: 72px;
   }
   .auth-modal__input {
     height: 50px;
