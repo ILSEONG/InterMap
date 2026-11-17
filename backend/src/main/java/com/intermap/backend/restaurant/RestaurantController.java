@@ -1,9 +1,14 @@
 package com.intermap.backend.restaurant;
 
+import com.intermap.backend.auth.Admins;
+import com.intermap.backend.auth.AppUser;
+import com.intermap.backend.auth.AuthController;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,9 +42,13 @@ public class RestaurantController {
     private static final double MAX_CELLS = 40_000;
 
     private final RestaurantRepository repository;
+    private final AuthController auth;
+    private final Admins admins;
 
-    public RestaurantController(RestaurantRepository repository) {
+    public RestaurantController(RestaurantRepository repository, AuthController auth, Admins admins) {
         this.repository = repository;
+        this.auth = auth;
+        this.admins = admins;
     }
 
     // q가 오면 이름 검색(상한 50건), bbox 4개가 다 오면 그 영역만. 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
@@ -56,23 +65,38 @@ public class RestaurantController {
         if (hasBox && (maxLat - minLat > MAX_BOX_DEG || maxLng - minLng > MAX_BOX_DEG)) {
             return ResponseEntity.badRequest().build();
         }
-        List<Restaurant> rows = q != null && !q.isBlank()
-                ? repository.findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status.OPEN, q.trim())
-                : hasBox
-                ? repository.findByStatusAndLatBetweenAndLngBetween(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng)
-                : List.of();
+        List<ListItem> items;
+        if (q != null && !q.isBlank()) {
+            items = repository.findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status.OPEN, q.trim())
+                    .stream().map(ListItem::from).toList();
+        } else if (hasBox) {
+            // 번화가는 격자 한 칸에 가게가 3천 곳 가까이 된다 — 엔티티로 올리면 행마다 관리 대상이 되어 느리다. 필요한 열만 읽는다
+            items = repository.findListRows(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng).stream()
+                    .map(r -> new ListItem((Long) r[0], (String) r[1], (String) r[2], (String) r[3], (String) r[4],
+                            (Double) r[5], (Double) r[6]))
+                    .toList();
+        } else {
+            items = List.of();
+        }
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
-                .body(rows.stream().map(ListItem::from).toList());
+                .body(items);
     }
 
-    // 좌표 보정 진행 상황 — 브라우저로 열어 확인 (건수만이라 공개해도 된다)
+    // 좌표 보정 진행 상황 — 운영 관리자만. 가게 표를 세 번 훑는 무거운 조회(1~2초)라 아무나 부르게 두지 않는다
     @GetMapping("/api/restaurants/geocode-progress")
-    public java.util.Map<String, Long> geocodeProgress() {
-        return java.util.Map.of(
+    public ResponseEntity<?> geocodeProgress(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        AppUser me = auth.currentUser(authorization);
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthController.ErrorResponse("다시 로그인해주세요."));
+        }
+        if (!admins.isAdmin(me)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("운영자만 볼 수 있어요."));
+        }
+        return ResponseEntity.ok(java.util.Map.of(
                 "fixed", repository.countByStatusAndGeocoded(Restaurant.Status.OPEN, true),
                 "notFound", repository.countByStatusAndGeocoded(Restaurant.Status.OPEN, false),
-                "pending", repository.countByStatusAndGeocodedIsNull(Restaurant.Status.OPEN));
+                "pending", repository.countByStatusAndGeocodedIsNull(Restaurant.Status.OPEN)));
     }
 
     // 낮은 줌에서는 개별 가게(수천 행) 대신 격자 셀 요약(수십~수백 행)만 내려준다.

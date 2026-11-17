@@ -191,6 +191,11 @@ export default function StoryViewer({
             // 이웃 평가가 이 후기 하나뿐이면 위 별점과 같은 숫자라 굳이 다시 보이지 않는다
             const showNeighbors = neighbors.some((r) => r.id !== review.id)
             const photoPath = review.photoUrls[0]
+            // 멀리 있는 장은 자리(너비)만 잡아 둔다 — 장마다 사진·후기·댓글을 다 그리면 여는 순간 화면이 멈칫한다.
+            // 한 번에 한 장씩만 넘어가므로(scroll-snap-stop) 지금 장의 앞뒤 두 장이면 넘기는 중에 빈 장이 보이지 않는다
+            if (Math.abs(slideIndex - active) > 2) {
+              return <article key={review.id} className="story-viewer__slide" aria-hidden="true" />
+            }
             return (
               <article
                 key={review.id}

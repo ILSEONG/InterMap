@@ -5,6 +5,7 @@ import { closeTopLayer } from './lib/backLayer'
 import { readBoardSeen } from './lib/boardSeen'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
+import ConnectionNotice from './components/ConnectionNotice'
 import TurtlePet from './components/TurtlePet'
 import TopBar from './components/TopBar'
 import SearchResults, { type NeighborHit } from './components/SearchResults'
@@ -1751,6 +1752,7 @@ export default function App() {
       )}
       {recapMonth && session && <RecapSheet month={recapMonth} onClose={() => setRecapMonth(null)} />}
       {policyPage && <PolicyViewer page={policyPage} onClose={() => setPolicyPage(null)} />}
+      <ConnectionNotice />
     </div>
     </ModerationContext.Provider>
     </OpenProfileContext.Provider>

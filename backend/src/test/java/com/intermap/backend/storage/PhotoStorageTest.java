@@ -61,6 +61,8 @@ class PhotoStorageTest {
     @Autowired ReviewRepository reviews;
     @Autowired ReviewPhotoRepository photos;
     @Autowired UserAvatarRepository avatars;
+    @Autowired com.intermap.backend.auth.AvatarKeyBackfill keyBackfill;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private AppUser me;
     private String bearer;
@@ -68,6 +70,7 @@ class PhotoStorageTest {
 
     @BeforeEach
     void signIn() {
+        store.clearCache();
         s3.down = false;
         // 서버 시작 때 뒤에서 도는 옮기기가 끝난 다음에 비운다
         offload.move();
@@ -113,6 +116,12 @@ class PhotoStorageTest {
         ReviewController.Item item = (ReviewController.Item) response.getBody();
         reviewIds.add(item.id());
         return item;
+    }
+
+    // 서버가 내려주는 주소 그대로(키 포함) 프로필 사진을 받는다
+    private ResponseEntity<byte[]> avatar() {
+        String key = avatars.findById(me.getId()).map(UserAvatar::getAccessKey).orElse(null);
+        return avatarController.photo(me.getId(), key);
     }
 
     // "/api/photos/{id}/{key}" 주소로 사진을 받는다
@@ -197,7 +206,7 @@ class PhotoStorageTest {
         UserAvatar avatar = avatars.findById(me.getId()).orElseThrow();
         assertEquals(0, avatar.getData().length);
         assertTrue(avatar.getStorageKey().startsWith("avatars/"));
-        assertArrayEquals(oldAvatar, avatarController.photo(me.getId()).getBody());
+        assertArrayEquals(oldAvatar, avatar().getBody());
         assertTrue(photos.idsInDatabase().stream().noneMatch(inDb.getId()::equals));
     }
 
@@ -232,17 +241,75 @@ class PhotoStorageTest {
         assertEquals(HttpStatus.OK, avatarController.upload(bearer, file("photo", first)).getStatusCode());
         String firstKey = avatars.findStorageKey(me.getId()).orElseThrow();
         assertArrayEquals(first, s3.objects.get("/photos/" + firstKey));
-        assertArrayEquals(first, avatarController.photo(me.getId()).getBody());
+        assertArrayEquals(first, avatar().getBody());
 
         byte[] second = jpeg(9);
         avatarController.upload(bearer, file("photo", second));
         String secondKey = avatars.findStorageKey(me.getId()).orElseThrow();
         assertEquals(java.util.Set.of("/photos/" + secondKey), s3.objects.keySet(), "예전 프로필 사진은 지워진다");
-        assertArrayEquals(second, avatarController.photo(me.getId()).getBody());
+        assertArrayEquals(second, avatar().getBody());
 
         avatarController.delete(bearer);
         assertTrue(s3.objects.isEmpty());
-        assertEquals(HttpStatus.NOT_FOUND, avatarController.photo(me.getId()).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, avatarController.photo(me.getId(), "anything").getStatusCode());
+    }
+
+    @Test
+    void avatarNeedsItsKey() throws Exception {
+        avatarController.upload(bearer, file("photo", jpeg(10)));
+        String url = avatars.urlOf(me.getId());
+        String key = avatars.findById(me.getId()).orElseThrow().getAccessKey();
+        assertTrue(url.endsWith("&k=" + key), "서버가 주는 주소에 키가 붙는다: " + url);
+
+        assertEquals(HttpStatus.OK, avatarController.photo(me.getId(), key).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, avatarController.photo(me.getId(), null).getStatusCode(), "키 없이는 못 받는다");
+        assertEquals(HttpStatus.NOT_FOUND, avatarController.photo(me.getId(), key + "x").getStatusCode(), "틀린 키로는 못 받는다");
+
+        // 사진을 바꾸면 키도 바뀐다 — 예전 주소로는 새 사진을 못 본다
+        avatarController.upload(bearer, file("photo", jpeg(11)));
+        assertEquals(HttpStatus.NOT_FOUND, avatarController.photo(me.getId(), key).getStatusCode());
+    }
+
+    @Test
+    void avatarWithoutAKeyGetsOneAtStartup() throws Exception {
+        avatarController.upload(bearer, file("photo", jpeg(12)));
+        // 키가 생기기 전에 올라온 행을 흉내 낸다
+        jdbc.update("update user_avatar set access_key = null where user_id = ?", me.getId());
+        assertNull(avatars.urlOf(me.getId()), "키가 없는 동안은 주소를 주지 않는다");
+
+        keyBackfill.run(null);
+
+        assertNotNull(avatars.urlOf(me.getId()));
+        assertEquals(HttpStatus.OK, avatar().getStatusCode());
+    }
+
+    @Test
+    void repeatedViewsDoNotGoBackToR2() throws Exception {
+        ReviewController.Item item = create(jpeg(13));
+        int before = s3.gets.get();
+
+        byte[] first = fetch(item.photoUrls().get(0)).getBody();
+        byte[] second = fetch(item.photoUrls().get(0)).getBody();
+
+        assertArrayEquals(first, second);
+        assertEquals(before + 1, s3.gets.get(), "두 번째부터는 서버가 들고 있던 바이트로 답한다");
+
+        // R2가 잠깐 안 돼도 방금 본 사진은 나온다
+        s3.down = true;
+        assertEquals(HttpStatus.OK, fetch(item.photoUrls().get(0)).getStatusCode());
+    }
+
+    @Test
+    void deletedPhotoIsNotServedFromMemory() throws Exception {
+        ReviewController.Item item = create(jpeg(14));
+        String url = item.photoUrls().get(0);
+        assertEquals(HttpStatus.OK, fetch(url).getStatusCode());
+
+        reviewController.delete(bearer, item.id());
+        reviewIds.clear();
+
+        assertEquals(HttpStatus.NOT_FOUND, fetch(url).getStatusCode());
+        assertTrue(s3.objects.isEmpty());
     }
 
     @Test

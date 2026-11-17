@@ -611,6 +611,9 @@
 
 .my-page__links {
   display: flex;
+  /* 줄이 다섯 개라 좁은 화면에서는 두 줄로 넘긴다 */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 4px;
 }
 

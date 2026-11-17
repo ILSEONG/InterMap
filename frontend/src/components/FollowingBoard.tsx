@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Review } from '../data/model'
+import { useProgressiveCount } from '../lib/useProgressiveCount'
 import type { Person } from '../lib/api'
 import { tasteTag } from '../lib/taste'
 import { reviewDate } from '../lib/time'
@@ -103,6 +104,8 @@ export default function FollowingBoard({
           : a.name.localeCompare(b.name, 'ko'),
     )
   }, [rows, query, sort])
+  // 이웃이 많으면 줄을 나눠 그린다. 정렬이나 검색어가 바뀌면 처음부터
+  const rowsShown = useProgressiveCount(shown.length, `${sort}|${query}`, 12, 24)
 
   return (
     <div className="modal-layer board-layer" hidden={hidden} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -171,7 +174,7 @@ export default function FollowingBoard({
           ) : (
             // 새 후기·이번 주·그 전으로 나누지 않고 한 목록으로 (정렬만 바꾼다)
             <ul className="board__list">
-              {shown.map((r) => (
+              {shown.slice(0, rowsShown).map((r) => (
                 <li key={r.person.id} className="board__row">
                   <button
                     type="button"

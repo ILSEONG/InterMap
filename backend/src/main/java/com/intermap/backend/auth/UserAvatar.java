@@ -29,6 +29,10 @@ public class UserAvatar {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    // 사진 주소에 붙는 추측 불가 키 (?k=). 회원 번호만 알아서는 사진을 받지 못하게 — 후기 사진의 accessKey와 같은 역할.
+    // 사진을 볼 수 있는 응답(후기·이웃 목록·프로필)에만 이 키가 든 주소가 실린다. 예전 행은 AvatarKeyBackfill이 채운다
+    private String accessKey;
+
     protected UserAvatar() {
     }
 
@@ -43,6 +47,11 @@ public class UserAvatar {
         this.data = storageKey == null ? data : new byte[0];
         this.storageKey = storageKey;
         this.updatedAt = Instant.now();
+        this.accessKey = newKey();
+    }
+
+    public static String newKey() {
+        return java.util.UUID.randomUUID().toString().replace("-", "");
     }
 
     // DB에 있던 바이트를 R2로 옮긴 뒤 부른다 (PhotoOffload). 사진은 그대로라 updatedAt(캐시 주소)은 안 바꾼다
@@ -55,5 +64,6 @@ public class UserAvatar {
     public String getContentType() { return contentType; }
     public byte[] getData() { return data; }
     public String getStorageKey() { return storageKey; }
+    public String getAccessKey() { return accessKey; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

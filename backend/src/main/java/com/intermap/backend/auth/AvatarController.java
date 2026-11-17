@@ -14,11 +14,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 
@@ -93,7 +96,7 @@ public class AvatarController {
         String previous = avatars.findStorageKey(me.getId()).orElse(null);
         UserAvatar saved = avatars.save(new UserAvatar(me.getId(), type, data, store.save("avatars", type, data)));
         if (previous != null) store.deleteAfterCommit(List.of(previous));
-        return ResponseEntity.ok(new AvatarResponse(UserAvatarRepository.url(me.getId(), saved.getUpdatedAt())));
+        return ResponseEntity.ok(new AvatarResponse(UserAvatarRepository.url(me.getId(), saved.getUpdatedAt(), saved.getAccessKey())));
     }
 
     @DeleteMapping("/api/me/avatar")
@@ -106,14 +109,18 @@ public class AvatarController {
         return ResponseEntity.ok(new AvatarResponse(null));
     }
 
-    // URL에 ?v= 갱신 시각이 붙으므로 1년 캐시해도 바뀐 사진은 새 URL로 받는다
+    // URL에 ?v= 갱신 시각이 붙으므로 1년 캐시해도 바뀐 사진은 새 URL로 받는다.
+    // 키(?k=)가 맞아야 준다 — 회원 번호를 차례로 넣어 사진을 긁어 가지 못하게. 키가 든 주소는 그 사람을 볼 수 있는 응답에만 실린다.
     @GetMapping("/api/users/{id}/avatar")
-    public ResponseEntity<byte[]> photo(@PathVariable Long id) {
+    public ResponseEntity<byte[]> photo(@PathVariable Long id, @RequestParam(value = "k", required = false) String key) {
         // JDBC로 읽고 연결을 바로 돌려준다 — R2에서 받는 동안 DB 연결을 쥐지 않게 (ReviewController.photo와 같은 이유)
-        String[] row = jdbc.query("select content_type, storage_key from user_avatar where user_id = ?",
-                (ResultSetExtractor<String[]>) rs -> rs.next() ? new String[]{rs.getString(1), rs.getString(2)} : null,
+        String[] row = jdbc.query("select content_type, storage_key, access_key from user_avatar where user_id = ?",
+                (ResultSetExtractor<String[]>) rs -> rs.next() ? new String[]{rs.getString(1), rs.getString(2), rs.getString(3)} : null,
                 id);
-        if (row == null) return ResponseEntity.notFound().build();
+        if (row == null || row[2] == null || key == null || !MessageDigest.isEqual(
+                row[2].getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8))) {
+            return ResponseEntity.notFound().build();
+        }
         byte[] data = row[1] != null ? store.load(row[1])
                 : jdbc.query("select data from user_avatar where user_id = ?",
                         (ResultSetExtractor<byte[]>) rs -> rs.next() ? rs.getBytes(1) : null, id);

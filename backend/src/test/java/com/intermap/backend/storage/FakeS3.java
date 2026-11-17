@@ -14,6 +14,8 @@ public final class FakeS3 implements AutoCloseable {
     public final Map<String, byte[]> objects = new ConcurrentHashMap<>();
     // true면 모든 요청에 500 — 저장소가 죽었을 때를 흉내 낸다
     public volatile boolean down;
+    // 받기(GET) 요청 수 — 서버가 들고 있던 바이트로 답했는지 볼 때
+    public final java.util.concurrent.atomic.AtomicInteger gets = new java.util.concurrent.atomic.AtomicInteger();
 
     private final HttpServer server;
 
@@ -44,6 +46,7 @@ public final class FakeS3 implements AutoCloseable {
                 objects.put(path, body);
                 respond(exchange, 200, new byte[0]);
             } else if ("GET".equals(exchange.getRequestMethod())) {
+                gets.incrementAndGet();
                 byte[] found = objects.get(path);
                 respond(exchange, found == null ? 404 : 200, found == null ? new byte[0] : found);
             } else if ("DELETE".equals(exchange.getRequestMethod())) {
