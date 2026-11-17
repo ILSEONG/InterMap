@@ -38,7 +38,7 @@ const SOCIAL_PROVIDERS = [
 const APPLE_PROVIDER = { id: 'apple', name: 'Apple' } as const
 type SocialProvider = (typeof SOCIAL_PROVIDERS)[number] | typeof APPLE_PROVIDER
 const ALL_PROVIDERS: readonly SocialProvider[] = [...SOCIAL_PROVIDERS, APPLE_PROVIDER]
-// 버튼 문구는 각 사의 로그인 버튼 가이드가 정한 것을 쓴다 — 우리 말투("…로 시작하기")로 통일하지 않는다
+// 버튼은 로고만 든 동그라미라 글자가 보이지 않는다 — 화면 낭독기가 읽는 이름으로 쓴다 (각 사 가이드의 문구)
 const SOCIAL_LABELS: Record<SocialProvider['id'], string> = {
   naver: '네이버 로그인',
   kakao: '카카오 로그인',
@@ -121,28 +121,28 @@ function Icon({ name, size = 20, strokeWidth = 2 }: { name: keyof typeof ICONS; 
   )
 }
 
-// 소셜 버튼의 로고. 버튼 색·로고·문구는 각 사의 로그인 버튼 가이드를 따른다 (AuthModal.css의 버튼별 색 참고).
+// 소셜 버튼의 로고. 버튼 색과 로고는 각 사의 로그인 버튼 가이드를 따른다 (AuthModal.css의 버튼별 색 참고).
 //   네이버: 초록 바탕에 흰 N                       카카오: 노란 바탕에 검은 말풍선 심볼(글자 없는 것 — 카카오톡 로고가 아니다)
 //   Google: 흰 바탕에 표준 색 G 로고(색·모양 변경 금지)   Apple: 검은 바탕에 흰 로고
 function SocialIcon({ id }: { id: SocialProvider['id'] }) {
   if (id === 'apple') {
     return (
       <span className="auth-modal__social-icon" aria-hidden="true">
-        <SiApple size={19} />
+        <SiApple size={24} />
       </span>
     )
   }
   if (id === 'naver') {
     return (
       <span className="auth-modal__social-icon" aria-hidden="true">
-        <SiNaver size={14} />
+        <SiNaver size={17} />
       </span>
     )
   }
   if (id === 'kakao') {
     return (
       <span className="auth-modal__social-icon" aria-hidden="true">
-        <svg width="19" height="19" viewBox="0 0 18 18">
+        <svg width="25" height="25" viewBox="0 0 18 18">
           <path
             fill="#000000"
             fillRule="evenodd"
@@ -155,7 +155,7 @@ function SocialIcon({ id }: { id: SocialProvider['id'] }) {
   }
   return (
     <span className="auth-modal__social-icon" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 48 48">
+      <svg width="24" height="24" viewBox="0 0 48 48">
         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
         <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
@@ -291,7 +291,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
         const found = ALL_PROVIDERS.find((s) => s.id === p)
         setError(
           found
-            ? `${found.name}로 가입한 계정이에요. 위의 "${socialLabel(found)}"를 눌러주세요.`
+            ? `${found.name}로 가입한 계정이에요. 위의 ${found.name} 버튼을 눌러주세요.`
             : 'SNS로 가입한 계정이에요. 위의 간편 로그인 버튼을 눌러주세요.',
         )
         return
@@ -705,18 +705,19 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
                 지도에서 바로 확인해요.
               </p>
             </div>
+            <p className="auth-modal__social-caption">SNS 계정으로 3초 만에 시작하기</p>
             <div className="auth-modal__social">
               {socialProviders.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   className={`auth-modal__social-btn auth-modal__social-btn--${p.id}`}
+                  aria-label={socialLabel(p)}
                   onClick={() => {
                     void startOAuth(p.id).catch(() => alert('로그인 화면을 열지 못했어요. 다시 시도해주세요.'))
                   }}
                 >
                   <SocialIcon id={p.id} />
-                  {socialLabel(p)}
                 </button>
               ))}
             </div>
@@ -749,7 +750,6 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
               </button>
             </form>
             )}
-            <p className="auth-modal__foot">로그인 또는 회원가입</p>
           </>
         )
     }
