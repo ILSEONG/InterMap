@@ -26,6 +26,12 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
     List<Restaurant> findByStatusAndLatBetweenAndLngBetween(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng);
 
+    // 지도 화면 한 칸의 가게들 — 목록 응답에 실리는 열만 [id, name, category, roadAddress, address, lat, lng].
+    // 엔티티로 받으면 번화가 한 칸(3천 행)마다 영속성 컨텍스트에 올라가 느리다
+    @Query("select r.id, r.name, r.category, r.roadAddress, r.address, r.lat, r.lng from Restaurant r"
+            + " where r.status = :status and r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng")
+    List<Object[]> findListRows(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng);
+
     // 백필 중복 판정용 키만 (엔티티 전체를 올리면 서울 10만 행에서 Render 512MB가 터진다).
     // 인터페이스 프로젝션은 행마다 프록시를 만들어 무거우니 Object[] — [id, name, roadAddress, localDataMgtNo]
     @Query("select r.id, r.name, r.roadAddress, r.localDataMgtNo from Restaurant r")

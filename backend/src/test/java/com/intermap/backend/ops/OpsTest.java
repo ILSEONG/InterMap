@@ -36,6 +36,8 @@ class OpsTest {
     @Autowired ExternalCalls external;
     @Autowired ErrorLog errorLog;
     @Autowired ReviewRepository reviews;
+    @Autowired com.intermap.backend.restaurant.RestaurantController restaurants;
+    @Autowired com.intermap.backend.restaurant.RestaurantRepository restaurantRepository;
     @MockitoBean MailService mail;
 
     private AuthController.AuthResponse signIn(String email) {
@@ -112,6 +114,39 @@ class OpsTest {
         assertEquals("새 후기 식당", latest.restaurantName());
         assertEquals(member.nickname(), latest.author());
         assertEquals(4.5, latest.rating());
+    }
+
+    @Test
+    void geocodeProgressIsForAdminsOnly() {
+        assertEquals(HttpStatus.UNAUTHORIZED, restaurants.geocodeProgress(null).getStatusCode());
+        AuthController.AuthResponse member = signIn("member-" + UUID.randomUUID() + "@test.local");
+        assertEquals(HttpStatus.FORBIDDEN, restaurants.geocodeProgress("Bearer " + member.token()).getStatusCode());
+        AuthController.AuthResponse admin = signIn("ops-admin@test.local");
+        assertEquals(HttpStatus.OK, restaurants.geocodeProgress("Bearer " + admin.token()).getStatusCode());
+    }
+
+    @Test
+    void mapListCarriesTheSameFieldsAsBefore() {
+        String name = "지도 목록 식당 " + UUID.randomUUID();
+        com.intermap.backend.restaurant.Restaurant open = restaurantRepository.saveAndFlush(
+                new com.intermap.backend.restaurant.Restaurant(name, "한식", "서울 테스트구 지도로 1", "서울 테스트구 지도동 1", 33.4501, 126.5701));
+        com.intermap.backend.restaurant.Restaurant closed = new com.intermap.backend.restaurant.Restaurant(name + " 폐업", "한식", "서울 테스트구 지도로 2", "서울 테스트구 지도동 2", 33.4502, 126.5702);
+        closed.markStatus(com.intermap.backend.restaurant.Restaurant.Status.CLOSED, null);
+        restaurantRepository.saveAndFlush(closed);
+
+        List<com.intermap.backend.restaurant.RestaurantController.ListItem> items =
+                restaurants.list(33.45, 33.451, 126.57, 126.571, null).getBody();
+
+        com.intermap.backend.restaurant.RestaurantController.ListItem item =
+                items.stream().filter(i -> i.name().equals(name)).findFirst().orElseThrow();
+        assertEquals(open.getId(), item.id());
+        assertEquals("한식", item.category());
+        assertEquals("서울 테스트구 지도로 1", item.roadAddress());
+        assertEquals("서울 테스트구 지도동 1", item.address());
+        assertEquals(33.4501, item.lat());
+        assertEquals(126.5701, item.lng());
+        assertTrue(items.stream().noneMatch(i -> i.name().endsWith("폐업")), "폐업한 가게는 내려주지 않는다");
+        assertEquals(HttpStatus.BAD_REQUEST, restaurants.list(33.0, 34.0, 126.0, 127.0, null).getStatusCode(), "너무 넓은 범위는 거절");
     }
 
     @Test
