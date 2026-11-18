@@ -134,6 +134,14 @@ class JusoGeocoderTest {
     }
 
     @Test
+    void unknownErrorStopsInsteadOfCountingAsNotFound() {
+        // 한도에 걸렸을 때의 문구를 미리 알 수 없다 — 모르는 오류는 "못 찾음"으로 넘기지 않고 멈춘다
+        searchBody = failed("E9999", "처음 보는 오류입니다.");
+
+        assertThrows(GeocodeBackfill.Unavailable.class, () -> geocoder(1000).locate("서울특별시 중구 세종대로 110", null));
+    }
+
+    @Test
     void unreadableQueryCountsAsNotFound() {
         searchBody = failed("E0006", "주소를 상세히 입력해 주시기 바랍니다.");
 
@@ -163,6 +171,16 @@ class JusoGeocoderTest {
         assertTrue(geocoder.locate("서울특별시 중구 세종대로 110", null).isPresent());
         assertThrows(GeocodeBackfill.Unavailable.class, () -> geocoder.locate("서울특별시 중구 세종대로 120", null));
         assertEquals(1, searches.size(), "한도를 넘으면 더 부르지 않는다");
+    }
+
+    @Test
+    void noDailyBudgetUnlessConfigured() {
+        // 도로명주소 API에는 호출 건수 제한이 없다 — 0이면 몇 번을 불러도 막지 않는다
+        searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
+        JusoGeocoder geocoder = geocoder(0);
+
+        for (int i = 0; i < 5; i++) assertTrue(geocoder.answersKnownAddress());
+        assertEquals(5, searches.size());
     }
 
     @Test

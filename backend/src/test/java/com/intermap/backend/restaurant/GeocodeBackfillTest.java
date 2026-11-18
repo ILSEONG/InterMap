@@ -200,6 +200,109 @@ class GeocodeBackfillTest {
     }
 
     @Test
+    void stopsWhenMostOfABatchIsNotFoundAndTheApiLooksBroken() {
+        // 처음엔 멀쩡하다가 도중에 API가 이상해진 경우: 아는 주소 확인이 실패하면 묶음 하나에서 멈춘다
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < 450; i++) {
+            ids.add(repository.save(new Restaurant("몰린집" + i, "한식", "서울특별시 마포구 몰린길 " + i, null, 37.55, 126.92)).getId());
+        }
+        AtomicInteger checks = new AtomicInteger();
+        GeocodeBackfill.Locator breaking = new GeocodeBackfill.Locator() {
+            public boolean isConfigured() { return true; }
+
+            // 시작할 때 한 번은 통과하고 그다음부터 실패한다
+            public boolean answersKnownAddress() { return checks.getAndIncrement() == 0; }
+
+            public Optional<double[]> locate(String road, String lot) { return Optional.empty(); }
+        };
+
+        new GeocodeBackfill(repository, tx, breaking, new FakeOriginals(), 0).fill();
+
+        long untouched = ids.stream().filter(id -> repository.findById(id).orElseThrow().getCoordSource() == null).count();
+        assertTrue(untouched >= 200, "첫 묶음(200곳)에서 멈춰 나머지는 그대로 남는다: " + untouched);
+        assertEquals(2, checks.get(), "시작할 때 한 번, 못 찾음이 몰렸을 때 한 번");
+
+        repository.deleteAllById(ids);
+    }
+
+    // 주소마다 정해 둔 대로 답하는 가짜 주소 API: 거절(Unavailable), 잠깐의 오류, 또는 좌표
+    private static class Scripted implements GeocodeBackfill.Locator {
+        final java.util.Set<String> refused = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        final java.util.Set<String> failsOnce = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        final AtomicInteger checks = new AtomicInteger();
+        volatile boolean healthyAfterStart = true;
+
+        public boolean isConfigured() { return true; }
+
+        public boolean answersKnownAddress() { return checks.getAndIncrement() == 0 || healthyAfterStart; }
+
+        public Optional<double[]> locate(String road, String lot) {
+            if (road == null) return Optional.empty();
+            if (refused.contains(road)) throw new GeocodeBackfill.Unavailable("E9999 처음 보는 오류");
+            if (failsOnce.remove(road)) throw new IllegalStateException("잠깐의 오류");
+            return Optional.of(new double[] {37.5, 127.0});
+        }
+    }
+
+    @Test
+    void aRowTheApiKeepsRefusingDoesNotHoldUpTheRest() {
+        // 한 주소만 거듭 거절되는 경우(모르는 오류 코드): 나머지는 고치고, 그 주소는 못 찾은 것으로 두고 끝낸다
+        Restaurant first = repository.save(new Restaurant("앞집", "한식", "서울특별시 마포구 거절길 1", null, 37.55, 126.92));
+        Restaurant stuck = repository.save(new Restaurant("걸린집", "한식", "서울특별시 마포구 거절길 2", null, 37.55, 126.92));
+        Restaurant last = repository.save(new Restaurant("뒷집", "한식", "서울특별시 마포구 거절길 3", null, 37.55, 126.92));
+        Scripted api = new Scripted();
+        api.refused.add(stuck.getRoadAddress());
+
+        new GeocodeBackfill(repository, tx, api, new FakeOriginals(), 0).fill();
+
+        assertEquals("JUSO", repository.findById(first.getId()).orElseThrow().getCoordSource());
+        assertEquals("JUSO", repository.findById(last.getId()).orElseThrow().getCoordSource(), "걸린 행 뒤의 가게도 고친다");
+        Restaurant s2 = repository.findById(stuck.getId()).orElseThrow();
+        assertEquals("LICENSE", s2.getCoordSource(), "다른 주소는 답하는데 이 주소만 거듭 거절되면 못 찾은 것으로 둔다");
+        assertEquals(37.55, s2.getLat(), 1e-9);
+
+        repository.deleteAllById(List.of(first.getId(), stuck.getId(), last.getId()));
+    }
+
+    @Test
+    void aPassingErrorIsAskedAgainAtTheEnd() {
+        Restaurant flaky = repository.save(new Restaurant("깜빡집", "한식", "서울특별시 마포구 깜빡길 1", null, 37.55, 126.92));
+        Scripted api = new Scripted();
+        api.failsOnce.add(flaky.getRoadAddress());
+
+        new GeocodeBackfill(repository, tx, api, new FakeOriginals(), 0).fill();
+
+        Restaurant r = repository.findById(flaky.getId()).orElseThrow();
+        assertEquals("JUSO", r.getCoordSource(), "한 번 실패한 행은 다 돈 뒤에 다시 물어 고친다");
+        assertEquals(37.5, r.getLat(), 1e-9);
+
+        repository.deleteById(flaky.getId());
+    }
+
+    @Test
+    void stopsAndLeavesRowsAloneWhenTheApiRefusesEverything() {
+        // 한도·차단처럼 API가 전부 거절하기 시작한 경우: 아는 주소도 답하지 못하므로 멈추고, 가게는 건드리지 않는다
+        java.util.List<Restaurant> saved = new java.util.ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            saved.add(repository.save(new Restaurant("막힌집" + i, "한식", "서울특별시 마포구 막힌길 " + i, null, 37.55, 126.92)));
+        }
+        Scripted api = new Scripted();
+        api.healthyAfterStart = false;
+        for (Restaurant r : saved) api.refused.add(r.getRoadAddress());
+
+        new GeocodeBackfill(repository, tx, api, new FakeOriginals(), 0).fill();
+
+        for (Restaurant r : saved) {
+            Restaurant now = repository.findById(r.getId()).orElseThrow();
+            assertNull(now.getCoordSource(), "거절된 가게는 다음에 다시 묻도록 그대로 둔다");
+            assertEquals(37.55, now.getLat(), 1e-9);
+        }
+        assertEquals(2, api.checks.get(), "시작할 때 한 번, 거절이 나왔을 때 한 번");
+
+        repository.deleteAllById(saved.stream().map(Restaurant::getId).toList());
+    }
+
+    @Test
     void newRestaurantsStartUnprocessed() {
         Restaurant fresh = repository.save(new Restaurant("새집", "한식", "서울특별시 마포구 새길 1", null, 37.55, 126.92));
         assertNull(repository.findById(fresh.getId()).orElseThrow().getCoordSource());

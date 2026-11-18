@@ -33,6 +33,11 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
     // 같은 건물에 든 가게들이 같은 주소를 다시 묻지 않게 — 한 번에 도는 동안만 들고 있는다
     private static final int CACHE_MAX = 60_000;
 
+    // 검색어 쪽 문제를 뜻하는 오류 코드 (입력 없음, 더 자세히, 한 글자, 문자+숫자, 너무 김, 긴 숫자,
+    // 특수문자+숫자만, 예약어·특수문자, 검색 범위 초과). 이 코드일 때만 "그 주소는 못 찾음"으로 본다
+    private static final java.util.Set<String> QUERY_PROBLEMS = java.util.Set.of(
+        "E0005", "E0006", "E0008", "E0009", "E0010", "E0011", "E0012", "E0013", "E0015");
+
     private static final CoordinateTransform UTMK_TO_WGS84;
 
     static {
@@ -76,8 +81,8 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
     public JusoGeocoder(@Value("${juso.base-url:https://business.juso.go.kr/addrlink}") String baseUrl,
                         @Value("${juso.search-key:}") String searchKey,
                         @Value("${juso.coord-key:}") String coordKey,
-                        @Value("${juso.daily-calls:90000}") int dailyCalls,
-                        @Value("${juso.min-interval-ms:130}") long minIntervalMillis) {
+                        @Value("${juso.daily-calls:0}") int dailyCalls,
+                        @Value("${juso.min-interval-ms:0}") long minIntervalMillis) {
         this.baseUrl = baseUrl;
         this.searchKey = searchKey;
         this.coordKey = coordKey;
@@ -206,20 +211,20 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         String code = common.errorCode() == null ? "" : common.errorCode().trim();
         if (!code.equals("0")) {
             String message = common.errorMessage() == null ? "" : common.errorMessage();
-            // 승인키 문제나 이용 한도 — 계속 불러도 다 실패하므로 멈춘다
-            if (message.contains("승인") || message.contains("키") || message.toUpperCase().contains("KEY")
-                || message.contains("초과") || message.contains("제한") || message.contains("만료")) {
-                throw new GeocodeBackfill.Unavailable(code + " " + message);
-            }
             // 시스템 오류 — 잠깐 뒤 다시 물어볼 일
             if (code.equals("-999")) throw new IllegalStateException(code + " " + message);
-            // 그 밖은 검색어로 못 알아본 것(주소를 더 자세히, 허용되지 않는 글자 등) — 못 찾은 것과 같다
-            return List.of();
+            // 검색어로 못 알아본 것(주소를 더 자세히, 너무 긴 검색어, 허용되지 않는 글자 등) — 그 주소만 못 찾은 것이다
+            if (QUERY_PROBLEMS.contains(code)) return List.of();
+            // 그 밖은 전부 멈춘다: 승인키 문제, 이용 한도, 그리고 모르는 오류.
+            // 모르는 오류를 "못 찾음"으로 넘기면 한도에 걸린 순간부터 모든 가게가 못 찾은 것으로 처리되어
+            // 좌표가 한꺼번에 인허가 좌표로 밀려난다 — 가게는 그대로 두고 다음에 다시 묻는다
+            throw new GeocodeBackfill.Unavailable(code + " " + message);
         }
         return results.juso() == null ? List.of() : results.juso();
     }
 
-    // 초당 호출 수를 넘지 않게 간격을 두고, 하루 호출 수를 센다 (승인키마다 초당·하루 한도가 있다)
+    // 도로명주소 API에는 호출 건수 제한이 없어서(도로명주소 도움센터 답변) 기본은 간격도 하루 한도도 두지 않는다.
+    // 속도는 동시에 묻는 수(GeocodeBackfill)로 정해진다. 필요하면 설정으로 간격·하루 한도를 걸 수 있다 (0 = 없음)
     private void reserve() {
         long wait;
         synchronized (this) {
@@ -228,7 +233,7 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
                 countedDay = today;
                 callsToday = 0;
             }
-            if (callsToday >= dailyCalls) {
+            if (dailyCalls > 0 && callsToday >= dailyCalls) {
                 throw new GeocodeBackfill.Unavailable("오늘 쓸 호출 수(" + dailyCalls + "건)를 다 썼어요 — 내일 이어서 해요");
             }
             callsToday++;
