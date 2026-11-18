@@ -29,8 +29,14 @@ class GeocodeBackfillTest {
 
     // 다듬은 도로명 주소(없으면 지번 주소)로 답하는 가짜 주소 API
     private GeocodeBackfill.Locator locator(Map<String, double[]> answers) {
+        return locator(answers, true);
+    }
+
+    private GeocodeBackfill.Locator locator(Map<String, double[]> answers, boolean healthy) {
         return new GeocodeBackfill.Locator() {
             public boolean isConfigured() { return true; }
+
+            public boolean answersKnownAddress() { return healthy; }
 
             public Optional<double[]> locate(String road, String lot) {
                 asked.incrementAndGet();
@@ -169,6 +175,28 @@ class GeocodeBackfillTest {
         assertEquals(fetched, originals.fetched.get());
 
         repository.deleteAllById(List.of(found.getId(), byMgtNo.getId(), byName.getId(), orphan.getId(), plain.getId()));
+    }
+
+    @Test
+    void nothingIsTouchedWhenTheApiCannotAnswerAKnownAddress() {
+        // 응답을 잘못 읽고 있으면 모든 가게가 "못 찾음"이 된다 — 시작 전에 걸러서 좌표를 그대로 둔다
+        Restaurant naver = repository.save(new Restaurant("그대로집", "한식",
+            "서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", 37.5660, 126.9780));
+        markAsNaver(naver);
+        FakeOriginals originals = new FakeOriginals();
+        int before = asked.get();
+
+        GeocodeBackfill backfill = new GeocodeBackfill(repository, tx, locator(Map.of(), false), originals, 0);
+        assertEquals(0, backfill.fill());
+
+        Restaurant r = repository.findById(naver.getId()).orElseThrow();
+        assertEquals(37.5660, r.getLat(), 1e-9);
+        assertEquals(Boolean.TRUE, r.getGeocoded());
+        assertNull(r.getCoordSource());
+        assertEquals(before, asked.get(), "가게 주소는 하나도 묻지 않는다");
+        assertEquals(0, originals.fetched.get());
+
+        repository.deleteById(naver.getId());
     }
 
     @Test

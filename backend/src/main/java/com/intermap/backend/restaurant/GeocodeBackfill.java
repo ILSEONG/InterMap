@@ -48,6 +48,13 @@ public class GeocodeBackfill implements ApplicationRunner {
 
         /** 도로명 주소(없으면 지번 주소) → [lat, lng]. 못 찾으면 빈 값 */
         Optional<double[]> locate(String roadAddress, String lotAddress);
+
+        /**
+         * 이미 답을 아는 주소 하나를 물어 봐서 제대로 답하는지 확인한다.
+         * 응답을 잘못 읽고 있으면(형식이 바뀌었거나 다르면) 모든 가게가 "못 찾음"이 되어
+         * 좌표가 한꺼번에 인허가 좌표로 밀려난다 — 그 전에 여기서 걸러 아무것도 건드리지 않게 한다
+         */
+        boolean answersKnownAddress();
     }
 
     /** 키가 틀렸거나 오늘 쓸 수 있는 양을 다 쓴 경우 — 계속 불러도 다 실패하므로 멈춘다 */
@@ -138,6 +145,10 @@ public class GeocodeBackfill implements ApplicationRunner {
 
     /** 주소 좌표로 옮긴 건수를 돌려준다 */
     int fill() {
+        if (!locator.answersKnownAddress()) {
+            log.error("도로명주소 API가 이미 아는 주소(서울시청)를 제대로 답하지 못해 좌표 보정을 시작하지 않음 — 승인키와 응답 형식을 확인해야 함");
+            return 0;
+        }
         int moved = 0;
         try {
             moved = relocateAll();

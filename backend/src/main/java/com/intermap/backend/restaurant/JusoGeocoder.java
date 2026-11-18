@@ -107,6 +107,23 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         return Optional.empty();
     }
 
+    // 서울시청. 이 주소의 좌표는 바뀔 일이 없다 — 답이 500m 넘게 벗어나면 응답을 잘못 읽고 있는 것
+    private static final String KNOWN_ADDRESS = "서울특별시 중구 세종대로 110";
+    private static final double KNOWN_LAT = 37.5663, KNOWN_LNG = 126.9779;
+
+    @Override
+    public boolean answersKnownAddress() {
+        try {
+            Optional<double[]> p = lookup(KNOWN_ADDRESS, true);
+            if (p.isEmpty()) return false;
+            double dLat = (p.get()[0] - KNOWN_LAT) * 111_000;
+            double dLng = (p.get()[1] - KNOWN_LNG) * 88_000;
+            return Math.hypot(dLat, dLng) < 500;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     private Optional<double[]> cached(String query, boolean road) {
         String key = (road ? "R:" : "L:") + query;
         Optional<double[]> hit = cache.get(key);

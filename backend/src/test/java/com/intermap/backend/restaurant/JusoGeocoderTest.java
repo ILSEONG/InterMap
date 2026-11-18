@@ -166,6 +166,24 @@ class JusoGeocoderTest {
     }
 
     @Test
+    void knownAddressCheckCatchesAMisreadResponse() {
+        searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
+        assertTrue(geocoder(1000).answersKnownAddress(), "서울시청 좌표가 제대로 나오면 통과");
+
+        // 좌표 칸을 못 읽는 경우 (이름이 다르거나 비어 있음)
+        coordBody = "{\"results\":{" + OK + ",\"juso\":[{\"admCd\":\"1114010300\",\"x\":\"953901.25\",\"y\":\"1952031.50\"}]}}";
+        assertFalse(geocoder(1000).answersKnownAddress());
+
+        // 엉뚱한 곳을 가리키는 경우 (좌표계를 잘못 안 것과 같다)
+        coordBody = "{\"results\":{" + OK + ",\"juso\":[{\"entX\":\"1000000\",\"entY\":\"1800000\"}]}}";
+        assertFalse(geocoder(1000).answersKnownAddress());
+
+        // 주소 검색이 건물을 못 돌려주는 경우
+        searchBody = failed("E0001", "승인되지 않은 KEY 입니다.");
+        assertFalse(geocoder(1000).answersKnownAddress());
+    }
+
+    @Test
     void needsBothKeys() {
         assertTrue(geocoder(1).isConfigured());
         assertFalse(new JusoGeocoder("http://localhost", "search-key", "", 1, 0).isConfigured());
