@@ -134,6 +134,14 @@ class JusoGeocoderTest {
     }
 
     @Test
+    void unknownErrorStopsInsteadOfCountingAsNotFound() {
+        // 한도에 걸렸을 때의 문구를 미리 알 수 없다 — 모르는 오류는 "못 찾음"으로 넘기지 않고 멈춘다
+        searchBody = failed("E9999", "처음 보는 오류입니다.");
+
+        assertThrows(GeocodeBackfill.Unavailable.class, () -> geocoder(1000).locate("서울특별시 중구 세종대로 110", null));
+    }
+
+    @Test
     void unreadableQueryCountsAsNotFound() {
         searchBody = failed("E0006", "주소를 상세히 입력해 주시기 바랍니다.");
 

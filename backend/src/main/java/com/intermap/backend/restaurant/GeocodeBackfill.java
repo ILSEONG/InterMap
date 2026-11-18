@@ -182,7 +182,7 @@ public class GeocodeBackfill implements ApplicationRunner {
                     if (rows.isEmpty()) break;
                     List<Future<Outcome>> results = new ArrayList<>();
                     for (Object[] row : rows) results.add(pool.submit(() -> process(row)));
-                    int batchErrors = 0;
+                    int batchErrors = 0, batchKept = 0;
                     boolean stop = false;
                     for (Future<Outcome> f : results) {
                         Outcome o;
@@ -193,13 +193,22 @@ public class GeocodeBackfill implements ApplicationRunner {
                         }
                         switch (o) {
                             case MOVED -> moved++;
-                            case KEPT -> kept++;
+                            case KEPT -> {
+                                kept++;
+                                batchKept++;
+                            }
                             case ERROR -> batchErrors++;
                             case STOP -> stop = true;
                         }
                     }
                     if (stop) {
                         log.warn("도로명주소 API를 더 쓸 수 없어 좌표 보정 멈춤 (이번에 고침 {}건, 못 찾음 {}건) — 다음에 이어서", moved, kept);
+                        return moved;
+                    }
+                    // 한 묶음의 절반 넘게 못 찾았으면 API가 이상해진 것일 수 있다(한도·형식) — 아는 주소로 다시 확인하고,
+                    // 답이 틀리면 더 진행하지 않는다. 가게들이 줄줄이 "못 찾음"으로 넘어가는 것을 묶음 하나에서 끊는다
+                    if (rows.size() >= 20 && batchKept * 2 > rows.size() && !locator.answersKnownAddress()) {
+                        log.error("가게를 못 찾는 일이 몰렸고 도로명주소 API가 아는 주소도 제대로 답하지 못해 좌표 보정 멈춤 (고침 {}건, 못 찾음 {}건)", moved, kept);
                         return moved;
                     }
                     // 묶음 전체가 오류면 연속 오류로 친다. 일부만 실패한 행은 그대로 남아 다음 묶음에서 다시 잡힌다

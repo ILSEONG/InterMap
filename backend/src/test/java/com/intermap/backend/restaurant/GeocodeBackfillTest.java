@@ -200,6 +200,32 @@ class GeocodeBackfillTest {
     }
 
     @Test
+    void stopsWhenMostOfABatchIsNotFoundAndTheApiLooksBroken() {
+        // 처음엔 멀쩡하다가 도중에 API가 이상해진 경우: 아는 주소 확인이 실패하면 묶음 하나에서 멈춘다
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < 450; i++) {
+            ids.add(repository.save(new Restaurant("몰린집" + i, "한식", "서울특별시 마포구 몰린길 " + i, null, 37.55, 126.92)).getId());
+        }
+        AtomicInteger checks = new AtomicInteger();
+        GeocodeBackfill.Locator breaking = new GeocodeBackfill.Locator() {
+            public boolean isConfigured() { return true; }
+
+            // 시작할 때 한 번은 통과하고 그다음부터 실패한다
+            public boolean answersKnownAddress() { return checks.getAndIncrement() == 0; }
+
+            public Optional<double[]> locate(String road, String lot) { return Optional.empty(); }
+        };
+
+        new GeocodeBackfill(repository, tx, breaking, new FakeOriginals(), 0).fill();
+
+        long untouched = ids.stream().filter(id -> repository.findById(id).orElseThrow().getCoordSource() == null).count();
+        assertTrue(untouched >= 200, "첫 묶음(200곳)에서 멈춰 나머지는 그대로 남는다: " + untouched);
+        assertEquals(2, checks.get(), "시작할 때 한 번, 못 찾음이 몰렸을 때 한 번");
+
+        repository.deleteAllById(ids);
+    }
+
+    @Test
     void newRestaurantsStartUnprocessed() {
         Restaurant fresh = repository.save(new Restaurant("새집", "한식", "서울특별시 마포구 새길 1", null, 37.55, 126.92));
         assertNull(repository.findById(fresh.getId()).orElseThrow().getCoordSource());
