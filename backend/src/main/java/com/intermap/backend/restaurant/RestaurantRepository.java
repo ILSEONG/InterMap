@@ -56,6 +56,16 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
             + " where r.coordSource is null and r.geocoded = true and r.status = :status and r.id > :after order by r.id")
     List<Object[]> findCoordPendingFromNaver(Restaurant.Status status, long after, Pageable page);
 
+    // 확인한 때가 없는 "못 찾음" 표시 — 다시 묻는다. 넷째 값은 네이버 좌표가 아직 들어 있는지(REVERT)
+    @Query("select r.id, r.roadAddress, r.address, case when r.coordSource = 'REVERT' then true else false end"
+            + " from Restaurant r where r.coordSource in ('LICENSE', 'REVERT') and r.coordCheckedAt is null"
+            + " and r.status = :status and r.id > :after order by r.id")
+    List<Object[]> findCoordRecheck(Restaurant.Status status, long after, Pageable page);
+
+    @Query("select count(r) from Restaurant r where r.coordSource in ('LICENSE', 'REVERT')"
+            + " and r.coordCheckedAt is null and r.status = :status")
+    long countCoordRecheck(Restaurant.Status status);
+
     long countByStatusAndCoordSource(Restaurant.Status status, String coordSource);
 
     long countByStatusAndCoordSourceIsNull(Restaurant.Status status);
@@ -79,8 +89,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 
     // 주소로 못 찾음 — 인허가 좌표를 쓴다(LICENSE). 네이버 좌표가 들어 있던 행은 되돌릴 차례를 기다린다(REVERT)
     @Modifying
-    @Query("update Restaurant r set r.geocoded = false, r.coordSource = :source where r.id = :id")
-    int markCoordSource(Long id, String source);
+    @Query("update Restaurant r set r.geocoded = false, r.coordSource = :source, r.coordCheckedAt = :at where r.id = :id")
+    int markCoordSource(Long id, String source, java.time.Instant at);
 
     // 네이버 좌표가 남아 있던 행을 인허가 좌표로 되돌린다
     @Modifying

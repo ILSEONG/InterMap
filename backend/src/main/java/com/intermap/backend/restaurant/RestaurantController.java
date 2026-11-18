@@ -94,11 +94,12 @@ public class RestaurantController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("운영자만 볼 수 있어요."));
         }
         // fixed = 도로명주소 API 좌표, notFound = 못 찾아 인허가 좌표, pending = 아직 안 봄,
-        // naverLeft = 예전 네이버 좌표가 아직 남은 행 (0이어야 한다)
+        // recheck = 못 찾음으로 표시됐지만 다시 물을 행, naverLeft = 예전 네이버 좌표가 아직 남은 행 (0이어야 한다)
         return ResponseEntity.ok(java.util.Map.of(
                 "fixed", repository.countByStatusAndCoordSource(Restaurant.Status.OPEN, "JUSO"),
                 "notFound", repository.countByStatusAndCoordSource(Restaurant.Status.OPEN, "LICENSE"),
                 "pending", repository.countByStatusAndCoordSourceIsNull(Restaurant.Status.OPEN),
+                "recheck", repository.countCoordRecheck(Restaurant.Status.OPEN),
                 "naverLeft", repository.countHoldingNaverCoords()));
     }
 

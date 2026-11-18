@@ -303,6 +303,44 @@ class GeocodeBackfillTest {
     }
 
     @Test
+    void notFoundMarksWithoutACheckTimeAreAskedAgainOnce() {
+        // 속도 제한(E0007)을 못 찾은 것으로 잘못 읽던 때에 표시된 가게들 — 확인한 때가 비어 있다
+        Restaurant wrong = repository.save(new Restaurant("다시묻는집", "한식", "서울특별시 마포구 다시길 1", null, 37.55, 126.92));
+        Restaurant wrongNaver = repository.save(new Restaurant("다시묻는네이버집", "한식", "서울특별시 마포구 다시길 2", null, 37.55, 126.92));
+        Restaurant missing = repository.save(new Restaurant("정말없는집", "한식", "서울특별시 마포구 다시길 3", null, 37.55, 126.92));
+        Restaurant missingNaver = repository.save(new Restaurant("정말없는네이버집", "한식", "서울특별시 마포구 다시길 4", null, 37.55, 126.92));
+        for (Restaurant r : List.of(wrong, missing)) {
+            jdbc.update("update restaurant set coord_source = 'LICENSE', geocoded = false where id = ?", r.getId());
+        }
+        for (Restaurant r : List.of(wrongNaver, missingNaver)) {
+            jdbc.update("update restaurant set coord_source = 'REVERT', geocoded = false where id = ?", r.getId());
+        }
+        GeocodeBackfill backfill = new GeocodeBackfill(repository, tx, locator(Map.of(
+            "서울특별시 마포구 다시길 1", new double[] {37.5601, 126.9301},
+            "서울특별시 마포구 다시길 2", new double[] {37.5602, 126.9302}
+        )), new FakeOriginals(), 0);
+
+        backfill.fill();
+
+        Restaurant a = repository.findById(wrong.getId()).orElseThrow();
+        assertEquals("JUSO", a.getCoordSource());
+        assertEquals(37.5601, a.getLat(), 1e-9);
+        assertEquals("JUSO", repository.findById(wrongNaver.getId()).orElseThrow().getCoordSource());
+        // 다시 물어도 없는 가게는 그대로 — 네이버 좌표가 든 행은 되돌릴 차례를 계속 기다린다
+        assertEquals("LICENSE", repository.findById(missing.getId()).orElseThrow().getCoordSource());
+        assertEquals("REVERT", repository.findById(missingNaver.getId()).orElseThrow().getCoordSource());
+        assertEquals(0, jdbc.queryForObject("select count(*) from restaurant where id in (?, ?) and coord_checked_at is null",
+            Integer.class, missing.getId(), missingNaver.getId()), "확인한 때가 적힌다");
+
+        // 한 번 확인한 표시는 다시 묻지 않는다
+        int before = asked.get();
+        backfill.fill();
+        assertEquals(before, asked.get());
+
+        repository.deleteAllById(List.of(wrong.getId(), wrongNaver.getId(), missing.getId(), missingNaver.getId()));
+    }
+
+    @Test
     void newRestaurantsStartUnprocessed() {
         Restaurant fresh = repository.save(new Restaurant("새집", "한식", "서울특별시 마포구 새길 1", null, 37.55, 126.92));
         assertNull(repository.findById(fresh.getId()).orElseThrow().getCoordSource());
