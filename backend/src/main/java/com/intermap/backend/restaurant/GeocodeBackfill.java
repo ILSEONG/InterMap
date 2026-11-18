@@ -38,8 +38,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   - 도로명주소 API에서 찾으면 그 좌표 (coordSource = JUSO)
  *   - 못 찾으면 인허가 좌표 (LICENSE). 네이버 좌표가 들어 있던 행은 인허가 좌표를 공공데이터에서 다시 받아 되돌린다
  *
- * 서버 시작 때, 가게를 새로 들여온 뒤, 그리고 매시간 뒤에서 돈다. 도로명주소 API에는 호출 건수 제한이 없어서
- * 간격 없이 여러 개를 동시에 묻는다 — 실패가 나오면 동시 요청을 줄이고, API가 아예 답하지 못하면 멈췄다가 다음 시간에 잇는다.
+ * 서버 시작 때, 가게를 새로 들여온 뒤, 그리고 매시간 뒤에서 돈다. 도로명주소 API에 하루 건수 제한은 없지만
+ * 짧은 시간에 많이 부르면 거절한다(E0007) — 부르는 간격은 Locator가 API가 받아 주는 만큼으로 맞춘다.
+ * 실패가 몰리면 동시 요청을 줄이고, API가 아예 답하지 못하면 멈췄다가 다음 시간에 잇는다.
  * 다 고치면 빈 목록만 보고 끝난다.
  */
 @Component
@@ -57,6 +58,11 @@ public class GeocodeBackfill implements ApplicationRunner {
          * 좌표가 한꺼번에 인허가 좌표로 밀려난다 — 그 전에 여기서 걸러 아무것도 건드리지 않게 한다
          */
         boolean answersKnownAddress();
+
+        /** 지금 부르는 속도 (진행 로그에 붙인다) */
+        default String pace() {
+            return "";
+        }
     }
 
     /** 주소와 상관없이 API가 거절한 경우 (키가 틀렸거나, 쓸 수 있는 양을 다 썼거나, 모르는 오류) */
@@ -79,8 +85,7 @@ public class GeocodeBackfill implements ApplicationRunner {
     private static final int BATCH = 200;
     // 묶음 전체가 실패한 일이 이만큼 이어지면 멈추고 다음 기회에 이어서 한다
     private static final int MAX_CONSECUTIVE_ERRORS = 5;
-    // 동시에 묻는 수의 기본값 — 브라우저 한 대가 한 사이트에 여는 연결 수 정도.
-    // 호출 건수 제한은 없지만 공격처럼 보일 만큼 몰아 부르면 IP가 막힐 수 있다(도로명주소 도움센터 답변)
+    // 동시에 묻는 수의 기본값. 속도는 Locator가 정한 간격이 붙잡는다 — 응답이 느려져도 그 속도를 채울 만큼만 둔다
     private static final int DEFAULT_WORKERS = 8;
 
     private final RestaurantRepository repository;
@@ -261,7 +266,7 @@ public class GeocodeBackfill implements ApplicationRunner {
                         calmBatches = 0;
                         resize(pool, ++workers);
                     }
-                    if (++batches % 10 == 0) log.info("가게 좌표 보정 중... 고침 {}건, 못 찾음 {}건", moved, kept);
+                    if (++batches % 10 == 0) log.info("가게 좌표 보정 중... 고침 {}건, 못 찾음 {}건 ({})", moved, kept, locator.pace());
                 }
             }
             // 남겨 둔 행을 하나씩 다시 묻는다. 잠깐의 오류였으면 이번에 고쳐진다

@@ -38,6 +38,16 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
     private static final java.util.Set<String> QUERY_PROBLEMS = java.util.Set.of(
         "E0005", "E0006", "E0008", "E0009", "E0010", "E0011", "E0012", "E0013", "E0015");
 
+    // "짧은 시간동안 다량의 주소검색 요청이 있습니다" — 너무 빨리 불렀다는 거절. 잠깐 뒤에는 다시 받아 준다
+    private static final String TOO_FAST = "E0007";
+    // 같은 요청을 이만큼 물어도 계속 거절되면 잠깐의 오류로 넘긴다 (기다리는 시간은 5·10·15·20초로 늘어난다)
+    private static final int BUSY_ATTEMPTS = 5;
+    private static final long SLOW_DOWN_AT_MOST_EVERY_MILLIS = 30_000;
+    // 처음 간격(API마다). 가게 한 곳에 두 API를 한 번씩 부르므로 초당 약 2.9곳에서 시작해 받아 주는 만큼 빨라진다
+    private static final long START_INTERVAL_MILLIS = 350;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JusoGeocoder.class);
+
     private static final CoordinateTransform UTMK_TO_WGS84;
 
     static {
@@ -71,27 +81,39 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
     private final String searchKey;
     private final String coordKey;
     private final int dailyCalls;
-    private final long minIntervalMillis;
+    private final Pace searchPace;
+    private final Pace coordPace;
 
     private final Map<String, Optional<double[]>> cache = new ConcurrentHashMap<>();
     private LocalDate countedDay;
     private int callsToday;
-    private long nextCallAt;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public JusoGeocoder(@Value("${juso.base-url:https://business.juso.go.kr/addrlink}") String baseUrl,
                         @Value("${juso.search-key:}") String searchKey,
                         @Value("${juso.coord-key:}") String coordKey,
                         @Value("${juso.daily-calls:0}") int dailyCalls,
                         @Value("${juso.min-interval-ms:0}") long minIntervalMillis) {
+        this(baseUrl, searchKey, coordKey, dailyCalls, START_INTERVAL_MILLIS, minIntervalMillis, 5_000);
+    }
+
+    JusoGeocoder(String baseUrl, String searchKey, String coordKey, int dailyCalls,
+                 long startIntervalMillis, long minIntervalMillis, long cooldownMillis) {
         this.baseUrl = baseUrl;
         this.searchKey = searchKey;
         this.coordKey = coordKey;
         this.dailyCalls = dailyCalls;
-        this.minIntervalMillis = minIntervalMillis;
+        this.searchPace = new Pace("검색", startIntervalMillis, minIntervalMillis, cooldownMillis);
+        this.coordPace = new Pace("좌표", startIntervalMillis, minIntervalMillis, cooldownMillis);
         var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5_000);
         factory.setReadTimeout(10_000);
         this.client = RestClient.builder().requestFactory(factory).build();
+    }
+
+    @Override
+    public String pace() {
+        return "간격 검색 " + searchPace.intervalMillis() + "ms·좌표 " + coordPace.intervalMillis() + "ms";
     }
 
     @Override
@@ -146,7 +168,7 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         // 검색어에 넣을 수 없는 글자(%, =, <, > 등)는 뺀다 — 넣으면 그 주소만 계속 거절된다
         search.put("keyword", query.replaceAll("[%=<>\\[\\]]", " ").trim());
         Juso building = null;
-        for (Juso j : call("/addrLinkApi.do", searchKey, search)) {
+        for (Juso j : call(searchPace, "/addrLinkApi.do", searchKey, search)) {
             if (road ? sameRoad(query, j.roadAddrPart1()) : sameLot(query, j.jibunAddr())) {
                 building = j;
                 break;
@@ -161,7 +183,7 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         coord.put("udrtYn", building.udrtYn() == null ? "0" : building.udrtYn());
         coord.put("buldMnnm", building.buldMnnm());
         coord.put("buldSlno", building.buldSlno() == null ? "0" : building.buldSlno());
-        for (Juso j : call("/addrCoordApi.do", coordKey, coord)) {
+        for (Juso j : call(coordPace, "/addrCoordApi.do", coordKey, coord)) {
             double[] p = toLatLng(j.entX(), j.entY());
             if (p != null) return Optional.of(p);
         }
@@ -183,72 +205,135 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         return !Character.isDigit(next) && next != '-';
     }
 
-    private List<Juso> call(String path, String key, Map<String, String> params) {
-        reserve();
+    private List<Juso> call(Pace pace, String path, String key, Map<String, String> params) {
         UriComponentsBuilder uri = UriComponentsBuilder.fromUriString(baseUrl + path)
             .queryParam("confmKey", key)
             .queryParam("resultType", "json");
         params.forEach(uri::queryParam);
-        final String body;
-        try {
-            body = client.get().uri(uri.encode().build().toUri()).retrieve().body(String.class);
-        } catch (RestClientResponseException e) {
-            int status = e.getStatusCode().value();
-            if (status == 401 || status == 403) throw new GeocodeBackfill.Unavailable("HTTP " + status);
-            // 그 주소 하나가 거절된 것(허용되지 않는 글자 등) — 못 찾은 것으로 넘어간다. 같은 행을 끝없이 다시 묻지 않게
-            if (status >= 400 && status < 500 && status != 429) return List.of();
-            throw e; // 429·5xx는 잠깐 뒤 다시 물어볼 일
-        }
-        final Envelope envelope;
-        try {
-            envelope = mapper.readValue(body, Envelope.class);
-        } catch (Exception e) {
-            throw new IllegalStateException("도로명주소 API 응답을 읽지 못했어요: " + e.getMessage());
-        }
-        Results results = envelope == null ? null : envelope.results();
-        Common common = results == null ? null : results.common();
-        if (common == null) throw new IllegalStateException("도로명주소 API 응답에 결과가 없어요");
-        String code = common.errorCode() == null ? "" : common.errorCode().trim();
-        if (!code.equals("0")) {
+        java.net.URI target = uri.encode().build().toUri();
+        for (int attempt = 1; ; attempt++) {
+            countCall();
+            long startedAt = pace.await();
+            final String body;
+            try {
+                body = client.get().uri(target).retrieve().body(String.class);
+            } catch (RestClientResponseException e) {
+                int status = e.getStatusCode().value();
+                if (status == 401 || status == 403) throw new GeocodeBackfill.Unavailable("HTTP " + status);
+                if (status == 429) {
+                    pace.refused(startedAt, attempt);
+                    if (attempt < BUSY_ATTEMPTS) continue;
+                    throw e;
+                }
+                // 그 주소 하나가 거절된 것(허용되지 않는 글자 등) — 못 찾은 것으로 넘어간다. 같은 행을 끝없이 다시 묻지 않게
+                if (status >= 400 && status < 500) return List.of();
+                throw e; // 5xx는 잠깐 뒤 다시 물어볼 일
+            }
+            final Envelope envelope;
+            try {
+                envelope = mapper.readValue(body, Envelope.class);
+            } catch (Exception e) {
+                throw new IllegalStateException("도로명주소 API 응답을 읽지 못했어요: " + e.getMessage());
+            }
+            Results results = envelope == null ? null : envelope.results();
+            Common common = results == null ? null : results.common();
+            if (common == null) throw new IllegalStateException("도로명주소 API 응답에 결과가 없어요");
+            String code = common.errorCode() == null ? "" : common.errorCode().trim();
+            if (code.equals("0")) {
+                pace.succeeded();
+                return results.juso() == null ? List.of() : results.juso();
+            }
             String message = common.errorMessage() == null ? "" : common.errorMessage();
+            // 너무 빨리 불렀다는 거절 — 간격을 벌리고 잠깐 기다렸다 같은 것을 다시 묻는다.
+            // 거듭 거절되면 잠깐의 오류로 넘긴다(가게는 그대로 남아 다음에 다시 묻는다). "못 찾음"으로도 "거절"로도 치지 않는다
+            if (code.equals(TOO_FAST)) {
+                pace.refused(startedAt, attempt);
+                if (attempt < BUSY_ATTEMPTS) continue;
+                throw new IllegalStateException(code + " " + message);
+            }
             // 시스템 오류 — 잠깐 뒤 다시 물어볼 일
             if (code.equals("-999")) throw new IllegalStateException(code + " " + message);
             // 검색어로 못 알아본 것(주소를 더 자세히, 너무 긴 검색어, 허용되지 않는 글자 등) — 그 주소만 못 찾은 것이다
             if (QUERY_PROBLEMS.contains(code)) return List.of();
-            // 그 밖은 전부 멈춘다: 승인키 문제, 이용 한도, 그리고 모르는 오류.
-            // 모르는 오류를 "못 찾음"으로 넘기면 한도에 걸린 순간부터 모든 가게가 못 찾은 것으로 처리되어
+            // 그 밖은 전부 거절로 본다: 승인키 문제, 그리고 모르는 오류.
+            // 모르는 오류를 "못 찾음"으로 넘기면 그 순간부터 모든 가게가 못 찾은 것으로 처리되어
             // 좌표가 한꺼번에 인허가 좌표로 밀려난다 — 가게는 그대로 두고 다음에 다시 묻는다
             throw new GeocodeBackfill.Unavailable(code + " " + message);
         }
-        return results.juso() == null ? List.of() : results.juso();
     }
 
-    // 도로명주소 API에는 호출 건수 제한이 없어서(도로명주소 도움센터 답변) 기본은 간격도 하루 한도도 두지 않는다.
-    // 속도는 동시에 묻는 수(GeocodeBackfill)로 정해진다. 필요하면 설정으로 간격·하루 한도를 걸 수 있다 (0 = 없음)
-    private void reserve() {
-        long wait;
-        synchronized (this) {
-            LocalDate today = LocalDate.now(KST);
-            if (!today.equals(countedDay)) {
-                countedDay = today;
-                callsToday = 0;
-            }
-            if (dailyCalls > 0 && callsToday >= dailyCalls) {
-                throw new GeocodeBackfill.Unavailable("오늘 쓸 호출 수(" + dailyCalls + "건)를 다 썼어요 — 내일 이어서 해요");
-            }
-            callsToday++;
-            long now = System.currentTimeMillis();
-            long at = Math.max(now, nextCallAt);
-            nextCallAt = at + minIntervalMillis;
-            wait = at - now;
+    // 설정으로 하루 한도를 걸었을 때만 센다 (0 = 없음). 도로명주소 API에 하루 건수 제한은 없다
+    private synchronized void countCall() {
+        LocalDate today = LocalDate.now(KST);
+        if (!today.equals(countedDay)) {
+            countedDay = today;
+            callsToday = 0;
         }
-        if (wait > 0) {
-            try {
-                Thread.sleep(wait);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("interrupted");
+        if (dailyCalls > 0 && callsToday >= dailyCalls) {
+            throw new GeocodeBackfill.Unavailable("오늘 쓸 호출 수(" + dailyCalls + "건)를 다 썼어요 — 내일 이어서 해요");
+        }
+        callsToday++;
+    }
+
+    /**
+     * 한 API를 부르는 간격. 도로명주소 API는 짧은 시간에 많이 부르면 E0007로 거절하는데 기준이 공개돼 있지 않다.
+     * 그래서 거절당하면 간격을 벌리고, 잘 되는 동안에는 아주 조금씩 좁혀서 API가 받아 주는 가장 빠른 속도 근처에 머문다.
+     */
+    static final class Pace {
+        private final String name;
+        private final double floorMillis;
+        private final long cooldownMillis;
+        private double intervalMillis;
+        private double nextAt;
+        private long lastSlowedAt;
+
+        Pace(String name, long startMillis, long floorMillis, long cooldownMillis) {
+            this.name = name;
+            this.intervalMillis = Math.max(startMillis, floorMillis);
+            this.floorMillis = floorMillis;
+            this.cooldownMillis = cooldownMillis;
+        }
+
+        /** 내 차례까지 기다린다. 요청을 보내는 시각을 돌려준다 */
+        long await() {
+            long wait;
+            synchronized (this) {
+                double now = System.currentTimeMillis();
+                double at = Math.max(now, nextAt);
+                nextAt = at + intervalMillis;
+                wait = (long) (at - now);
             }
+            if (wait > 0) {
+                try {
+                    Thread.sleep(wait);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("interrupted");
+                }
+            }
+            return System.currentTimeMillis();
+        }
+
+        // 간격이 실제로 속도를 붙잡고 있을 때만 좁힌다. 천천히 — 한 번 벌어진 간격(1.25배)이 돌아오는 데 1,100번쯤 걸려서
+        // 거절당하는 일이 몇 분에 한 번을 넘지 않는다
+        synchronized void succeeded() {
+            if (nextAt > System.currentTimeMillis()) intervalMillis = Math.max(floorMillis, intervalMillis * 0.9998);
+        }
+
+        synchronized void refused(long startedAt, int attempt) {
+            long now = System.currentTimeMillis();
+            // 같은 때 나간 요청들이 한꺼번에 거절되거나, 풀리기 전에 다시 물어 또 거절돼도 한 번만 벌린다
+            if (startedAt > lastSlowedAt && now - lastSlowedAt > SLOW_DOWN_AT_MOST_EVERY_MILLIS) {
+                intervalMillis = Math.min(10_000, Math.max(intervalMillis, 40) * 1.25);
+                lastSlowedAt = now;
+                log.info("도로명주소 API({})가 요청이 많다고 거절 — 간격을 {}ms로 벌림", name, Math.round(intervalMillis));
+            }
+            // 풀릴 때까지 모두 쉰다. 거듭 거절될수록 더 오래
+            nextAt = Math.max(nextAt, now + (double) cooldownMillis * attempt);
+        }
+
+        synchronized long intervalMillis() {
+            return Math.round(intervalMillis);
         }
     }
 

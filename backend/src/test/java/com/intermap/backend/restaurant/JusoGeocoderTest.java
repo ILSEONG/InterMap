@@ -26,6 +26,8 @@ class JusoGeocoderTest {
     private final List<String> coords = new CopyOnWriteArrayList<>();
     private volatile String searchBody;
     private volatile String coordBody;
+    // 검색 API가 처음 이만큼은 "너무 빨리 불렀다"(E0007)로 거절한다
+    private final java.util.concurrent.atomic.AtomicInteger tooFastFirst = new java.util.concurrent.atomic.AtomicInteger();
 
     private static final String OK = "\"common\":{\"errorMessage\":\"정상\",\"countPerPage\":\"10\",\"totalCount\":\"1\",\"errorCode\":\"0\",\"currentPage\":\"1\"}";
 
@@ -46,7 +48,9 @@ class JusoGeocoderTest {
     @BeforeEach
     void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/addrlink/addrLinkApi.do", exchange -> answer(exchange, searches, searchBody));
+        server.createContext("/addrlink/addrLinkApi.do", exchange -> answer(exchange, searches,
+            tooFastFirst.getAndUpdate(n -> Math.max(0, n - 1)) > 0
+                ? failed("E0007", "짧은 시간동안 다량의 주소검색 요청이 있습니다. 잠시 후 이용하시길 바랍니다.") : searchBody));
         server.createContext("/addrlink/addrCoordApi.do", exchange -> answer(exchange, coords, coordBody));
         server.start();
         // 서울시청 근처 한 점 (UTM-K) — WGS84로 약 37.566495, 126.978001
@@ -70,7 +74,7 @@ class JusoGeocoderTest {
 
     private JusoGeocoder geocoder(int dailyCalls) {
         return new JusoGeocoder("http://127.0.0.1:" + server.getAddress().getPort() + "/addrlink",
-            "search-key", "coord-key", dailyCalls, 0);
+            "search-key", "coord-key", dailyCalls, 0, 0, 0);
     }
 
     @Test
@@ -171,6 +175,42 @@ class JusoGeocoderTest {
         assertTrue(geocoder.locate("서울특별시 중구 세종대로 110", null).isPresent());
         assertThrows(GeocodeBackfill.Unavailable.class, () -> geocoder.locate("서울특별시 중구 세종대로 120", null));
         assertEquals(1, searches.size(), "한도를 넘으면 더 부르지 않는다");
+    }
+
+    @Test
+    void tooFastIsAskedAgainAfterAPause() {
+        searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
+        tooFastFirst.set(2);
+
+        assertTrue(geocoder(0).locate("서울특별시 중구 세종대로 110", null).isPresent(), "거절이 풀리면 같은 주소를 다시 물어 찾는다");
+        assertEquals(3, searches.size());
+    }
+
+    @Test
+    void tooFastThatNeverClearsIsAPassingErrorNotARefusalOrNotFound() {
+        // 계속 거절되면 잠깐의 오류로 넘긴다 — 가게를 "못 찾음"으로 넘기지도, API를 못 쓰는 것으로 보지도 않는다
+        searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
+        tooFastFirst.set(1000);
+
+        RuntimeException e = assertThrows(RuntimeException.class, () -> geocoder(0).locate("서울특별시 중구 세종대로 110", null));
+        assertFalse(e instanceof GeocodeBackfill.Unavailable);
+        assertEquals(5, searches.size(), "다섯 번까지만 묻는다");
+    }
+
+    @Test
+    void paceWidensOncePerRefusalAndNarrowsSlowly() {
+        JusoGeocoder.Pace pace = new JusoGeocoder.Pace("검색", 100, 0, 0);
+        long sent = pace.await();
+        pace.refused(sent, 1);
+        assertEquals(125, pace.intervalMillis());
+        // 같은 때 나간 요청이 또 거절돼도 더 벌리지 않는다
+        pace.refused(sent, 2);
+        pace.refused(pace.await(), 1);
+        assertEquals(125, pace.intervalMillis());
+        // 잘 되면 조금씩 좁힌다 (간격이 속도를 붙잡고 있을 때만)
+        pace.await();
+        pace.succeeded();
+        assertTrue(pace.intervalMillis() <= 125);
     }
 
     @Test
