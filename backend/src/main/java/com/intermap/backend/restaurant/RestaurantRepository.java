@@ -45,30 +45,45 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
             + " group by floor(r.lat / :cell), floor(r.lng / :cell)")
     List<Object[]> summarize(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng, double cell);
 
-    // 좌표를 아직 안 고친 영업중 가게 — [id, roadAddress, address, lat, lng]. 엔티티 대신 필요한 열만.
-    @Query("select r.id, r.roadAddress, r.address, r.lat, r.lng from Restaurant r"
-            + " where r.geocoded is null and r.status = :status order by r.id")
-    List<Object[]> findUngeocoded(Restaurant.Status status, Pageable page);
+    // 도로명주소 API로 아직 안 본 영업중 가게 — [id, roadAddress, address, geocoded]. 엔티티 대신 필요한 열만.
+    @Query("select r.id, r.roadAddress, r.address, r.geocoded from Restaurant r"
+            + " where r.coordSource is null and r.status = :status order by r.id")
+    List<Object[]> findCoordPending(Restaurant.Status status, Pageable page);
 
-    // 위와 같지만 다른 가게와 좌표가 똑같이 겹친 것만 — 필지 하나에 몰린 가게라 제일 먼저 고친다
-    @Query("select r.id, r.roadAddress, r.address, r.lat, r.lng from Restaurant r"
-            + " where r.geocoded is null and r.status = :status"
-            + " and exists (select 1 from Restaurant o where o.lat = r.lat and o.lng = r.lng and o.id <> r.id)"
-            + " order by r.id")
-    List<Object[]> findUngeocodedStacked(Restaurant.Status status, Pageable page);
+    // 위와 같지만 예전 네이버 좌표가 든 행만 — 저장하면 안 되는 좌표라 제일 먼저 바꾼다
+    @Query("select r.id, r.roadAddress, r.address, r.geocoded from Restaurant r"
+            + " where r.coordSource is null and r.geocoded = true and r.status = :status order by r.id")
+    List<Object[]> findCoordPendingFromNaver(Restaurant.Status status, Pageable page);
 
-    long countByStatusAndGeocoded(Restaurant.Status status, Boolean geocoded);
+    long countByStatusAndCoordSource(Restaurant.Status status, String coordSource);
 
-    long countByStatusAndGeocodedIsNull(Restaurant.Status status);
+    long countByStatusAndCoordSourceIsNull(Restaurant.Status status);
+
+    // 아직 네이버 좌표가 든 행 수 (주소로 안 본 것 + 되돌리기를 기다리는 것) — 0이 되면 다 걷어낸 것
+    @Query("select count(r) from Restaurant r"
+            + " where (r.coordSource is null and r.geocoded = true) or r.coordSource = 'REVERT'")
+    long countHoldingNaverCoords();
+
+    // 인허가 좌표로 되돌려야 하는 행 — [id, name, roadAddress, address, localDataMgtNo]
+    @Query("select r.id, r.name, r.roadAddress, r.address, r.localDataMgtNo from Restaurant r where r.coordSource = 'REVERT'")
+    List<Object[]> findRevertRows();
 
     // 예전에 폐업으로 표시만 해 둔 가게 — 주간 최신화가 지운다 (RestaurantRefresh)
     List<Restaurant> findAllByStatus(Restaurant.Status status);
 
+    // 도로명주소 API 좌표로 옮긴다
     @Modifying
-    @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = true where r.id = :id")
+    @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = true, r.coordSource = 'JUSO' where r.id = :id")
     int relocate(Long id, double lat, double lng);
 
+    // 주소로 못 찾음 — 인허가 좌표를 쓴다(LICENSE). 네이버 좌표가 들어 있던 행은 되돌릴 차례를 기다린다(REVERT)
     @Modifying
-    @Query("update Restaurant r set r.geocoded = false where r.id = :id")
-    int markGeocodeFailed(Long id);
+    @Query("update Restaurant r set r.geocoded = false, r.coordSource = :source where r.id = :id")
+    int markCoordSource(Long id, String source);
+
+    // 네이버 좌표가 남아 있던 행을 인허가 좌표로 되돌린다
+    @Modifying
+    @Query("update Restaurant r set r.lat = :lat, r.lng = :lng, r.geocoded = false, r.coordSource = 'LICENSE'"
+            + " where r.id = :id and r.coordSource = 'REVERT'")
+    int revertToLicense(Long id, double lat, double lng);
 }

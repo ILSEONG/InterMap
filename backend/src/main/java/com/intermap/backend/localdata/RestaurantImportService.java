@@ -123,12 +123,12 @@ public class RestaurantImportService {
     }
 
     // 같은 가게인지 가리는 키 — 상호|주소, 띄어쓰기는 무시한다
-    static String key(String name, String roadAddr) {
+    public static String key(String name, String roadAddr) {
         return normalize(name) + "|" + normalize(roadAddr);
     }
 
     // 인허가 행의 키. 도로명 주소가 없는 행은 지번 주소로 (가게를 만들 때 넣는 값과 같은 규칙)
-    static String key(LocalDataClient.Row row) {
+    public static String key(LocalDataClient.Row row) {
         return key(row.bplcNm(), blankToNull(row.rdnWhlAddr()) != null ? row.rdnWhlAddr() : row.lotnoAddr());
     }
 
@@ -157,7 +157,7 @@ public class RestaurantImportService {
     }
 
     /** TM 좌표 문자열을 WGS84 [lat, lng]로. 비어있거나 한국 범위를 벗어나면 null */
-    static double[] toLatLng(String x, String y) {
+    public static double[] toLatLng(String x, String y) {
         if (x == null || y == null || x.isBlank() || y.isBlank()) return null;
         try {
             ProjCoordinate out = new ProjCoordinate();
