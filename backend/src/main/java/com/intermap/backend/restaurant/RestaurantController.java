@@ -93,10 +93,13 @@ public class RestaurantController {
         if (!admins.isAdmin(me)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthController.ErrorResponse("운영자만 볼 수 있어요."));
         }
+        // fixed = 도로명주소 API 좌표, notFound = 못 찾아 인허가 좌표, pending = 아직 안 봄,
+        // naverLeft = 예전 네이버 좌표가 아직 남은 행 (0이어야 한다)
         return ResponseEntity.ok(java.util.Map.of(
-                "fixed", repository.countByStatusAndGeocoded(Restaurant.Status.OPEN, true),
-                "notFound", repository.countByStatusAndGeocoded(Restaurant.Status.OPEN, false),
-                "pending", repository.countByStatusAndGeocodedIsNull(Restaurant.Status.OPEN)));
+                "fixed", repository.countByStatusAndCoordSource(Restaurant.Status.OPEN, "JUSO"),
+                "notFound", repository.countByStatusAndCoordSource(Restaurant.Status.OPEN, "LICENSE"),
+                "pending", repository.countByStatusAndCoordSourceIsNull(Restaurant.Status.OPEN),
+                "naverLeft", repository.countHoldingNaverCoords()));
     }
 
     // 낮은 줌에서는 개별 가게(수천 행) 대신 격자 셀 요약(수십~수백 행)만 내려준다.
