@@ -46,14 +46,15 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     List<Object[]> summarize(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng, double cell);
 
     // 도로명주소 API로 아직 안 본 영업중 가게 — [id, roadAddress, address, geocoded]. 엔티티 대신 필요한 열만.
+    // after보다 id가 큰 행만 — 실패한 행을 뒤에 남겨 두고 앞으로 나아가게 (같은 행을 끝없이 다시 잡지 않는다)
     @Query("select r.id, r.roadAddress, r.address, r.geocoded from Restaurant r"
-            + " where r.coordSource is null and r.status = :status order by r.id")
-    List<Object[]> findCoordPending(Restaurant.Status status, Pageable page);
+            + " where r.coordSource is null and r.status = :status and r.id > :after order by r.id")
+    List<Object[]> findCoordPending(Restaurant.Status status, long after, Pageable page);
 
     // 위와 같지만 예전 네이버 좌표가 든 행만 — 저장하면 안 되는 좌표라 제일 먼저 바꾼다
     @Query("select r.id, r.roadAddress, r.address, r.geocoded from Restaurant r"
-            + " where r.coordSource is null and r.geocoded = true and r.status = :status order by r.id")
-    List<Object[]> findCoordPendingFromNaver(Restaurant.Status status, Pageable page);
+            + " where r.coordSource is null and r.geocoded = true and r.status = :status and r.id > :after order by r.id")
+    List<Object[]> findCoordPendingFromNaver(Restaurant.Status status, long after, Pageable page);
 
     long countByStatusAndCoordSource(Restaurant.Status status, String coordSource);
 

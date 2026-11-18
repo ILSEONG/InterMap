@@ -81,8 +81,8 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
     public JusoGeocoder(@Value("${juso.base-url:https://business.juso.go.kr/addrlink}") String baseUrl,
                         @Value("${juso.search-key:}") String searchKey,
                         @Value("${juso.coord-key:}") String coordKey,
-                        @Value("${juso.daily-calls:90000}") int dailyCalls,
-                        @Value("${juso.min-interval-ms:130}") long minIntervalMillis) {
+                        @Value("${juso.daily-calls:0}") int dailyCalls,
+                        @Value("${juso.min-interval-ms:0}") long minIntervalMillis) {
         this.baseUrl = baseUrl;
         this.searchKey = searchKey;
         this.coordKey = coordKey;
@@ -223,7 +223,8 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
         return results.juso() == null ? List.of() : results.juso();
     }
 
-    // 초당 호출 수를 넘지 않게 간격을 두고, 하루 호출 수를 센다 (승인키마다 초당·하루 한도가 있다)
+    // 도로명주소 API에는 호출 건수 제한이 없어서(도로명주소 도움센터 답변) 기본은 간격도 하루 한도도 두지 않는다.
+    // 속도는 동시에 묻는 수(GeocodeBackfill)로 정해진다. 필요하면 설정으로 간격·하루 한도를 걸 수 있다 (0 = 없음)
     private void reserve() {
         long wait;
         synchronized (this) {
@@ -232,7 +233,7 @@ public class JusoGeocoder implements GeocodeBackfill.Locator {
                 countedDay = today;
                 callsToday = 0;
             }
-            if (callsToday >= dailyCalls) {
+            if (dailyCalls > 0 && callsToday >= dailyCalls) {
                 throw new GeocodeBackfill.Unavailable("오늘 쓸 호출 수(" + dailyCalls + "건)를 다 썼어요 — 내일 이어서 해요");
             }
             callsToday++;

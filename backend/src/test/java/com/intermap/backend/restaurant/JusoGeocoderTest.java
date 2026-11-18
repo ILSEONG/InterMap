@@ -174,6 +174,16 @@ class JusoGeocoderTest {
     }
 
     @Test
+    void noDailyBudgetUnlessConfigured() {
+        // 도로명주소 API에는 호출 건수 제한이 없다 — 0이면 몇 번을 불러도 막지 않는다
+        searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
+        JusoGeocoder geocoder = geocoder(0);
+
+        for (int i = 0; i < 5; i++) assertTrue(geocoder.answersKnownAddress());
+        assertEquals(5, searches.size());
+    }
+
+    @Test
     void knownAddressCheckCatchesAMisreadResponse() {
         searchBody = found(building("서울특별시 중구 세종대로 110", "서울특별시 중구 태평로1가 31", "110"));
         assertTrue(geocoder(1000).answersKnownAddress(), "서울시청 좌표가 제대로 나오면 통과");
