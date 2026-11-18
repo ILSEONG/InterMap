@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 금지하므로 그 좌표는 모두 걷어낸다 — 가게마다 둘 중 하나가 된다:
  *   - 도로명주소 API에서 찾으면 그 좌표 (coordSource = JUSO)
  *   - 못 찾으면 인허가 좌표 (LICENSE). 네이버 좌표가 들어 있던 행은 인허가 좌표를 공공데이터에서 다시 받아 되돌린다
+ *     못 찾았다고 표시할 때 확인한 때를 같이 적는다 — 그때가 없는 표시는 한 번 다시 묻는다
  *
  * 서버 시작 때, 가게를 새로 들여온 뒤, 그리고 매시간 뒤에서 돈다. 도로명주소 API에 하루 건수 제한은 없지만
  * 짧은 시간에 많이 부르면 거절한다(E0007) — 부르는 간격은 Locator가 API가 받아 주는 만큼으로 맞춘다.
@@ -194,14 +196,17 @@ public class GeocodeBackfill implements ApplicationRunner {
         // 이번에 실패한 행. 뒤에 남겨 두고 앞으로 나아가고, 다 돈 뒤에 한 번 더 묻는다
         List<Object[]> leftBehind = new ArrayList<>();
         try {
-            // 네이버 좌표가 든 행부터 — 저장해 두면 안 되는 좌표라 먼저 바꾼다
-            for (boolean fromNaver : new boolean[] {true, false}) {
+            // 네이버 좌표가 든 행부터 — 저장해 두면 안 되는 좌표라 먼저 바꾼다. 그다음 아직 안 본 행,
+            // 마지막으로 확인한 때가 없는 "못 찾음" 표시를 다시 묻는다 (속도 제한을 못 찾은 것으로 잘못 읽던 때의 표시)
+            for (int phase = 0; phase < 3; phase++) {
                 long after = 0;
                 while (true) {
                     PageRequest page = PageRequest.of(0, BATCH);
-                    List<Object[]> rows = fromNaver
-                        ? repository.findCoordPendingFromNaver(Restaurant.Status.OPEN, after, page)
-                        : repository.findCoordPending(Restaurant.Status.OPEN, after, page);
+                    List<Object[]> rows = switch (phase) {
+                        case 0 -> repository.findCoordPendingFromNaver(Restaurant.Status.OPEN, after, page);
+                        case 1 -> repository.findCoordPending(Restaurant.Status.OPEN, after, page);
+                        default -> repository.findCoordRecheck(Restaurant.Status.OPEN, after, page);
+                    };
                     if (rows.isEmpty()) break;
                     after = (Long) rows.get(rows.size() - 1)[0];
                     List<Future<Outcome>> results = new ArrayList<>();
@@ -310,7 +315,7 @@ public class GeocodeBackfill implements ApplicationRunner {
         }
     }
 
-    // row = [id, roadAddress, address, geocoded]
+    // row = [id, roadAddress, address, 네이버 좌표가 들어 있는지]
     private Outcome process(Object[] row) {
         Long id = (Long) row[0];
         final Optional<double[]> found;
@@ -332,7 +337,8 @@ public class GeocodeBackfill implements ApplicationRunner {
     private boolean markNotFound(Object[] row) {
         Long id = (Long) row[0];
         boolean holdsNaver = Boolean.TRUE.equals(row[3]);
-        Integer changed = tx.execute(s -> repository.markCoordSource(id, holdsNaver ? "REVERT" : "LICENSE"));
+        Instant now = Instant.now();
+        Integer changed = tx.execute(s -> repository.markCoordSource(id, holdsNaver ? "REVERT" : "LICENSE", now));
         return changed != null && changed > 0;
     }
 

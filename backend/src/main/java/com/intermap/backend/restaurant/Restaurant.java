@@ -49,6 +49,10 @@ public class Restaurant {
     //   REVERT  = 주소로 못 찾았고 네이버 좌표가 남아 있어 인허가 좌표로 되돌려야 하는 행
     private String coordSource;
 
+    // "주소로 못 찾음"(LICENSE·REVERT)을 확인한 때. 비어 있는 못 찾음 표시는 속도 제한(E0007)을 못 찾은 것으로 잘못 읽던
+    // 때의 것일 수 있어서 한 번 다시 묻는다 (GeocodeBackfill)
+    private Instant coordCheckedAt;
+
     protected Restaurant() {
     }
 
