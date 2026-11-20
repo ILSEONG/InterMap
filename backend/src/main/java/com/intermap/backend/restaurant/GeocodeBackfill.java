@@ -13,15 +13,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.intermap.backend.state.ServerState;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -98,13 +98,29 @@ public class GeocodeBackfill implements ApplicationRunner {
     private final long pauseMillis;
     private final int maxWorkers;
     private volatile String lastRefusal;
-    // 원본에서도 못 찾은 행 때문에 공공데이터를 매번 통째로 다시 받지 않게 — 마지막으로 못 되돌린 행 수
-    private volatile long unresolvedReverts = -1;
+    // 되돌리기를 언제 다시 해 볼지 적어 두는 곳 (서버가 다시 켜져도 남게 DB에 둔다)
+    private final Notes notes;
+
+    /** 잠깐 적어 두는 메모 — 운영에서는 DB(ServerState), 테스트에서는 메모리 */
+    interface Notes {
+        Optional<String> get(String key);
+
+        void put(String key, String value, Duration ttl);
+    }
+
+    private static Notes inMemoryNotes() {
+        Map<String, String> map = new java.util.concurrent.ConcurrentHashMap<>();
+        return new Notes() {
+            public Optional<String> get(String key) { return Optional.ofNullable(map.get(key)); }
+
+            public void put(String key, String value, Duration ttl) { map.put(key, value); }
+        };
+    }
 
     @Autowired
     public GeocodeBackfill(RestaurantRepository repository, TransactionTemplate tx, JusoGeocoder locator,
                            LocalDataClient localData, @Value("${localdata.local-codes}") String localCodesCsv,
-                           @Value("${juso.workers:8}") int workers) {
+                           @Value("${juso.workers:8}") int workers, ServerState serverState) {
         this(repository, tx, locator, new Originals() {
             public boolean isConfigured() { return localData.isConfigured(); }
 
@@ -113,7 +129,11 @@ public class GeocodeBackfill implements ApplicationRunner {
             }
 
             public List<LocalDataClient.Row> openRows(String localCode) { return localData.fetchAllOpen(localCode); }
-        }, 40, workers);
+        }, 40, workers, new Notes() {
+            public Optional<String> get(String key) { return serverState.get("geocode", key); }
+
+            public void put(String key, String value, Duration ttl) { serverState.put("geocode", key, value, ttl); }
+        });
     }
 
     GeocodeBackfill(RestaurantRepository repository, TransactionTemplate tx, Locator locator, Originals originals,
@@ -123,12 +143,18 @@ public class GeocodeBackfill implements ApplicationRunner {
 
     GeocodeBackfill(RestaurantRepository repository, TransactionTemplate tx, Locator locator, Originals originals,
                     long pauseMillis, int workers) {
+        this(repository, tx, locator, originals, pauseMillis, workers, inMemoryNotes());
+    }
+
+    GeocodeBackfill(RestaurantRepository repository, TransactionTemplate tx, Locator locator, Originals originals,
+                    long pauseMillis, int workers, Notes notes) {
         this.repository = repository;
         this.tx = tx;
         this.locator = locator;
         this.originals = originals;
         this.pauseMillis = pauseMillis;
         this.maxWorkers = Math.max(1, workers);
+        this.notes = notes;
     }
 
     @Override
@@ -349,49 +375,67 @@ public class GeocodeBackfill implements ApplicationRunner {
      */
     int revertLeftovers() {
         List<Object[]> rows = repository.findRevertRows();
-        if (rows.isEmpty()) {
-            unresolvedReverts = 0;
-            return 0;
-        }
-        // 지난번에 원본에서도 못 찾은 행만 남았으면 다시 받아 봐야 같다 (서버가 다시 켜지면 한 번 더 본다)
-        if (rows.size() == unresolvedReverts) return 0;
+        if (rows.isEmpty()) return 0;
+        // 공공데이터를 구마다 통째로 받는 일이라(서울 전체 천 번 넘는 요청) 소득 없이 되풀이하지 않는다:
+        //   - 지난번에 끝까지 받아 봤는데도 못 찾은 행만 그대로 남았으면 일주일 뒤에나 다시 본다
+        //   - 받다가 실패했으면(공공 API 응답 없음) 하루 뒤에 다시 한다
+        String leftover = signature(rows.stream().map(r -> (Long) r[0]).toList());
+        if (notes.get(REVERT_UNRESOLVED).filter(leftover::equals).isPresent()) return 0;
+        if (notes.get(REVERT_FAILED).isPresent()) return 0;
         if (!originals.isConfigured()) {
             log.warn("LOCALDATA_AUTH_KEY가 없어 네이버 좌표 {}곳을 인허가 좌표로 되돌리지 못함", rows.size());
             return 0;
         }
         Map<String, Long> wanted = new HashMap<>();
-        Set<Long> remaining = new HashSet<>();
+        Map<Long, Object[]> remaining = new HashMap<>();
         for (Object[] r : rows) {
             Long id = (Long) r[0];
-            remaining.add(id);
+            remaining.put(id, r);
             if (r[4] != null) wanted.put("M:" + r[4], id);
             String road = (String) r[2];
             wanted.putIfAbsent("K:" + RestaurantImportService.key((String) r[1],
                 road != null && !road.isBlank() ? road : (String) r[3]), id);
         }
         int reverted = 0;
-        for (String code : originals.localCodes()) {
-            if (remaining.isEmpty()) break;
-            for (LocalDataClient.Row row : originals.openRows(code)) {
-                Long id = row.mgtNo() == null ? null : wanted.get("M:" + row.mgtNo());
-                if (id == null) id = wanted.get("K:" + RestaurantImportService.key(row));
-                if (id == null || !remaining.contains(id)) continue;
-                double[] p = RestaurantImportService.toLatLng(row.crdX(), row.crdY());
-                if (p == null) continue;
-                Long target = id;
-                Integer changed = tx.execute(s -> repository.revertToLicense(target, p[0], p[1]));
-                if (changed != null && changed > 0) {
-                    remaining.remove(id);
-                    reverted++;
+        try {
+            for (String code : originals.localCodes()) {
+                if (remaining.isEmpty()) break;
+                for (LocalDataClient.Row row : originals.openRows(code)) {
+                    Long id = row.mgtNo() == null ? null : wanted.get("M:" + row.mgtNo());
+                    if (id == null) id = wanted.get("K:" + RestaurantImportService.key(row));
+                    if (id == null || !remaining.containsKey(id)) continue;
+                    double[] p = RestaurantImportService.toLatLng(row.crdX(), row.crdY());
+                    if (p == null) continue;
+                    Long target = id;
+                    Integer changed = tx.execute(s -> repository.revertToLicense(target, p[0], p[1]));
+                    if (changed != null && changed > 0) {
+                        remaining.remove(id);
+                        reverted++;
+                    }
                 }
             }
+        } catch (RuntimeException e) {
+            notes.put(REVERT_FAILED, "1", Duration.ofHours(24));
+            if (reverted > 0) log.info("네이버 좌표를 인허가 좌표로 되돌림: {}곳", reverted);
+            throw new IllegalStateException(e.getMessage() + " — 하루 뒤에 다시 해요", e);
         }
-        unresolvedReverts = remaining.size();
         log.info("네이버 좌표를 인허가 좌표로 되돌림: {}곳", reverted);
         if (!remaining.isEmpty()) {
-            log.warn("공공데이터에서 원래 좌표를 못 찾아 네이버 좌표가 남은 가게: {}곳", remaining.size());
+            notes.put(REVERT_UNRESOLVED, signature(remaining.keySet()), Duration.ofDays(7));
+            log.warn("공공데이터의 영업중 목록에 없어 네이버 좌표가 남은 가게: {}곳 (일주일 뒤 다시 확인)", remaining.size());
+            // 어떤 가게인지 — 폐업했거나 이름·주소가 바뀐 가게일 가능성이 높다. 운영자가 보고 정리할 수 있게 적는다
+            remaining.values().stream().limit(100).forEach(r -> log.warn("  남은 가게: {} | {} | 관리번호 {}",
+                r[1], r[2] != null && !((String) r[2]).isBlank() ? r[2] : r[3], r[4] == null ? "없음" : "있음"));
         }
         return reverted;
+    }
+
+    private static final String REVERT_UNRESOLVED = "revert-unresolved";
+    private static final String REVERT_FAILED = "revert-failed";
+
+    // 남은 행들이 지난번과 같은지 견줄 값 (행 수와 id 묶음의 해시)
+    private static String signature(java.util.Collection<Long> ids) {
+        return ids.size() + ":" + ids.stream().sorted().toList().hashCode();
     }
 
     private void pause(long millis) {
