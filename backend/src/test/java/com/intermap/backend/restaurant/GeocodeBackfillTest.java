@@ -341,6 +341,33 @@ class GeocodeBackfillTest {
     }
 
     @Test
+    void aFailedDownloadOfOriginalsIsNotRepeatedEveryRun() {
+        // 공공 API가 응답하지 않을 때: 되돌리기는 다음으로 미루고, 돌 때마다 통째로 다시 받지 않는다
+        Restaurant waiting = repository.save(new Restaurant("기다리는집", "한식", "서울특별시 마포구 기다림길 1", null, 37.5551, 126.9201));
+        markAsNaver(waiting);
+        AtomicInteger tried = new AtomicInteger();
+        GeocodeBackfill.Originals broken = new GeocodeBackfill.Originals() {
+            public boolean isConfigured() { return true; }
+
+            public List<String> localCodes() { return List.of("3130000"); }
+
+            public List<LocalDataClient.Row> openRows(String localCode) {
+                tried.incrementAndGet();
+                throw new IllegalStateException("Read timed out");
+            }
+        };
+        GeocodeBackfill backfill = new GeocodeBackfill(repository, tx, locator(Map.of()), broken, 0);
+
+        backfill.fill();
+        backfill.fill();
+
+        assertEquals(1, tried.get(), "실패한 뒤에는 하루 동안 다시 받지 않는다");
+        assertEquals("REVERT", repository.findById(waiting.getId()).orElseThrow().getCoordSource());
+
+        repository.deleteById(waiting.getId());
+    }
+
+    @Test
     void newRestaurantsStartUnprocessed() {
         Restaurant fresh = repository.save(new Restaurant("새집", "한식", "서울특별시 마포구 새길 1", null, 37.55, 126.92));
         assertNull(repository.findById(fresh.getId()).orElseThrow().getCoordSource());
