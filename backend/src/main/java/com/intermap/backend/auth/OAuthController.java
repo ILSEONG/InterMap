@@ -82,6 +82,35 @@ public class OAuthController {
     private static final String APP_STATE_SUFFIX = "-app";
     // Android 매니페스트 intent-filter·iOS CFBundleURLSchemes(scheme=intermap, host=auth)와 맞춘 딥링크 주소
     private static final String APP_DEEP_LINK = "intermap://auth";
+
+    // 간편 로그인이 어디서 끊기는지 서버 로그로 따라갈 수 있게 단계마다 한 줄씩 적는다 (Render 로그에서 "간편 로그인"으로 찾는다).
+    // 사람을 알아볼 값(이메일·이름)과 비밀 값(코드·확인값 전체)은 적지 않는다 — 같은 시도를 묶어 볼 앞 8자만
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OAuthController.class);
+
+    private static String shortId(String value) {
+        return value == null || value.isBlank() ? "-" : value.substring(0, Math.min(8, value.length()));
+    }
+
+    // 요청을 보낸 브라우저 종류 (User-Agent로 어림)
+    private static String device() {
+        try {
+            if (org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+                    instanceof org.springframework.web.context.request.ServletRequestAttributes attrs) {
+                String ua = attrs.getRequest().getHeader("User-Agent");
+                if (ua == null) return "기기 모름";
+                if (ua.contains("iPhone") || ua.contains("iPad")) return "아이폰";
+                if (ua.contains("Android")) return "안드로이드";
+                return "PC·기타";
+            }
+        } catch (RuntimeException e) {
+            // 로그용 정보일 뿐이다
+        }
+        return "기기 모름";
+    }
+
+    private static String where(boolean fromApp) {
+        return (fromApp ? "앱" : "웹") + ", " + device();
+    }
     private static final String APPLE = "apple";
 
     private final RestClient restClient = Http.client();
@@ -166,14 +195,24 @@ public class OAuthController {
         boolean isApple = APPLE.equals(provider);
         ProviderConfig config = providers.get(provider);
         if (config == null && !isApple) return ResponseEntity.notFound().build();
-        if (isApple ? !apple.configured() : !config.configured()) return redirectWithError("unavailable", fromApp);
-        if (verifier == null || !VERIFIER.matcher(verifier).matches()) return redirectWithError("failed", fromApp);
+        if (isApple ? !apple.configured() : !config.configured()) {
+            log.warn("간편 로그인 시작 실패: {} — 서버에 키가 없음 ({})", provider, where(fromApp));
+            return redirectWithError("unavailable", fromApp);
+        }
+        if (verifier == null || !VERIFIER.matcher(verifier).matches()) {
+            log.warn("간편 로그인 시작 실패: {} — 확인값이 없거나 형식이 다름 ({})", provider, where(fromApp));
+            return redirectWithError("failed", fromApp);
+        }
 
-        if (serverState.count(STATE_KIND) >= MAX_PENDING) return redirectWithError("failed", fromApp);
+        if (serverState.count(STATE_KIND) >= MAX_PENDING) {
+            log.warn("간편 로그인 시작 실패: {} — 진행 중인 로그인이 너무 많음 ({})", provider, where(fromApp));
+            return redirectWithError("failed", fromApp);
+        }
 
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(UUID.randomUUID().toString().getBytes())
             + (fromApp ? APP_STATE_SUFFIX : "");
         serverState.put(STATE_KIND, state, verifier, Duration.ofSeconds(STATE_TTL_SECONDS));
+        log.info("간편 로그인 시작: {} ({}, 시도 {})", provider, where(fromApp), shortId(state));
 
         UriComponentsBuilder target = UriComponentsBuilder.fromUriString(isApple ? AppleLogin.AUTHORIZE_URI : config.authorizeUri())
             .queryParam("client_id", isApple ? apple.clientId() : config.clientId())
@@ -201,17 +240,17 @@ public class OAuthController {
         if (config == null || !config.configured()) return redirectWithError("unavailable", fromApp);
         // 한 번만 쓴다 — 없으면 만료됐거나 이미 쓴 것
         String verifier = state == null ? null : serverState.take(STATE_KIND, state).orElse(null);
-        if (error != null || code == null) return redirectWithError("cancelled", fromApp);
-        if (verifier == null) return redirectWithError("expired", fromApp);
+        if (error != null || code == null) return refuse(provider, "cancelled", "취소됨" + (error == null ? "" : " (" + shortId(error) + ")"), state, fromApp);
+        if (verifier == null) return refuse(provider, "expired", "진행 정보 없음 — 이미 한 번 쓴 콜백이거나 10분이 지남", state, fromApp);
 
         try {
             String accessToken = exchangeToken(provider, config, code, state);
             Profile profile = fetchProfile(provider, config, accessToken);
             calls.ok(ExternalCalls.LOGIN + provider);
-            return finish(provider, profile, null, verifier, fromApp);
+            return finish(provider, profile, null, verifier, fromApp, state);
         } catch (Exception e) {
             calls.fail(ExternalCalls.LOGIN + provider, e);
-            return redirectWithError("failed", fromApp);
+            return refuse(provider, "failed", "토큰·프로필 받기 실패: " + describe(e), state, fromApp);
         }
     }
 
@@ -229,16 +268,16 @@ public class OAuthController {
         if (!apple.configured()) return redirectWithError("unavailable", fromApp);
         // 한 번만 쓴다 — 없으면 만료됐거나 이미 쓴 것
         String verifier = state == null ? null : serverState.take(STATE_KIND, state).orElse(null);
-        if (error != null || code == null) return redirectWithError("cancelled", fromApp);
-        if (verifier == null) return redirectWithError("expired", fromApp);
+        if (error != null || code == null) return refuse(APPLE, "cancelled", "취소됨" + (error == null ? "" : " (" + shortId(error) + ")"), state, fromApp);
+        if (verifier == null) return refuse(APPLE, "expired", "진행 정보 없음 — 이미 한 번 쓴 콜백이거나 10분이 지남", state, fromApp);
         try {
             AppleLogin.AppleUser appleUser = apple.exchange(code, redirectUri(APPLE));
             Profile profile = new Profile(appleUser.sub(), appleUser.email(), appleName(user));
             calls.ok(ExternalCalls.LOGIN + APPLE);
-            return finish(APPLE, profile, appleUser.refreshToken(), verifier, fromApp);
+            return finish(APPLE, profile, appleUser.refreshToken(), verifier, fromApp, state);
         } catch (Exception e) {
             calls.fail(ExternalCalls.LOGIN + APPLE, e);
-            return redirectWithError("failed", fromApp);
+            return refuse(APPLE, "failed", "토큰 받기 실패: " + describe(e), state, fromApp);
         }
     }
 
@@ -260,9 +299,9 @@ public class OAuthController {
     // (이메일만 같다고 자동 연결하지 않는다 — 계정 탈취 방지).
     // 둘 다 없으면 닉네임+약관만 받는 가입 화면(signup)으로 보낸다.
     private ResponseEntity<Void> finish(String provider, Profile profile, String appleRefreshToken,
-                                        String verifier, boolean fromApp) {
+                                        String verifier, boolean fromApp, String state) {
         if (profile.providerId() == null || profile.providerId().isBlank()) {
-            return redirectWithError("failed", fromApp);
+            return refuse(provider, "failed", "프로필에 사용자 번호가 없음", state, fromApp);
         }
         String email = profile.email() == null ? "" : profile.email().trim().toLowerCase();
         AppUser user = repository.findByProviderAndProviderId(provider, profile.providerId()).orElse(null);
@@ -280,7 +319,21 @@ public class OAuthController {
             }
             outcome = new Outcome(verifier, user.getId(), null, null, null, null, null);
         }
-        return redirect(fromApp, "oauth", putOutcome(outcome));
+        String resultCode = putOutcome(outcome);
+        log.info("간편 로그인 콜백: {} — 성공, {} ({}, 시도 {}, 결과 {})", provider,
+            outcome.userId() != null ? "로그인" : "link".equals(outcome.type()) ? "계정 연결 화면으로" : "가입 화면으로",
+            where(fromApp), shortId(state), shortId(resultCode));
+        return redirect(fromApp, "oauth", resultCode);
+    }
+
+    private ResponseEntity<Void> refuse(String provider, String errorCode, String reason, String state, boolean fromApp) {
+        log.warn("간편 로그인 콜백: {} — {} ({}, 시도 {})", provider, reason, where(fromApp), shortId(state));
+        return redirectWithError(errorCode, fromApp);
+    }
+
+    private static String describe(Exception e) {
+        String message = e.getMessage() == null ? "" : e.getMessage().replaceAll("\\s+", " ");
+        return e.getClass().getSimpleName() + (message.isEmpty() ? "" : ": " + (message.length() > 200 ? message.substring(0, 200) : message));
     }
 
     // 콜백이 맡긴 결과를 로그인을 시작한 쪽(verifier를 가진 쪽)에만 한 번 내준다
@@ -290,9 +343,15 @@ public class OAuthController {
         if (outcome == null || request.verifier() == null
                 || !MessageDigest.isEqual(outcome.verifier().getBytes(StandardCharsets.UTF_8),
                         request.verifier().getBytes(StandardCharsets.UTF_8))) {
+            log.warn("간편 로그인 결과 전달 실패: {} ({}, 결과 {})",
+                outcome == null ? "결과가 없음 — 이미 한 번 가져갔거나 5분이 지남"
+                    : request.verifier() == null || request.verifier().isBlank() ? "앱이 확인값을 보내지 않음 (시작할 때 저장한 값이 없음)"
+                    : "확인값이 시작할 때와 다름",
+                device(), shortId(request.code()));
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new AuthController.ErrorResponse("로그인 정보가 만료됐어요. 다시 시도해주세요."));
         }
+        log.info("간편 로그인 결과 전달: {} ({}, 결과 {})", outcome.userId() != null ? "로그인" : outcome.type(), device(), shortId(request.code()));
         if (outcome.userId() == null) {
             return ResponseEntity.ok(new OAuthResult(outcome.type(), null, outcome.ticket(), outcome.provider(),
                     outcome.email(), outcome.nickname()));
