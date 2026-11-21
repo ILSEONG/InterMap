@@ -17,6 +17,8 @@
   justify-content: center;
   /* 키보드가 올라오면 시트를 그만큼 올려 후기·댓글 입력칸이 가려지지 않게 한다 */
   padding-bottom: var(--kb);
+  /* 아이폰 앱에서 화면이 밀려 올라간 만큼 위를 비운다 — 시트 높이(max-height)가 보이는 영역 안에 든다 */
+  padding-top: var(--kt);
   visibility: hidden;
   pointer-events: none;
   /* 닫힐 때: 시트가 다 내려간 뒤에 숨긴다 */

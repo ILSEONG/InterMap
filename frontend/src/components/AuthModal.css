@@ -11,14 +11,29 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* 노치·홈 인디케이터를 피하고, 키보드가 올라온 만큼 아래를 비운다 (--kb는 App이 잰다) */
-  padding: max(12px, calc(env(safe-area-inset-top) + 8px)) max(12px, calc(env(safe-area-inset-right) + 12px))
+  /* 노치·홈 인디케이터를 피하고, 키보드가 올라온 만큼 아래를(--kb), 화면이 밀려 올라간 만큼 위를(--kt) 비운다 (App이 잰다) */
+  padding: calc(max(12px, calc(env(safe-area-inset-top) + 8px)) + var(--kt)) max(12px, calc(env(safe-area-inset-right) + 12px))
     calc(max(28px, calc(env(safe-area-inset-bottom) + 12px)) + var(--kb))
     max(12px, calc(env(safe-area-inset-left) + 12px));
   visibility: hidden;
   pointer-events: none;
   /* 닫힐 때는 페이드가 끝난 뒤에 숨긴다 */
   transition: visibility 0s linear 260ms;
+}
+
+/* 아이폰 앱에서 키보드가 올라온 동안: 보이는 자리가 화면의 절반도 안 돼서 입력칸·약관·버튼만 남긴다.
+   머리 그림과 설명을 걷고, 키보드가 홈 바를 덮으니 아래 여백도 줄인다 */
+html.ios-typing .auth-overlay {
+  padding-bottom: calc(10px + var(--kb));
+}
+
+html.ios-typing .auth-modal {
+  padding-top: 18px;
+}
+
+html.ios-typing .auth-modal__head,
+html.ios-typing .auth-modal__hero {
+  display: none;
 }
 
 .auth-overlay::before {
@@ -393,6 +408,21 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   cursor: pointer;
+}
+
+/* 아이폰 앱에서 키보드가 올라온 동안: 폼의 주 버튼을 창 아래쪽에 붙여 둔다. 약관까지 있는 가입 화면은
+   머리 그림을 걷어도 한 화면에 다 안 들어가서, 그냥 두면 버튼이 스크롤 아래로 밀려 안 보인다
+   (가입을 끝낼 방법이 없어 보인다). 내용은 버튼 뒤로 지나간다 — 흰 테두리는 지나가는 글자가 버튼에 닿아 보이지 않게 */
+html.ios-typing .auth-modal__form > .auth-modal__submit {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.92);
+}
+
+/* 붙어 있는 동안 뒤의 글자가 비치지 않게 — 꺼진 버튼의 반투명 회색을 흰 바탕에 올린 색으로 */
+html.ios-typing .auth-modal__form > .auth-modal__submit:disabled {
+  background: #e4e4e6;
 }
 
 .auth-modal__submit:disabled {
