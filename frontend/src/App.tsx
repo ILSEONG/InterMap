@@ -626,19 +626,47 @@ export default function App() {
     // 입력칸에 초점이 있고 키보드만큼 가려졌을 때만 센다. 그 밖의 뷰포트 변화(모바일 브라우저 주소창·툴바가
     // 숨었다 나타남, 끌어내릴 때 고무줄 스크롤)까지 따라가면 시트가 손가락 아래에서 위아래로 흔들린다
     const KEYBOARD_MIN = 120
+    // 아이폰 앱(WKWebView)은 사정이 다르다 (시뮬레이터에서 잰 값: 화면 844, 키보드가 올라오면 innerHeight 640,
+    // 보이는 높이 441, 화면이 204 밀려 올라감):
+    //   - innerHeight가 키보드에 따라 줄어서 위 식으로는 가려진 높이가 0으로 나온다. 떠 있는 시트가 서는 기준은
+    //     줄지 않는 레이아웃 높이(clientHeight)라 그걸로 잰다
+    //   - 화면이 위로 밀려 올라가면 위쪽도 그만큼 안 보인다 — --kt로 알려 시트 위쪽도 내려 준다.
+    //     그래야 시트가 실제로 보이는 영역(밀려 올라간 만큼 ~ 키보드 위) 안에 선다
+    const IOS_APP = Capacitor.getPlatform() === 'ios'
     let last = -1
+    let lastTop = -1
     const applyKeyboard = () => {
-      // 실제로 보이는 영역(키보드·밀려 올라간 만큼을 뺀 곳)의 위치와 높이 — 확인용 화면이 여기에 맞춰 선다
-      if (vv) {
-        document.documentElement.style.setProperty('--vv-top', `${Math.round(vv.offsetTop)}px`)
-        document.documentElement.style.setProperty('--vv-height', `${Math.round(vv.height)}px`)
-      }
       const typing = !!document.activeElement?.matches?.('input, textarea, [contenteditable="true"]')
-      const raw = vv && typing ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
+      const layoutHeight = IOS_APP ? document.documentElement.clientHeight : window.innerHeight
+      const raw = vv && typing ? Math.max(0, layoutHeight - vv.height - vv.offsetTop) : 0
       const overlap = raw >= KEYBOARD_MIN ? Math.round(raw) : 0
-      if (overlap === last) return
+      const pushed = IOS_APP && vv && overlap > 0 ? Math.max(0, Math.round(vv.offsetTop)) : 0
+      if (overlap === last && pushed === lastTop) return
+      const opened = overlap > 0 && last <= 0
       last = overlap
+      lastTop = pushed
       document.documentElement.style.setProperty('--kb', `${overlap}px`)
+      document.documentElement.style.setProperty('--kt', `${pushed}px`)
+      if (IOS_APP) {
+        // 키보드가 올라온 동안 좁은 자리에 맞춰 덜어 낼 것들 (로그인 창의 머리 그림 등)
+        document.documentElement.classList.toggle('ios-typing', overlap > 0)
+        // 시트가 새 자리에 선 다음 입력칸을 그 안에서 보이는 곳으로
+        if (opened) window.requestAnimationFrame(() => revealInContainer(document.activeElement))
+      }
+    }
+    // 입력칸을 가장 가까운 스크롤 상자 안에서 가운데로. 화면 전체(창)는 밀지 않는다 —
+    // 아이폰 앱에서 scrollIntoView는 화면까지 밀어 올려서, 시트가 이미 키보드 위에 서 있는데도 위쪽이 화면 밖으로 나간다
+    const revealInContainer = (target: Element | null) => {
+      const el = target as HTMLElement | null
+      if (!el?.matches?.('input, textarea')) return
+      let box = el.parentElement
+      while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight + 1)) {
+        box = box.parentElement
+      }
+      if (!box) return
+      const frame = box.getBoundingClientRect()
+      const r = el.getBoundingClientRect()
+      box.scrollTo({ top: box.scrollTop + (r.top + r.height / 2) - (frame.top + frame.height / 2), behavior: 'smooth' })
     }
     const onFocusOut = () => window.setTimeout(applyKeyboard, 50)
     // 키보드가 다 올라오고 레이아웃이 정리된 뒤에 스크롤해야 원하는 자리에 선다
@@ -651,6 +679,10 @@ export default function App() {
         window.setTimeout(() => {
           if (window.scrollY !== 0) window.scrollTo(0, 0)
         }, 0)
+        return
+      }
+      if (IOS_APP) {
+        window.setTimeout(() => revealInContainer(el), 300)
         return
       }
       window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
@@ -668,8 +700,7 @@ export default function App() {
     }
   }, [])
 
-  // 확인용 (DEBUG_AUTH): 아이폰 시뮬레이터에서 키보드가 올라왔을 때의 실제 수치를 앱 로그에 남긴다.
-  // 켠 지 32초 뒤에는 '보이는 영역에 맞추기'(html.kb-pin)를 켜서 두 번째 캡처에서 견줘 본다
+  // 확인용 (DEBUG_AUTH): 아이폰 시뮬레이터에서 키보드가 올라왔을 때의 실제 수치를 앱 로그에 남긴다
   useEffect(() => {
     if (!DEBUG_AUTH) return
     const probe = document.createElement('div')
@@ -688,7 +719,6 @@ export default function App() {
         'KBDEBUG ' +
           JSON.stringify({
             t: Math.round((Date.now() - started) / 1000),
-            pin: document.documentElement.classList.contains('kb-pin'),
             ih: window.innerHeight,
             ch: document.documentElement.clientHeight,
             sh: window.screen.height,
@@ -697,6 +727,7 @@ export default function App() {
             vpt: vv ? Math.round(vv.pageTop) : null,
             sy: Math.round(window.scrollY),
             kb: getComputedStyle(document.documentElement).getPropertyValue('--kb'),
+            kt: getComputedStyle(document.documentElement).getPropertyValue('--kt'),
             safe: [cs.paddingTop, cs.paddingBottom],
             overlay: rect('.auth-overlay'),
             modal: rect('.auth-modal'),
@@ -706,7 +737,6 @@ export default function App() {
             active: document.activeElement?.tagName,
           }),
       )
-      if (Date.now() - started > 32_000) document.documentElement.classList.add('kb-pin')
     }, 4000)
     return () => window.clearInterval(id)
   }, [])

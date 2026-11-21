@@ -9,7 +9,7 @@
   --sv-bg: #141416;
   --sv-line: rgba(255, 255, 255, 0.12);
   --sv-soft: rgba(255, 255, 255, 0.62);
-  --sv-top: max(calc(env(safe-area-inset-top) + 3px), 16px);
+  --sv-top: calc(max(calc(env(safe-area-inset-top) + 3px), 16px) + var(--kt));
   --sv-bottom: calc(max(env(safe-area-inset-bottom), 16px) + var(--kb));
 
   position: fixed;

@@ -14,7 +14,7 @@
   position: absolute;
   left: max(6px, env(safe-area-inset-left));
   right: max(6px, env(safe-area-inset-right));
-  top: max(env(safe-area-inset-top), 12px);
+  top: calc(max(env(safe-area-inset-top), 12px) + var(--kt));
   /* 키보드가 올라오면 시트 바닥을 그만큼 올려 닉네임·검색 입력칸이 가려지지 않게 한다 */
   bottom: calc(6px + var(--kb));
   max-width: 480px;
