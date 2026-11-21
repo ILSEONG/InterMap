@@ -628,6 +628,11 @@ export default function App() {
     const KEYBOARD_MIN = 120
     let last = -1
     const applyKeyboard = () => {
+      // 실제로 보이는 영역(키보드·밀려 올라간 만큼을 뺀 곳)의 위치와 높이 — 확인용 화면이 여기에 맞춰 선다
+      if (vv) {
+        document.documentElement.style.setProperty('--vv-top', `${Math.round(vv.offsetTop)}px`)
+        document.documentElement.style.setProperty('--vv-height', `${Math.round(vv.height)}px`)
+      }
       const typing = !!document.activeElement?.matches?.('input, textarea, [contenteditable="true"]')
       const raw = vv && typing ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
       const overlap = raw >= KEYBOARD_MIN ? Math.round(raw) : 0
@@ -661,6 +666,49 @@ export default function App() {
       document.removeEventListener('focusin', scrollToInput)
       document.removeEventListener('focusout', onFocusOut)
     }
+  }, [])
+
+  // 확인용 (DEBUG_AUTH): 아이폰 시뮬레이터에서 키보드가 올라왔을 때의 실제 수치를 앱 로그에 남긴다.
+  // 켠 지 32초 뒤에는 '보이는 영역에 맞추기'(html.kb-pin)를 켜서 두 번째 캡처에서 견줘 본다
+  useEffect(() => {
+    if (!DEBUG_AUTH) return
+    const probe = document.createElement('div')
+    probe.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0'
+    document.body.appendChild(probe)
+    const rect = (sel: string) => {
+      const b = document.querySelector(sel)?.getBoundingClientRect()
+      return b ? [Math.round(b.top), Math.round(b.bottom)] : null
+    }
+    const started = Date.now()
+    const id = window.setInterval(() => {
+      const vv = window.visualViewport
+      const modal = document.querySelector('.auth-modal')
+      const cs = getComputedStyle(probe)
+      console.log(
+        'KBDEBUG ' +
+          JSON.stringify({
+            t: Math.round((Date.now() - started) / 1000),
+            pin: document.documentElement.classList.contains('kb-pin'),
+            ih: window.innerHeight,
+            ch: document.documentElement.clientHeight,
+            sh: window.screen.height,
+            vvh: vv ? Math.round(vv.height) : null,
+            vvt: vv ? Math.round(vv.offsetTop) : null,
+            vpt: vv ? Math.round(vv.pageTop) : null,
+            sy: Math.round(window.scrollY),
+            kb: getComputedStyle(document.documentElement).getPropertyValue('--kb'),
+            safe: [cs.paddingTop, cs.paddingBottom],
+            overlay: rect('.auth-overlay'),
+            modal: rect('.auth-modal'),
+            scroll: modal ? [Math.round(modal.scrollTop), modal.scrollHeight, modal.clientHeight] : null,
+            btn: rect('.auth-modal__submit'),
+            input: rect('#auth-nickname'),
+            active: document.activeElement?.tagName,
+          }),
+      )
+      if (Date.now() - started > 32_000) document.documentElement.classList.add('kb-pin')
+    }, 4000)
+    return () => window.clearInterval(id)
   }, [])
 
   // 안드로이드 하드웨어 뒤로가기: 열려 있는 레이어를 위에서부터 하나씩 닫고, 닫을 게 없으면 앱을 종료한다.

@@ -395,6 +395,21 @@
   cursor: pointer;
 }
 
+/* 폼의 주 버튼은 창 아래쪽에 붙여 둔다. 아이폰은 입력칸에 초점이 가면 키보드가 올라와 창이 짧아지는데,
+   그때 버튼이 스크롤 아래로 밀려 안 보이면 가입을 끝낼 방법이 없어 보인다 (가입 화면은 닉네임 칸에 바로 초점이 간다).
+   내용이 다 들어가는 화면에서는 제자리에 그대로 있다. 흰 테두리는 뒤로 지나가는 글자가 버튼에 닿아 보이지 않게 */
+.auth-modal__form > .auth-modal__submit {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.92);
+}
+
+/* 붙어 있는 동안 뒤의 글자가 비치지 않게 — 꺼진 버튼의 반투명 회색을 흰 바탕에 올린 색으로 */
+.auth-modal__form > .auth-modal__submit:disabled {
+  background: #e4e4e6;
+}
+
 .auth-modal__submit:disabled {
   background: var(--fill-strong);
   color: var(--ink-2);
