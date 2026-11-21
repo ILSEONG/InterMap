@@ -14,6 +14,11 @@ on:
       - 'frontend/package-lock.json'
       - '.github/workflows/ios.yml'
   workflow_dispatch:
+    inputs:
+      debug_auth:
+        description: '켜자마자 띄울 로그인 화면 (social = 간편 가입 화면). 비우면 평소대로'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -51,6 +56,7 @@ jobs:
           FONT_DISPLAY: block
           # 아이폰 푸시는 아직 연결 전
           VITE_PUSH_ENABLED: 'false'
+          VITE_DEBUG_AUTH: ${{ inputs.debug_auth }}
         run: npm run build
 
       - name: Sync Capacitor
@@ -79,6 +85,8 @@ jobs:
           print(pick['name'], file=sys.stderr)
           print(pick['udid'])
           ")
+          # 화면 키보드가 뜨게 한다 (기본은 맥 키보드가 연결된 것으로 쳐서 화면 키보드가 안 나온다)
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false || true
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b > /dev/null
           sleep 5

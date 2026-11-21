@@ -163,6 +163,10 @@ const snapBBox = (b: BBox): BBox => ({
   maxLng: Number((Math.ceil(b.maxLng / SNAP_DEG) * SNAP_DEG).toFixed(5)),
 })
 
+// 화면 확인용 (.github/workflows/ios.yml의 debug_auth): 빌드할 때 이 값을 주면 간편 가입 화면을 켜자마자 띄운다.
+// 아이폰 시뮬레이터에서 그 화면을 찍어 보려는 것 — 평소 빌드에는 값이 없어 아무 일도 하지 않는다
+const DEBUG_AUTH = import.meta.env.VITE_DEBUG_AUTH as string | undefined
+
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 
@@ -249,7 +253,7 @@ export default function App() {
   // 같은 가게를 다시 골라도 지도가 이동하도록 매번 새 객체를 만든다.
   const [focusTarget, setFocusTarget] = useState<{ id: string; lat: number; lng: number; sheet?: boolean } | null>(null)
   // 로그인 세션. 앱을 껐다 켜도 유지되도록 localStorage에 둔다.
-  const [authMode, setAuthMode] = useState<AuthMode | null>(null)
+  const [authMode, setAuthMode] = useState<AuthMode | null>(DEBUG_AUTH === 'social' ? 'social' : null)
   const [session, setSession] = useState<AuthSession | null>(() => {
     try {
       return JSON.parse(localStorage.getItem('intermap.session') ?? 'null')
@@ -268,7 +272,9 @@ export default function App() {
   // 닉네임·사진을 바꿔도 같은 사람이면 후기·댓글·찜·팔로우를 처음부터 다시 받지 않는다
   const sessionToken = session?.token ?? null
   // 소셜 로그인은 했지만 아직 우리 계정과 연결 안 된 경우의 서버 티켓 (계정 연결 화면용)
-  const [socialLink, setSocialLink] = useState<SocialTicket | null>(null)
+  const [socialLink, setSocialLink] = useState<SocialTicket | null>(
+    DEBUG_AUTH === 'social' ? { ticket: 'debug', provider: 'naver' } : null,
+  )
   const handleAuthed = useCallback((next: AuthSession) => {
     setSession(next)
     setAuthMode(null)
