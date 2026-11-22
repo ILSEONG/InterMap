@@ -735,6 +735,13 @@ export default function App() {
             btn: rect('.auth-modal__submit'),
             input: rect('#auth-nickname'),
             active: document.activeElement?.tagName,
+            // 지도가 실제로 무엇으로 그려졌는지 (GL이면 canvas가 있고, 이미지 타일이면 img만 있다)
+            map: {
+              glClass: !!document.querySelector('.map-canvas--gl'),
+              canvas: document.querySelectorAll('.map-canvas__surface canvas').length,
+              tiles: document.querySelectorAll('.map-canvas__surface img').length,
+              pins: document.querySelectorAll('.map-pin').length,
+            },
           }),
       )
     }, 4000)

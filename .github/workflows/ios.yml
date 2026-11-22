@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       debug_auth:
-        description: '켜자마자 띄울 로그인 화면 (social = 간편 가입 화면). 비우면 평소대로'
+        description: '확인용 값 (social = 간편 가입 화면을 띄우고 수치 기록, map = 지도 상태만 기록). 비우면 평소대로'
         required: false
         default: ''
 
