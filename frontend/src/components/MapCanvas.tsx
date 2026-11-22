@@ -558,8 +558,8 @@ export default function MapCanvas({
     }
   }, [focusedId, visiblePins, groups, mapReady, starPins])
 
-  // 무엇이 뜨고 닫히든 고른 핀은 늘 "보이는 지도 범위"의 가운데에 둔다.
-  // 가게 시트가 닫히거나(시트 위 → 상단 바 아래~화면 아래), 이웃 패널·투표 바가 뜨고 닫혀 아래 경계가 바뀌면 다시 가운데로.
+  // 이웃 패널·투표 바가 뜨고 닫혀 지도의 아래 경계가 바뀌면 고른 핀을 다시 "보이는 지도 범위"의 가운데에 둔다.
+  // 가게 시트를 닫을 때는 지도를 옮기지 않는다 — 시트를 내렸을 뿐인데 지도가 움직이면 보던 자리를 잃는다.
   // 시트가 열릴 때는 핀을 누른 쪽(focusRestaurant 등)이 이미 시트 위 가운데로 옮기므로 여기선 안 한다.
   // 핀이 화면 밖에 있으면(지도를 끌어 다른 데를 보는 중) 그대로 둔다.
   const layoutRef = useRef({ sheetOpen, dockHeight })
@@ -568,9 +568,8 @@ export default function MapCanvas({
     layoutRef.current = { sheetOpen, dockHeight }
     const map = mapRef.current
     if (!mapReady || !map || !window.naver) return
-    const closed = prev.sheetOpen && !sheetOpen
     const dockChanged = !sheetOpen && prev.dockHeight !== dockHeight
-    if (!closed && !dockChanged) return
+    if (!dockChanged) return
     const id = focusedRef.current
     const target = id ? restaurantsRef.current.find((r) => r.id === id) : undefined
     if (!target) return

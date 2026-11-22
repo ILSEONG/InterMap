@@ -21,7 +21,8 @@ const BUBBLE_MS = 8000
 interface TurtlePetProps {
   userId: number
   nickname: string
-  // 다른 화면이 지도를 덮고 있으면 잠시 숨는다 (말풍선 타이머는 계속 간다)
+  // 다른 화면이 지도를 덮고 있으면 잠시 안 보인다 (말풍선 타이머는 계속 간다).
+  // 자리는 그대로 지킨다 — 덮은 화면이 걷히면 걸어 들어오지 않고 그 자리에 그대로 있다
   hidden: boolean
   onAction: (action: PetAction) => void
 }
@@ -69,7 +70,7 @@ export default function TurtlePet({ userId, nickname, hidden, onAction }: Turtle
   }
 
   return (
-    <div className="pet" hidden={hidden}>
+    <div className={`pet${hidden ? ' pet--away' : ''}`} aria-hidden={hidden || undefined}>
       <button type="button" className="pet__turtle" onClick={talk} aria-label={line ? '거북이 말풍선 닫기' : '거북이에게 말 걸기'}>
         <img key={mood} className={`pet__img pet__img--${mood}`} src={ART[mood].src} alt="" width={ART[mood].w} height={ART[mood].h} />
       </button>
