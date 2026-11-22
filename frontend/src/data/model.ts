@@ -65,6 +65,8 @@ export interface Restaurant {
   name: string
   category: string
   address: string
+  // 지번 주소 — 도로명 주소(address)와 따로 있을 때만. 검색에서 동 이름("여의도")으로도 찾게 둔다
+  lotAddress?: string
   lat: number
   lng: number
   groupIds: GroupId[]

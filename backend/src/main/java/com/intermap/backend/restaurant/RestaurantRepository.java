@@ -21,9 +21,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     @Query("select r.name, r.roadAddress, r.address, r.lat, r.lng, r.status from Restaurant r where r.name in :names")
     List<Object[]> findPlaceRowsByNameIn(Collection<String> names);
 
-    // 지도·검색용 조회는 status를 받는다 — 폐업 가게는 아예 내려주지 않는다 (호출부가 OPEN을 넘긴다)
-    List<Restaurant> findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status status, String name);
-
+    // 지도용 조회는 status를 받는다 — 폐업 가게는 아예 내려주지 않는다 (호출부가 OPEN을 넘긴다). 검색은 RestaurantSearch
     List<Restaurant> findByStatusAndLatBetweenAndLngBetween(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng);
 
     // 지도 화면 한 칸의 가게들 — 목록 응답에 실리는 열만 [id, name, category, roadAddress, address, lat, lng].

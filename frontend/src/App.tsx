@@ -70,6 +70,7 @@ import {
   POLL_MAX_OPTIONS,
 } from './lib/api'
 import { tasteTag } from './lib/taste'
+import { matchesWords, searchWords } from './lib/search'
 import { startPush, stopPush } from './lib/push'
 import { shrinkImage } from './lib/image'
 import type { AuthSession, BBox, ClusterCell, NoticeData, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
@@ -116,6 +117,7 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
     name: record.name,
     category: record.category || '음식점',
     address: record.roadAddress || record.address,
+    lotAddress: record.roadAddress && record.address && record.address !== record.roadAddress ? record.address : undefined,
     lat: record.lat,
     lng: record.lng,
     groupIds: [],
@@ -840,7 +842,7 @@ export default function App() {
   }, [])
 
 
-  // 가게 이름 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
+  // 가게 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
   // 받은 건 누적 목록에 합쳐두고 필터·핀은 기존 경로를 그대로 탄다.
   useEffect(() => {
     if (!searchActive || searchMode !== 'restaurant' || serverQuery.trim().length < MIN_QUERY_LENGTH) return
@@ -865,6 +867,8 @@ export default function App() {
     () => {
       const raw = deferredQuery.trim()
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
+      // 가게 검색은 낱말마다 이름·업종·주소 어디든 있으면 된다 ("타마 여의도") — 서버 검색과 같은 규칙
+      const words = keyword ? searchWords(keyword) : []
       const pid = personPins ? selectedPerson.id : null
       return reviewedRestaurants.filter(
         (r) =>
@@ -875,7 +879,7 @@ export default function App() {
             : r.reviews.some((rev) => rev.author.id === pid)) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
-              ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
+              ? matchesWords(`${r.name} ${r.category} ${r.address} ${r.lotAddress ?? ''}`, words)
               : r.reviews.some((rev) => rev.author.name.toLowerCase().includes(keyword)))),
       )
     },

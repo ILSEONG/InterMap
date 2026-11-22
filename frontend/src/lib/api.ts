@@ -60,7 +60,7 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
   return res.json()
 }
 
-// 이름으로 서버 검색 (상한 50건). 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
+// 서버 검색 (상한 50건) — 낱말마다 이름·업종·주소 어디든 들어 있으면 걸린다. 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
 export async function searchRestaurants(q: string): Promise<RestaurantRecord[]> {
   const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}`)
   if (!res.ok) throw new Error(`음식점 검색 실패 (${res.status})`)

@@ -40,18 +40,23 @@ public class RestaurantController {
     private static final double MAX_BOX_DEG = 0.1;
     // 요약 격자 칸 수 상한. FE 화면 한 장은 많아야 수천 칸 — 높은 zoom에 넓은 bbox를 줘서 가게마다 한 칸씩 받는 걸 막는다.
     private static final double MAX_CELLS = 40_000;
+    // 검색 결과 상한
+    private static final int SEARCH_LIMIT = 50;
 
     private final RestaurantRepository repository;
+    private final RestaurantSearch search;
     private final AuthController auth;
     private final Admins admins;
 
-    public RestaurantController(RestaurantRepository repository, AuthController auth, Admins admins) {
+    public RestaurantController(RestaurantRepository repository, RestaurantSearch search, AuthController auth, Admins admins) {
         this.repository = repository;
+        this.search = search;
         this.auth = auth;
         this.admins = admins;
     }
 
-    // q가 오면 이름 검색(상한 50건), bbox 4개가 다 오면 그 영역만. 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
+    // q가 오면 검색(상한 50건 — RestaurantSearch), bbox 4개가 다 오면 그 영역만.
+    // 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
     // 통째로 내려주지 않는다. 폐업 가게는 빼고 준다.
     // 좌표 보정이 뒤에서 도는 동안 고친 위치가 빨리 보이도록 캐시는 10분 (그 뒤엔 ETag로 304).
     @GetMapping("/api/restaurants")
@@ -67,8 +72,7 @@ public class RestaurantController {
         }
         List<ListItem> items;
         if (q != null && !q.isBlank()) {
-            items = repository.findTop50ByStatusAndNameContainingIgnoreCase(Restaurant.Status.OPEN, q.trim())
-                    .stream().map(ListItem::from).toList();
+            items = search.find(q, SEARCH_LIMIT).stream().map(ListItem::from).toList();
         } else if (hasBox) {
             // 번화가는 격자 한 칸에 가게가 3천 곳 가까이 된다 — 엔티티로 올리면 행마다 관리 대상이 되어 느리다. 필요한 열만 읽는다
             items = repository.findListRows(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng).stream()
