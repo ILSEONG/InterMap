@@ -35,4 +35,7 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 테스트는 가게 업종 채우기(CuisineBackfill)를 직접 불러 확인한다 — 서버가 켜질 때 뒤에서 도는 것이
+	// 같은 테스트 DB를 건드려 결과가 흔들리지 않게 끈다
+	systemProperty 'cuisine.backfill.on-start', 'false'
 }

@@ -53,6 +53,12 @@ public class Restaurant {
     // 때의 것일 수 있어서 한 번 다시 묻는다 (GeocodeBackfill)
     private Instant coordCheckedAt;
 
+    // 상가(상권)정보에서 짝지은 소분류 ("돼지고기 구이/찜", "카페") — 짝이 없으면 null (CuisineBackfill)
+    private String sbizCategory;
+
+    // 필터용 업종 코드 (Cuisine) — 이름·상가 소분류·인허가 업종으로 정한다. 정할 수 없으면 null
+    private String cuisine;
+
     protected Restaurant() {
     }
 
@@ -63,6 +69,8 @@ public class Restaurant {
         this.address = address;
         this.lat = lat;
         this.lng = lng;
+        // 새로 들어온 가게도 바로 필터에 걸리게 이름과 인허가 업종만으로 먼저 정한다. 상가 소분류는 CuisineBackfill이 나중에 덧입힌다
+        this.cuisine = Cuisine.of(name, null, category);
     }
 
     public Long getId() { return id; }
@@ -77,6 +85,8 @@ public class Restaurant {
     public String getLocalDataMgtNo() { return localDataMgtNo; }
     public Boolean getGeocoded() { return geocoded; }
     public String getCoordSource() { return coordSource; }
+    public String getSbizCategory() { return sbizCategory; }
+    public String getCuisine() { return cuisine; }
 
     public void markStatus(Status status, String mgtNo) {
         this.status = status;

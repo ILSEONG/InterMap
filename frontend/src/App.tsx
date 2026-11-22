@@ -70,6 +70,8 @@ import {
   POLL_MAX_OPTIONS,
 } from './lib/api'
 import { tasteTag } from './lib/taste'
+import { matchesWords, searchWords } from './lib/search'
+import { matchesCuisine } from './lib/cuisine'
 import { startPush, stopPush } from './lib/push'
 import { shrinkImage } from './lib/image'
 import type { AuthSession, BBox, ClusterCell, NoticeData, PollCandidate, PollView, RestaurantRecord, SocialData, SocialTicket, UserItem } from './lib/api'
@@ -116,6 +118,8 @@ function toRestaurant(record: RestaurantRecord): Restaurant {
     name: record.name,
     category: record.category || '음식점',
     address: record.roadAddress || record.address,
+    lotAddress: record.roadAddress && record.address && record.address !== record.roadAddress ? record.address : undefined,
+    cuisine: record.cuisine ?? null,
     lat: record.lat,
     lng: record.lng,
     groupIds: [],
@@ -181,10 +185,13 @@ export default function App() {
   // 전체를 한 번에 받는 대신, 지도가 멈출 때마다 보이는 영역만 받아 누적한다.
   // 한 번 본 영역의 가게는 목록에 남으므로 검색·필터는 본 영역 기준으로 동작한다.
   // 줌이 낮으면(넓은 영역) 개별 가게 대신 서버 격자 요약만 받는다.
+  // 고른 업종 (lib/cuisine) — 요약 셀은 서버가 세어 주므로 요청에 실어 보낸다. 개별 가게는 다 받아 앱에서 거른다
+  const cuisineAsk = useRef<string[]>([])
   const fetchViewport = useCallback((bbox: BBox, zoom: number) => {
     const snapped = snapBBox(bbox)
     const cellMode = zoom <= SUMMARY_MAX_ZOOM
-    const key = `${cellMode ? `s${zoom}` : 'r'}:${snapped.minLat},${snapped.minLng},${snapped.maxLat},${snapped.maxLng}`
+    const cuisines = cuisineAsk.current
+    const key = `${cellMode ? `s${zoom}|${cuisines.join(',')}` : 'r'}:${snapped.minLat},${snapped.minLng},${snapped.maxLat},${snapped.maxLng}`
     if (key === lastFetchKey.current) return
     lastFetchKey.current = key
     lastFetchZoom.current = zoom
@@ -196,8 +203,10 @@ export default function App() {
       // zoom-2로 요청하면 서버 셀 한 변이 4배(104px)가 된다 — 셀 핀(38px 원, 네 자리면 더 넓다)이
       // 서로 겹치지 않고, 밀집 지역에서 마커 수백 개가 깔려 모바일 WebView가 깜빡이는 것도 막는다
       const cellZoom = zoom - 2
-      fetchRestaurantCells(snapped, cellZoom)
+      fetchRestaurantCells(snapped, cellZoom, cuisines)
         .then((fresh) => {
+          // 그사이 업종 필터가 바뀌었으면 버린다 (다른 업종의 건수가 섞이지 않게)
+          if (cuisineAsk.current !== cuisines) return
           // 서버와 같은 격자 인덱스로 키를 만들어 누적한다. 같은 셀은 최신 응답으로
           // 덮어써서 bbox 경계에 걸려 잘렸던 건수를 교정한다. 줌이 바뀌면 격자가
           // 달라지므로 처음부터 다시 쌓는다.
@@ -240,6 +249,8 @@ export default function App() {
   })
   // 후기 유무 필터: 전체 / 후기 있는 곳만 / 없는 곳만. 실제 적용값은 아래 reviewFilter (로그아웃이면 '전체')
   const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with'>('with')
+  // 업종 필터 — 고른 업종 코드들. 비어 있으면 전부
+  const [cuisineFilter, setCuisineFilter] = useState<string[]>([])
   // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
   const [searchModeChoice, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
@@ -501,6 +512,7 @@ export default function App() {
         name: place.name,
         category: place.category,
         address: place.address,
+        cuisine: place.cuisine ?? null,
         lat: place.lat,
         lng: place.lng,
         groupIds: [],
@@ -840,7 +852,7 @@ export default function App() {
   }, [])
 
 
-  // 가게 이름 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
+  // 가게 검색은 서버에도 물어본다 — 아직 뷰포트로 안 받은 영역의 가게도 걸리게.
   // 받은 건 누적 목록에 합쳐두고 필터·핀은 기존 경로를 그대로 탄다.
   useEffect(() => {
     if (!searchActive || searchMode !== 'restaurant' || serverQuery.trim().length < MIN_QUERY_LENGTH) return
@@ -865,6 +877,8 @@ export default function App() {
     () => {
       const raw = deferredQuery.trim()
       const keyword = raw.length >= MIN_QUERY_LENGTH ? raw.toLowerCase() : ''
+      // 가게 검색은 낱말마다 이름·업종·주소 어디든 있으면 된다 ("타마 여의도") — 서버 검색과 같은 규칙
+      const words = keyword ? searchWords(keyword) : []
       const pid = personPins ? selectedPerson.id : null
       return reviewedRestaurants.filter(
         (r) =>
@@ -873,13 +887,14 @@ export default function App() {
             ? // 검색 시작 시 필터가 '전체'로 리셋되므로(Header onQueryChange), 검색 중에도 필터를 그대로 적용한다
               reviewFilter === 'all' || r.reviews.length > 0
             : r.reviews.some((rev) => rev.author.id === pid)) &&
+          matchesCuisine(r.cuisine, cuisineFilter) &&
           (keyword === '' ||
             (searchMode === 'restaurant'
-              ? `${r.name} ${r.category} ${r.address}`.toLowerCase().includes(keyword)
+              ? matchesWords(`${r.name} ${r.category} ${r.address} ${r.lotAddress ?? ''}`, words)
               : r.reviews.some((rev) => rev.author.name.toLowerCase().includes(keyword)))),
       )
     },
-    [reviewedRestaurants, reviewFilter, searchMode, deferredQuery, selectedPerson, personPins],
+    [reviewedRestaurants, reviewFilter, cuisineFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
   // 누적된 서버 요약 셀을 배열로
@@ -892,10 +907,23 @@ export default function App() {
     viewportNeeded.current = needViewport
     if (needViewport && lastViewport.current) fetchViewport(lastViewport.current.bbox, lastViewport.current.zoom)
   }, [needViewport, fetchViewport])
+  // 업종 필터를 바꾸면 요약 셀을 그 업종으로 다시 받는다 — 전에 받은 셀은 다른 업종의 건수라 버린다
+  useEffect(() => {
+    if (cuisineAsk.current.join(',') === cuisineFilter.join(',')) return
+    cuisineAsk.current = cuisineFilter
+    lastFetchKey.current = ''
+    setCellStore(null)
+    if (viewportNeeded.current && lastViewport.current) fetchViewport(lastViewport.current.bbox, lastViewport.current.zoom)
+  }, [cuisineFilter, fetchViewport])
 
   const favRestaurants = useMemo(
     () => reviewedRestaurants.filter((r) => favorites.has(restaurantKey(r))),
     [reviewedRestaurants, favorites],
+  )
+  // 지도에 찍는 찜한 가게 — 업종 필터는 여기에도 건다 (찜한 곳 중 일식만 보기)
+  const favPins = useMemo(
+    () => (cuisineFilter.length === 0 ? favRestaurants : favRestaurants.filter((r) => matchesCuisine(r.cuisine, cuisineFilter))),
+    [favRestaurants, cuisineFilter],
   )
 
   // 고른 친구의 별점 TOP 5 (칩 아래 카드). 핀 필터와 무관하게 전체 목록에서 뽑는다.
@@ -1123,11 +1151,12 @@ export default function App() {
   const revealOnMap = useCallback(
     (target: Restaurant) => {
       if (reviewFilterChoice === 'with' && target.reviews.length === 0) setReviewFilter('all')
+      if (!matchesCuisine(target.cuisine, cuisineFilter)) setCuisineFilter([])
       if (favMode && !favorites.has(restaurantKey(target))) setFavMode(false)
       if (personId !== null && !target.reviews.some((rv) => rv.author.id === personId)) setPersonId(null)
       if (!visibleRestaurants.some((r) => r.id === target.id) && query.trim().length >= MIN_QUERY_LENGTH) setQuery('')
     },
-    [reviewFilterChoice, favMode, favorites, personId, visibleRestaurants, query],
+    [reviewFilterChoice, cuisineFilter, favMode, favorites, personId, visibleRestaurants, query],
   )
 
   // 스토리의 "지도에서 보기" — 후기가 가리키는 가게를 찾아 스토리를 닫고 지도를 옮긴다
@@ -1472,7 +1501,7 @@ export default function App() {
     >
       <MapCanvas
         locateRequest={locateRequest}
-        restaurants={favMode ? favRestaurants : visibleRestaurants}
+        restaurants={favMode ? favPins : visibleRestaurants}
         groups={groups}
         // 요약 셀 = 후기 없는 가게 덩어리. 필터·검색으로 그런 가게가
         // 안 보이는 상태면 셀도 같이 숨긴다 (개별 핀과 기준을 맞춘다). 찜 모드에선 항상 숨김.
@@ -1514,8 +1543,12 @@ export default function App() {
           }}
           query={query}
           onQueryChange={(value) => {
-            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다
-            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) setReviewFilter('all')
+            // 검색이 시작되는 순간 후기 필터를 '전체'로 되돌린다 — 이후 사용자가 고르면 검색 중에도 그 필터가 적용된다.
+            // 업종 필터도 푼다 — 검색 중엔 업종 칩이 안 보여서, 켜진 채면 왜 안 나오는지 알 수 없다
+            if (query.trim().length < MIN_QUERY_LENGTH && value.trim().length >= MIN_QUERY_LENGTH) {
+              setReviewFilter('all')
+              setCuisineFilter([])
+            }
             setQuery(value)
             setResultsOpen(true)
           }}
@@ -1555,6 +1588,8 @@ export default function App() {
           }}
           reviewFilter={reviewFilter}
           onReviewFilterChange={setReviewFilter}
+          cuisines={cuisineFilter}
+          onCuisinesChange={setCuisineFilter}
           showReviewFilter={!!session && !personPins}
         />
         {!searching && (

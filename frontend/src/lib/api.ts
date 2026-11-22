@@ -10,6 +10,8 @@ export interface RestaurantRecord {
   address: string
   lat: number
   lng: number
+  // 필터용 업종 코드 (lib/cuisine). 정해지지 않은 가게는 null, 예전 서버 응답에는 없다
+  cuisine?: string | null
 }
 
 // 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다 (폐업 가게는 건수에 없다)
@@ -60,7 +62,7 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
   return res.json()
 }
 
-// 이름으로 서버 검색 (상한 50건). 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
+// 서버 검색 (상한 50건) — 낱말마다 이름·업종·주소 어디든 들어 있으면 걸린다. 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
 export async function searchRestaurants(q: string): Promise<RestaurantRecord[]> {
   const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}`)
   if (!res.ok) throw new Error(`음식점 검색 실패 (${res.status})`)
@@ -576,8 +578,10 @@ export async function deleteAvatar(): Promise<void> {
   await post<{ avatar: null }>('/api/me/avatar', '', {}, 'DELETE')
 }
 
-export async function fetchRestaurantCells(bbox: BBox, zoom: number): Promise<ClusterCell[]> {
+// cuisines: 업종 필터를 켰으면 그 업종의 가게만 센다
+export async function fetchRestaurantCells(bbox: BBox, zoom: number, cuisines: string[] = []): Promise<ClusterCell[]> {
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom, v: COORDS_VERSION }).map(([k, v]) => [k, String(v)]))
+  if (cuisines.length > 0) params.set('cuisine', cuisines.join(','))
   const res = await send(`${API_BASE}/api/restaurants/summary?${params}`)
   if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
   return res.json()
