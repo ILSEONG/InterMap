@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useBackLayer } from '../lib/backLayer'
 import Avatar from './Avatar'
 import StarIcon from './StarIcon'
+import { CUISINES, cuisineChipLabel, toggleCuisine } from '../lib/cuisine'
 import './TopBar.css'
 
 export type SearchMode = 'restaurant' | 'person'
@@ -46,6 +47,9 @@ interface TopBarProps {
   onReviewFilterChange: (value: ReviewFilter) => void
   // 로그인 전이거나 친구 한 명 보기 중엔 후기 필터가 무의미하니 숨긴다
   showReviewFilter: boolean
+  // 업종 필터 — 고른 업종 코드들 (lib/cuisine). 비어 있으면 전부 보인다
+  cuisines: string[]
+  onCuisinesChange: (next: string[]) => void
 }
 
 const FILTER_LABELS: Record<ReviewFilter, string> = {
@@ -63,11 +67,13 @@ const SEARCH_MODES: [SearchMode, string][] = [
 export default function TopBar(props: TopBarProps) {
   const { nickname, avatar, searching, query, searchMode, reviewFilter, results } = props
   const inputRef = useRef<HTMLInputElement>(null)
-  const [menu, setMenu] = useState<'filter' | null>(null)
+  const [menu, setMenu] = useState<'filter' | 'cuisine' | null>(null)
   // 펼친 메뉴는 안드로이드 뒤로가기로 먼저 닫힌다
   useBackLayer(menu !== null, () => setMenu(null))
   const filterRef = useRef<HTMLDivElement>(null)
   const filterMenuRef = useRef<HTMLDivElement>(null)
+  const cuisineRef = useRef<HTMLDivElement>(null)
+  const cuisineMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // preventScroll — 초점을 줄 때 브라우저가 페이지를 몇 px 끌어올려 상단 바가 움찔하지 않게
@@ -77,7 +83,7 @@ export default function TopBar(props: TopBarProps) {
   // 메뉴 밖을 (터치 포함) 누르면 닫는다
   useEffect(() => {
     if (!menu) return
-    const anchors = [filterRef, filterMenuRef]
+    const anchors = [filterRef, filterMenuRef, cuisineRef, cuisineMenuRef]
     const close = (e: PointerEvent) => {
       if (!anchors.some((a) => a.current?.contains(e.target as Node))) setMenu(null)
     }
@@ -213,6 +219,33 @@ export default function TopBar(props: TopBarProps) {
                 </svg>
               </button>
             )}
+            {/* 업종 칩을 후기 필터 앞에 둔다 — 좁은 화면에서 칩 줄이 넘칠 때 새 칩이 통째로 가려지지 않게 */}
+            <div className="topbar__anchor" ref={cuisineRef}>
+              <button
+                type="button"
+                className={`topbar__chip${props.cuisines.length > 0 ? ' topbar__chip--dark' : ''}`}
+                onClick={() => setMenu((m) => (m === 'cuisine' ? null : 'cuisine'))}
+                aria-haspopup="menu"
+                aria-expanded={menu === 'cuisine'}
+                aria-label={props.cuisines.length > 0 ? `업종 필터: ${cuisineChipLabel(props.cuisines)}` : '업종 필터'}
+              >
+                {cuisineChipLabel(props.cuisines)}
+                <svg
+                  className="topbar__chevron"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
             {props.showReviewFilter && (
               <div className="topbar__anchor" ref={filterRef}>
                 <button
@@ -241,6 +274,39 @@ export default function TopBar(props: TopBarProps) {
               </div>
             )}
           </div>
+          {/* 업종은 여러 개를 고를 수 있어 눌러도 닫히지 않는다 — 바깥을 누르거나 뒤로가기로 닫는다 */}
+          {menu === 'cuisine' && (
+            <div className="topbar__menu topbar__menu--filter topbar__menu--cuisine" role="menu" aria-label="업종 고르기" ref={cuisineMenuRef}>
+              <div className="topbar__cuisine-head">
+                <span>보고 싶은 업종</span>
+                <button
+                  type="button"
+                  className="topbar__cuisine-clear"
+                  onClick={() => props.onCuisinesChange([])}
+                  disabled={props.cuisines.length === 0}
+                >
+                  전체 보기
+                </button>
+              </div>
+              <div className="topbar__cuisine-grid">
+                {CUISINES.map(([code, label]) => {
+                  const on = props.cuisines.includes(code)
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={on}
+                      className={`topbar__cuisine${on ? ' topbar__cuisine--on' : ''}`}
+                      onClick={() => props.onCuisinesChange(toggleCuisine(props.cuisines, code))}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           {/* 칩 줄은 가로로 밀리는 스크롤 칸이라 메뉴를 그 밖에 둔다 — 안에 두면 열 때 줄 스크롤이 풀려 칩이 튄다 */}
           {menu === 'filter' && (
             <div className="topbar__menu topbar__menu--filter" role="menu" ref={filterMenuRef}>

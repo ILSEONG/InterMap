@@ -299,6 +299,71 @@
   color: var(--accent-ink);
 }
 
+/* 업종 고르기 — 여러 개를 켜고 끄는 칩 묶음. 화면 폭에 맞춰 줄을 바꾼다 */
+.topbar__menu--cuisine {
+  width: min(344px, calc(100vw - 24px));
+  gap: 10px;
+  padding: 14px 14px 16px;
+}
+
+.topbar__cuisine-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 2px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.topbar__menu .topbar__cuisine-clear {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.topbar__menu .topbar__cuisine-clear:disabled {
+  color: var(--ink-soft);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.topbar__menu .topbar__cuisine-clear:disabled:hover,
+.topbar__menu .topbar__cuisine-clear:disabled:active {
+  background: transparent;
+}
+
+.topbar__cuisine-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topbar__menu .topbar__cuisine {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--fill);
+  font-size: 14.5px;
+  font-weight: 600;
+  transition: scale 120ms ease;
+}
+
+.topbar__menu .topbar__cuisine:active {
+  scale: 0.96;
+}
+
+.topbar__menu .topbar__cuisine--on,
+.topbar__menu .topbar__cuisine--on:hover,
+.topbar__menu .topbar__cuisine--on:active {
+  background: #16161c;
+  font-weight: 700;
+  color: #fff;
+}
+
 .topbar__menu-label {
   margin: 0;
   padding: 8px 14px 6px;

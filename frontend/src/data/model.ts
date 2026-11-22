@@ -29,7 +29,8 @@ export interface Review {
   id: number
   // 가게 스냅샷. name|address 가 가게 키 (api.restaurantKey)
   // lat/lng는 서버가 가게 행을 찾았을 때만 채워준다 — 뷰포트에 안 실린 가게도 핀으로 찍기 위해
-  restaurant: { name: string; category: string; address: string; lat?: number | null; lng?: number | null }
+  // cuisine = 필터용 업종 코드 (lib/cuisine) — 정해지지 않았으면 null
+  restaurant: { name: string; category: string; address: string; lat?: number | null; lng?: number | null; cuisine?: string | null }
   author: ReviewAuthor
   rating: number
   text: string
@@ -67,6 +68,8 @@ export interface Restaurant {
   address: string
   // 지번 주소 — 도로명 주소(address)와 따로 있을 때만. 검색에서 동 이름("여의도")으로도 찾게 둔다
   lotAddress?: string
+  // 필터용 업종 코드 (lib/cuisine). 정해지지 않은 가게는 null
+  cuisine?: string | null
   lat: number
   lng: number
   groupIds: GroupId[]
