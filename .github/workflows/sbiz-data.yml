@@ -1,0 +1,38 @@
+# 업종 필터용 "서울 음식 상가" 파일을 새로 만든다 (tools/sbiz/build.py).
+# 원본(소상공인시장진흥공단 상가(상권)정보)은 분기마다 바뀐다 — 그때 Actions에서 직접 돌린다 (Run workflow, 브랜치 dev).
+# 파일이 달라졌으면 돌린 브랜치에 커밋한다. 서버는 다음 배포 때 새 파일로 가게 업종을 다시 채운다.
+name: Sbiz data
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - tools/sbiz/**
+      - .github/workflows/sbiz-data.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: build
+        run: python3 tools/sbiz/build.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/src/main/resources/cuisine/seoul-food.csv.gz backend/src/main/resources/cuisine/seoul-food.version
+          if git diff --cached --quiet; then
+            echo "달라진 게 없어요"
+          else
+            git commit -m "상가(상권)정보 서울 음식 데이터 (${{ steps.build.outputs.month }})"
+            git push
+          fi
