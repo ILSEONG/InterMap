@@ -185,9 +185,10 @@ def main():
     # ---- 업종 규칙 검증 ----
     rules = json.load(open('backend/src/main/resources/cuisine/rules.json', encoding='utf-8'))
 
-    def by_name(name):
+    def by_name(name, weak=False):
         n = re.sub(r'\s+', '', (name or '').lower())
         for group in rules['names']:
+            if bool(group.get('weak')) != weak: continue
             for w in group['words']:
                 if w in n: return group['cuisine'], w
         return None, None
@@ -198,6 +199,8 @@ def main():
         sb, li = rules['sbiz'].get(small or ''), rules['license'].get(lic or '')
         if sb and not sb.get('vague'): return sb['cuisine'], '상가(뚜렷)'
         if li and not li.get('vague'): return li['cuisine'], '인허가(뚜렷)'
+        c, w = by_name(name, weak=True)
+        if c: return c, '이름(약함)'
         if sb: return sb['cuisine'], '상가(뭉뚱)'
         if li: return li['cuisine'], '인허가(뭉뚱)'
         return None, '없음'
@@ -239,10 +242,10 @@ def main():
     print('  업종 분포:', ', '.join(f'{k} {v} ({v / total:.1%})' for k, v in cu.most_common()))
     etc = [f for f in final if (f[0].get('category') or '') in ('기타', '')]
     print(f'  인허가 "기타" {len(etc)}곳 중 업종이 정해진 곳: {sum(1 for f in etc if f[1]) / max(len(etc), 1):.1%}')
-    print('\n== 업종별 무작위 12곳 ==')
+    print('\n== 업종별 무작위 20곳 ==')
     for code in rules['cuisines'] + [None]:
         rs = [f for f in final if f[1] == code]
-        print(f'  [{code}] ' + ' / '.join(f"{f[0]['name']}({f[2][:2]})" for f in random.sample(rs, min(12, len(rs)))))
+        print(f'  [{code}] ' + ' / '.join(f"{f[0]['name']}({f[2]})" for f in random.sample(rs, min(20, len(rs)))))
 
     # ---- 서버에 실을 서울 음식 상가 파일 크기 ----
     import gzip
