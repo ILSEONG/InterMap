@@ -87,6 +87,10 @@ class ReviewListQueryTest {
         assertNull(seen.get(atClosed.getId()).restaurant().lat(), "폐업한 가게는 좌표를 주지 않는다");
         assertNull(seen.get(unknown.getId()).restaurant().lat());
 
+        // 필터용 업종 — 목록에 있는 가게는 가게에 적힌 것, 없으면 후기에 적힌 이름·업종으로 정한 것
+        assertEquals("SNACK", seen.get(byLot.getId()).restaurant().cuisine());
+        assertNull(seen.get(unknown.getId()).restaurant().cuisine());
+
         assertEquals(2, seen.get(byLot.getId()).photoUrls().size());
         assertTrue(seen.get(byRoad.getId()).photoUrls().isEmpty());
 

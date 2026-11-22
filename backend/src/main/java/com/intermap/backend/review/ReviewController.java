@@ -9,6 +9,7 @@ import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.moderation.Report;
 import com.intermap.backend.moderation.ReportRepository;
+import com.intermap.backend.restaurant.Cuisine;
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
 import com.intermap.backend.storage.PhotoStore;
@@ -46,7 +47,15 @@ import java.util.stream.Collectors;
 public class ReviewController {
 
     // lat/lng는 조회 응답에만 실린다 — 후기 있는 가게를 줌과 무관하게 핀으로 찍기 위해. 작성 요청은 비워 보낸다.
-    public record Place(String name, String category, String address, Double lat, Double lng) {
+    // cuisine(필터용 업종 코드)도 조회 응답에만 실린다
+    public record Place(String name, String category, String address, Double lat, Double lng, String cuisine) {
+        public Place(String name, String category, String address, Double lat, Double lng) {
+            this(name, category, address, lat, lng, null);
+        }
+    }
+
+    // 후기에 붙일 가게 자리와 업종
+    record Spot(double lat, double lng, String cuisine) {
     }
 
     // avatar: 프로필 사진 URL(API 경로) 또는 null
@@ -78,15 +87,17 @@ public class ReviewController {
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
                        Instant createdAt, List<Long> photoIds, List<String> photoUrls, List<Double> photoRatios) {
         static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
-            return from(r, photos, place == null ? null : new double[]{place.getLat(), place.getLng()}, avatar);
+            return from(r, photos, place == null ? null : new Spot(place.getLat(), place.getLng(), place.getCuisine()), avatar);
         }
 
-        // coords = [lat, lng], 가게를 못 찾았거나 폐업이면 null
-        static Item from(Review r, List<Photo> photos, double[] coords, String avatar) {
+        // spot = 가게를 못 찾았거나 폐업이면 null. 그때 업종은 후기에 적힌 이름과 인허가 업종만으로 정한다
+        static Item from(Review r, List<Photo> photos, Spot spot, String avatar) {
             AppUser a = r.getAuthor();
+            String cuisine = spot != null && spot.cuisine() != null ? spot.cuisine()
+                    : Cuisine.of(r.getRestaurantName(), null, r.getRestaurantCategory());
             return new Item(r.getId(),
                     new Place(r.getRestaurantName(), r.getRestaurantCategory(), r.getRestaurantAddress(),
-                            coords == null ? null : coords[0], coords == null ? null : coords[1]),
+                            spot == null ? null : spot.lat(), spot == null ? null : spot.lng(), cuisine),
                     new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
                     r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
                     photos.stream().map(Photo::id).toList(),
@@ -167,7 +178,7 @@ public class ReviewController {
         }
         Map<Long, String> avatarUrls = avatars.urlsByUserId(
                 visible.stream().map(r -> r.getAuthor().getId()).collect(Collectors.toSet()));
-        Map<String, double[]> coords = coordsOf(visible);
+        Map<String, Spot> coords = coordsOf(visible);
         return visible.stream()
                 .map(r -> Item.from(r, photosByReview.getOrDefault(r.getId(), List.of()),
                         coords.get(placeKey(r.getRestaurantName(), r.getRestaurantAddress())),
@@ -180,8 +191,8 @@ public class ReviewController {
     }
 
     // 후기들의 가게 좌표 — findPlace와 같은 규칙(도로명 주소 먼저, 없으면 지번 주소, 폐업이면 좌표 없음)을
-    // 가게마다 조회하지 않고 상호로 한 번에 읽어 맞춘다. 값은 [lat, lng]
-    private Map<String, double[]> coordsOf(List<Review> reviews) {
+    // 가게마다 조회하지 않고 상호로 한 번에 읽어 맞춘다. 업종도 같이 읽는다
+    private Map<String, Spot> coordsOf(List<Review> reviews) {
         Set<String> names = reviews.stream().map(Review::getRestaurantName).collect(Collectors.toSet());
         Map<String, Object[]> byRoad = new HashMap<>();
         Map<String, Object[]> byLot = new HashMap<>();
@@ -190,13 +201,13 @@ public class ReviewController {
             if (row[1] != null) byRoad.putIfAbsent(placeKey(name, (String) row[1]), row);
             if (row[2] != null) byLot.putIfAbsent(placeKey(name, (String) row[2]), row);
         }
-        Map<String, double[]> out = new HashMap<>();
+        Map<String, Spot> out = new HashMap<>();
         for (Review r : reviews) {
             String key = placeKey(r.getRestaurantName(), r.getRestaurantAddress());
             if (out.containsKey(key)) continue;
             Object[] row = byRoad.getOrDefault(key, byLot.get(key));
             if (row != null && row[5] != Restaurant.Status.CLOSED) {
-                out.put(key, new double[]{((Number) row[3]).doubleValue(), ((Number) row[4]).doubleValue()});
+                out.put(key, new Spot(((Number) row[3]).doubleValue(), ((Number) row[4]).doubleValue(), (String) row[6]));
             }
         }
         return out;

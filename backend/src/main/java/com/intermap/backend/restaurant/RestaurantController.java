@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -21,11 +22,12 @@ import java.util.List;
 public class RestaurantController {
 
     // 목록 응답용 슬림 DTO — 지도에 안 쓰는 status/statusCheckedAt/localDataMgtNo를 뺀다 (목록엔 영업 중인 가게만 온다)
+    // cuisine = 필터용 업종 코드 (Cuisine), 정해지지 않은 가게는 null
     public record ListItem(Long id, String name, String category, String roadAddress, String address,
-                           double lat, double lng) {
+                           double lat, double lng, String cuisine) {
         static ListItem from(Restaurant r) {
             return new ListItem(r.getId(), r.getName(), r.getCategory(), r.getRoadAddress(), r.getAddress(),
-                    r.getLat(), r.getLng());
+                    r.getLat(), r.getLng(), r.getCuisine());
         }
     }
 
@@ -77,7 +79,7 @@ public class RestaurantController {
             // 번화가는 격자 한 칸에 가게가 3천 곳 가까이 된다 — 엔티티로 올리면 행마다 관리 대상이 되어 느리다. 필요한 열만 읽는다
             items = repository.findListRows(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng).stream()
                     .map(r -> new ListItem((Long) r[0], (String) r[1], (String) r[2], (String) r[3], (String) r[4],
-                            (Double) r[5], (Double) r[6]))
+                            (Double) r[5], (Double) r[6], (String) r[7]))
                     .toList();
         } else {
             items = List.of();
@@ -116,13 +118,21 @@ public class RestaurantController {
             @RequestParam double maxLat,
             @RequestParam double minLng,
             @RequestParam double maxLng,
-            @RequestParam int zoom) {
+            @RequestParam int zoom,
+            @RequestParam(required = false) String cuisine) {
         double cellDeg = 360.0 * CLUSTER_PIXEL_DISTANCE / (256.0 * Math.pow(2, zoom));
         if (zoom < 0 || zoom > 20 || (maxLat - minLat) / cellDeg * ((maxLng - minLng) / cellDeg) > MAX_CELLS) {
             return ResponseEntity.badRequest().build();
         }
         // DB group by — 낮은 줌에서 bbox가 서울 전체를 덮어도 행을 안 올린다. 폐업 가게는 건수에서 뺀다.
-        List<Cell> body = repository.summarize(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng, cellDeg).stream()
+        // cuisine = 업종 코드를 쉼표로 이은 것 (업종 필터를 켰을 때). 모르는 코드는 버리고, 아는 게 하나도 없으면 빈 결과
+        List<String> cuisines = cuisine == null || cuisine.isBlank() ? null
+                : Arrays.stream(cuisine.split(",")).map(String::trim).filter(Cuisine::isCode).distinct().toList();
+        List<Object[]> cells = cuisines == null
+                ? repository.summarize(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng, cellDeg)
+                : cuisines.isEmpty() ? List.of()
+                : repository.summarizeCuisines(Restaurant.Status.OPEN, cuisines, minLat, maxLat, minLng, maxLng, cellDeg);
+        List<Cell> body = cells.stream()
                 .map(a -> new Cell(((Number) a[0]).doubleValue(), ((Number) a[1]).doubleValue(), ((Number) a[2]).intValue()))
                 .toList();
         return ResponseEntity.ok()
