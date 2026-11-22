@@ -180,35 +180,77 @@ def main():
     for k in kinds:
         acc += cnt[k]
         print(f'  {k}: {cnt[k]} ({cnt[k] / total:.1%})' + (f'  ← 여기까지 누적 {acc / total:.1%}' if k in kinds[:4] else ''))
-    print('\n== 동네별 (같은 이름+이름 포함 / +비슷·가까운 곳) ==')
-    for area in AREAS:
-        rs = [r for r in results if r[0]['area'] == area]
-        if not rs: continue
-        s = sum(r[1][0] in kinds[:2] for r in rs); w = sum(r[1][0] in kinds[:4] for r in rs)
-        print(f'  {area}: {len(rs)}곳 · {s / len(rs):.1%} / {w / len(rs):.1%}')
-    print('\n== 인터맵 업종별 (곳 수 · 확실한 짝 비율 → 짝지어진 상가 소분류 상위) ==')
-    by_cat = collections.defaultdict(list)
-    for r in results: by_cat[r[0].get('category') or '(없음)'].append(r)
-    for cat, rs in sorted(by_cat.items(), key=lambda kv: -len(kv[1]))[:25]:
-        sure = [r for r in rs if r[1][0] in kinds[:2]]
-        top = collections.Counter(f"{r[1][1][C_MID]}>{r[1][1][C_SMALL]}" for r in sure).most_common(6)
-        print(f'  {cat}: {len(rs)}곳 · {len(sure) / len(rs):.0%} → ' + ', '.join(f'{k} {v}' for k, v in top))
     sure = [r for r in results if r[1][0] in kinds[:2]]
-    print('\n== 확실한 짝의 상가 대분류 ==', collections.Counter(r[1][1][C_BIG] for r in sure).most_common())
-    print('== 확실한 짝의 상가 중분류 ==', collections.Counter(r[1][1][C_MID] for r in sure).most_common(20))
 
-    def show(title, kind, n):
-        rs = [r for r in results if r[1][0] == kind]
-        print(f'\n== {title} (무작위 {min(n, len(rs))}개 / {len(rs)}) ==')
-        for o, (k, c, ratio), nc in random.sample(rs, min(n, len(rs))):
-            line = f"  {o['name']} [{o.get('category')}] {o.get('roadAddress') or o.get('address')}"
-            if c: line += f"  ⇔  {c[C_NAME]} {c[C_BRANCH]} [{c[C_MID]}>{c[C_SMALL]}] ({ratio:.2f})"
-            else: line += f'  (같은 건물 상가 {nc}곳)'
-            print(line)
-    show('이름 포함으로 짝지은 것', '이름 포함', 25)
-    show('이름이 비슷해서 짝지은 것', '이름 비슷', 25)
-    show('주소는 맞는데 이름이 안 맞은 것', '주소만 맞음', 25)
-    show('주소부터 안 맞은 것', '주소 안 맞음', 25)
+    # ---- 업종 규칙 검증 ----
+    rules = json.load(open('backend/src/main/resources/cuisine/rules.json', encoding='utf-8'))
+
+    def by_name(name):
+        n = re.sub(r'\s+', '', (name or '').lower())
+        for group in rules['names']:
+            for w in group['words']:
+                if w in n: return group['cuisine'], w
+        return None, None
+
+    def decide(name, small, lic):
+        c, w = by_name(name)
+        if c: return c, '이름'
+        sb, li = rules['sbiz'].get(small or ''), rules['license'].get(lic or '')
+        if sb and not sb.get('vague'): return sb['cuisine'], '상가(뚜렷)'
+        if li and not li.get('vague'): return li['cuisine'], '인허가(뚜렷)'
+        if sb: return sb['cuisine'], '상가(뭉뚱)'
+        if li: return li['cuisine'], '인허가(뭉뚱)'
+        return None, '없음'
+
+    print('\n== 이름 낱말 규칙이 상가의 뚜렷한 소분류와 맞는 정도 (확실한 짝만) ==')
+    per_word = collections.defaultdict(lambda: [0, 0, collections.Counter()])
+    agree = total_w = 0
+    for o, (k, c, _), _n in sure:
+        sb = rules['sbiz'].get(c[C_SMALL])
+        if not sb or sb.get('vague'): continue
+        cu, w = by_name(o['name'])
+        if not cu: continue
+        total_w += 1
+        ok = cu == sb['cuisine']
+        agree += ok
+        st = per_word[(cu, w)]; st[0] += 1; st[1] += ok
+        if not ok: st[2][sb['cuisine']] += 1
+    print(f'  전체: {agree}/{total_w} = {agree / max(total_w, 1):.1%}')
+    for (cu, w), (n, ok, miss) in sorted(per_word.items(), key=lambda kv: kv[1][1] / kv[1][0]):
+        if n >= 8 and ok / n < 0.8: print(f'  {cu} "{w}": {ok}/{n} = {ok / n:.0%} · 어긋난 쪽 {miss.most_common(4)}')
+    print('  -- 낱말 묶음별 --')
+    per_group = collections.defaultdict(lambda: [0, 0])
+    for (cu, w), (n, ok, miss) in per_word.items(): per_group[cu][0] += n; per_group[cu][1] += ok
+    for cu, (n, ok) in per_group.items(): print(f'  {cu}: {ok}/{n} = {ok / n:.0%}')
+
+    print('\n== 인허가 업종이 상가의 뚜렷한 소분류와 맞는 정도 ==')
+    per_lic = collections.defaultdict(lambda: [0, 0])
+    for o, (k, c, _), _n in sure:
+        sb, li = rules['sbiz'].get(c[C_SMALL]), rules['license'].get(o.get('category') or '')
+        if not sb or sb.get('vague') or not li: continue
+        per_lic[o['category']][0] += 1; per_lic[o['category']][1] += li['cuisine'] == sb['cuisine']
+    for lic, (n, ok) in sorted(per_lic.items(), key=lambda kv: -kv[1][0]): print(f'  {lic}: {ok}/{n} = {ok / n:.0%}')
+
+    print('\n== 최종 업종 (표본 전체) ==')
+    final = [(o, *decide(o['name'], c[C_SMALL] if k in kinds[:2] else None, o.get('category'))) for o, (k, c, _), _n in results]
+    src = collections.Counter(f[2] for f in final)
+    print('  정한 근거:', ', '.join(f'{k} {v} ({v / total:.1%})' for k, v in src.most_common()))
+    cu = collections.Counter(f[1] or '(없음)' for f in final)
+    print('  업종 분포:', ', '.join(f'{k} {v} ({v / total:.1%})' for k, v in cu.most_common()))
+    etc = [f for f in final if (f[0].get('category') or '') in ('기타', '')]
+    print(f'  인허가 "기타" {len(etc)}곳 중 업종이 정해진 곳: {sum(1 for f in etc if f[1]) / max(len(etc), 1):.1%}')
+    print('\n== 업종별 무작위 12곳 ==')
+    for code in rules['cuisines'] + [None]:
+        rs = [f for f in final if f[1] == code]
+        print(f'  [{code}] ' + ' / '.join(f"{f[0]['name']}({f[2][:2]})" for f in random.sample(rs, min(12, len(rs)))))
+
+    # ---- 서버에 실을 서울 음식 상가 파일 크기 ----
+    import gzip
+    out = io.StringIO(); w = csv.writer(out, lineterminator='\n')
+    for r in sorted(food, key=lambda r: (r[C_ROAD], r[C_NAME])): w.writerow([r[C_NAME], r[C_BRANCH], r[C_SMALL], r[C_ROAD], r[C_LOT]])
+    raw = out.getvalue().encode('utf-8')
+    print(f'\n== 서울 음식 상가 파일: {len(food)}행 · {len(raw) / 1e6:.1f}MB · gzip {len(gzip.compress(raw, 9)) / 1e6:.1f}MB ==')
+    print('  예:', out.getvalue().splitlines()[1000:1003])
 
 
 main()
