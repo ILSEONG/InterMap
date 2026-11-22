@@ -188,9 +188,11 @@ jobs:
           MISSING=0
           for c in $NEED; do
             d="L$(echo "$c" | tr . /);"
-            if cat "$RUNNER_TEMP"/aab/base/dex/*.dex | grep -a -q -F "$d"; then echo "ok   $c"; else echo "없음 $c"; MISSING=1; fi
+            # grep에 파일을 직접 준다. cat으로 흘려 넣으면 grep -q가 찾자마자 끝나면서 cat이 "Broken pipe"로 죽고,
+            # pipefail 때문에 그게 "없음"으로 읽혀 멀쩡한 빌드가 가끔 실패한다
+            if grep -a -q -F -- "$d" "$RUNNER_TEMP"/aab/base/dex/*.dex; then echo "ok   $c"; else echo "없음 $c"; MISSING=1; fi
           done 2>&1 | tee -a "$RUNNER_TEMP/build.log"
-          cat "$RUNNER_TEMP"/aab/base/dex/*.dex | grep -a -c -F 'Lcom/getcapacitor/' > /dev/null
+          grep -a -q -F -- 'Lcom/getcapacitor/' "$RUNNER_TEMP"/aab/base/dex/*.dex
           ! grep -q '^없음' "$RUNNER_TEMP/build.log" || { echo "줄이는 과정에서 필요한 클래스가 빠졌어요" | tee -a "$RUNNER_TEMP/build.log"; exit 1; }
           ls -la app/build/outputs/mapping/release/mapping.txt | tee -a "$RUNNER_TEMP/build.log"
 
