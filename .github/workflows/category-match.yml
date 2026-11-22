@@ -1,0 +1,20 @@
+# 실험: 상가(상권)정보의 업종을 인터맵 가게에 덧입힐 수 있는지 재 본다 (운영 코드 아님 — 결과는 로그로만)
+name: Category match (experiment)
+
+on:
+  push:
+    branches: [exp/category-match]
+    paths:
+      - tools/category-match/**
+      - .github/workflows/category-match.yml
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 tools/category-match/match.py
