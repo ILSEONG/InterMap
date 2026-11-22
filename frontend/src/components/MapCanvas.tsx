@@ -345,7 +345,10 @@ export default function MapCanvas({
             map.setZoom(DEFAULT_ZOOM - offset, false)
           }
         }
-        setGlActive(useGlMap)
+        // GL로 떴는지는 옵션이 아니라 실제로 본다 — WebGL을 못 쓰는 기기나 서브모듈이 늦은 경우 SDK가 이미지 타일로
+        // 띄우는데, 그때 핀 CSS를 GL용으로 가볍게 해 두면 핀 수백 개가 지도와 한 면에 그려져 움직일 때마다 버벅이고 깜빡인다
+        const drawnWithGl = () => useGlMap && !!mapDivRef.current?.querySelector('canvas')
+        setGlActive(drawnWithGl())
         infoWindowRef.current = new naver.maps.InfoWindow({
           content: '',
           borderWidth: 0,
@@ -396,6 +399,7 @@ export default function MapCanvas({
         // 만들자마자 잰 줌 보정값은 GL 지도가 아직 자리 잡기 전이라 틀릴 수 있다 — 첫 idle에서 한 번 더 잰다
         const recheckOffset = naver.maps.Event.addListener(map, 'idle', () => {
           naver.maps.Event.removeListener(recheckOffset)
+          setGlActive(drawnWithGl())
           const b = map.getBounds() as naver.maps.LatLngBounds
           const w = mapDivRef.current?.clientWidth ?? 0
           const span = b.getNE().lng() - b.getSW().lng()

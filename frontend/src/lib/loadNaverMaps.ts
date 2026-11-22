@@ -29,7 +29,24 @@ export function loadNaverMaps(): Promise<typeof naver> {
     const script = document.createElement('script')
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}${useGlMap ? '&submodules=gl' : ''}`
     script.async = true
-    script.onload = () => (window.naver ? resolve(window.naver) : reject(new Error('네이버 지도 SDK 로드 실패')))
+    script.onload = () => {
+      const loaded = window.naver
+      if (!loaded) return reject(new Error('네이버 지도 SDK 로드 실패'))
+      // 서브모듈(gl)은 maps.js가 온 뒤에 SDK가 따로 내려받는다. 그게 다 오기 전에 지도를 만들면 gl 옵션이
+      // 조용히 무시되고 이미지 타일 지도가 뜬다 (실제로 운영에서 늘 그랬다 — maps.js 101ms, maps-gl.js 127ms).
+      // SDK가 "서브모듈까지 다 왔다"고 알릴 때까지 기다린다
+      const sdk = loaded.maps as unknown as { jsContentLoaded?: boolean; onJSContentLoaded?: (() => void) | null }
+      if (!useGlMap || sdk.jsContentLoaded) return resolve(loaded)
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
+        resolve(loaded)
+      }
+      sdk.onJSContentLoaded = done
+      // 서브모듈이 끝내 안 와도(네트워크) 지도는 떠야 한다 — 그때는 이미지 타일 지도로 뜬다
+      window.setTimeout(done, 4000)
+    }
     script.onerror = () => reject(new Error('네이버 지도 SDK 스크립트를 불러오지 못했습니다'))
     document.head.appendChild(script)
   })
