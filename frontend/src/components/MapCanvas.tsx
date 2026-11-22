@@ -349,6 +349,8 @@ export default function MapCanvas({
         // 띄우는데, 그때 핀 CSS를 GL용으로 가볍게 해 두면 핀 수백 개가 지도와 한 면에 그려져 움직일 때마다 버벅이고 깜빡인다
         const drawnWithGl = () => useGlMap && !!mapDivRef.current?.querySelector('canvas')
         setGlActive(drawnWithGl())
+        // canvas는 지도를 만든 직후가 아니라 조금 뒤에 붙는다 (시뮬레이터에서는 첫 idle이 10초쯤 뒤였다) — 곧바로 한 번 더 본다
+        window.setTimeout(() => !cancelled && setGlActive(drawnWithGl()), 600)
         infoWindowRef.current = new naver.maps.InfoWindow({
           content: '',
           borderWidth: 0,
