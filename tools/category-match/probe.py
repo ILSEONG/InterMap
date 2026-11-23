@@ -1,22 +1,41 @@
-"""운영 서버에 카페가 얼마나 들어 있는지 본다 (읽기만, 요청 몇 번)."""
-import collections, json, time, urllib.request
-API = 'https://intermap-be.onrender.com/api/restaurants'
-def get(q):
-    with urllib.request.urlopen(urllib.request.Request(API + q, headers={'User-Agent': 'intermap-probe'}), timeout=60) as r:
-        return json.loads(r.read())
-SEOUL = 'minLat=37.41&maxLat=37.72&minLng=126.76&maxLng=127.19'
-total = sum(c['count'] for c in get(f'/summary?{SEOUL}&zoom=9'))
-print('서울 전체 가게', total)
-for cu in ['CAFE', 'KOREAN', 'BAR', 'JAPANESE']:
-    time.sleep(1)
-    n = sum(c['count'] for c in get(f'/summary?{SEOUL}&zoom=9&cuisine={cu}'))
-    print(cu, n, f'({n * 100 / total:.1f}%)')
-for name, q in [('연남·홍대', 'minLat=37.553&maxLat=37.567&minLng=126.917&maxLng=126.930'), ('성수', 'minLat=37.538&maxLat=37.550&minLng=127.040&maxLng=127.060'), ('강남역', 'minLat=37.494&maxLat=37.504&minLng=127.022&maxLng=127.032')]:
-    time.sleep(1)
-    rows = get('?' + q)
-    cafes = [r for r in rows if r.get('cuisine') == 'CAFE']
-    print(name, '가게', len(rows), '· 카페', len(cafes), '· 인허가 업태:', collections.Counter(r.get('category') for r in cafes).most_common(6))
-    print('   예:', [r['name'] for r in cafes[:25]])
-    for brand in ['스타벅스', '투썸', '메가', '이디야', '컴포즈', '파리바게', '뚜레쥬르']:
-        print('   ', brand, sum(1 for r in rows if brand in r['name']), end='')
-    print()
+"""공공데이터포털의 휴게음식점·제과점 인허가 API 명세(요청 주소·항목)를 본다. 인증키 없이 공개 문서만 읽는다."""
+import json, re, urllib.request, urllib.error
+UA = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'}
+def fetch(url, n=60):
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=n) as r:
+            return r.status, r.read().decode('utf-8', 'replace')
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode('utf-8', 'replace')
+    except Exception as e:
+        return 0, repr(e)
+for pk in ['15154916', '15154921', '15155252']:
+    code, html = fetch(f'https://www.data.go.kr/data/{pk}/openapi.do')
+    print('==', pk, code, len(html))
+    print('  주소:', sorted(set(re.findall(r'apis\.data\.go\.kr/[A-Za-z0-9_/\-]+', html)))[:10])
+    for m in sorted(set(re.findall(r'(?:swaggerUrl|swaggerJson|oasUrl|apiDocs?Url|var\s+swagger\w*)\s*[=:]\s*[^\n;]{0,300}', html)))[:6]:
+        print('  스웨거:', m[:400])
+    i = html.find('swaggerJson')
+    if i >= 0:
+        j = html.find('`', i)
+        k = html.find('`', j + 1)
+        spec = html[j + 1:k] if 0 < j < k else ''
+        print('  명세 길이', len(spec))
+        try:
+            d = json.loads(spec)
+            print('  host', d.get('host'), 'basePath', d.get('basePath'), 'servers', d.get('servers'))
+            for path, ops in d.get('paths', {}).items():
+                for verb, op in ops.items():
+                    print('  경로', verb, path, '|', op.get('summary'))
+                    print('    요청:', [(p.get('name'), (p.get('description') or '')[:40]) for p in op.get('parameters', [])])
+            defs = d.get('definitions') or d.get('components', {}).get('schemas', {})
+            for name, sch in defs.items():
+                props = sch.get('properties', {})
+                if len(props) > 5:
+                    print('  응답', name, [(k, (v.get('description') or '')[:24]) for k, v in props.items()])
+        except Exception as e:
+            print('  명세 해석 실패', repr(e), spec[:300])
+# 인증키 없이 불러 보면 주소가 맞는지는 알 수 있다 (없는 서비스면 다른 오류)
+for path in ['general_restaurants', 'rest_cafes', 'rest_restaurants', 'bakeries', 'no_such_service_zz']:
+    code, body = fetch(f'https://apis.data.go.kr/1741000/{path}/info?pageNo=1&numOfRows=1&returnType=json', 30)
+    print('호출', path, code, body[:160].replace('\n', ' '))
