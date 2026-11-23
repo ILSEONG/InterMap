@@ -56,6 +56,8 @@ const DETAIL_ZOOM = 18
 // 화면에 그리는 마커 상한. 넘으면 군집 반경을 키워가며 다시 묶는다 — DOM 마커 수백 개를
 // 줌마다 지웠다 만드는 게 렉의 원인이라 개수 자체를 잡는다.
 const MAX_PINS = 300
+// 줌이 지금 묶은 단계에서 이만큼 벗어나면 멈추기 전이라도 다시 묶는다 (0.5보다 조금 크게 — 경계에서 깜빡이지 않게)
+const ZOOM_STEP_AT = 0.6
 // 고른 가게 핀(이름 알약)은 이웃 핀들 위로. 현재 위치 점(10)보다는 아래.
 const FOCUSED_Z = 5
 
@@ -363,8 +365,8 @@ export default function MapCanvas({
           infoWindowRef.current?.close()
           if (performance.now() - pinTapAt.current > 400) onMapTapRef.current?.()
         })
-        // 줌·뷰포트 갱신은 이동이 멈춘 뒤(idle) 한 번만 한다.
-        // 애니메이션 도중에 재군집하면 마커가 갈리면서 화면이 움찔거린다.
+        // 뷰포트 갱신은 이동이 멈춘 뒤(idle) 한 번만 한다 — 끄는 도중에 재군집하면 마커가 갈리면서 화면이 움찔거린다.
+        // 줌 단계가 바뀔 때만은 멈추기를 기다리지 않는다 (아래 zoom_changed).
         const updateViewport = () => {
           // 모바일 핀치는 소수점 줌으로 멈춘다. 그대로 쓰면 idle마다 군집이
           // 미세하게 달라져 마커 키가 흔들리므로 정수로 반올림해서 쓴다.
@@ -413,6 +415,17 @@ export default function MapCanvas({
           updateViewport()
         })
         naver.maps.Event.addListener(map, 'idle', updateViewport)
+        // 줌 단계가 바뀌면 바로 다시 묶는다. idle만 기다리면 확대·축소 애니메이션과 관성이 끝날 때까지
+        // 예전 단계의 묶음이 그대로 남아 한 박자 늦게 바뀐다.
+        // 핀치는 소수점으로 움직이므로 반 단계(0.5)가 아니라 0.6을 넘어야 바꾼다 — 경계에서 손가락이 머물 때
+        // 두 단계 사이를 오가며 마커가 깜빡이지 않게.
+        const onZoom = () => {
+          const applied = lastViewRef.current?.zoom
+          if (applied === undefined || Math.abs(zoomOf(map) - applied) < ZOOM_STEP_AT) return
+          updateViewport()
+        }
+        naver.maps.Event.addListener(map, 'zoom_changed', onZoom)
+        naver.maps.Event.addListener(map, 'zooming', onZoom)
         updateViewport()
         mapRef.current = map
         setMapReady(true)

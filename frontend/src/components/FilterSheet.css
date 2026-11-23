@@ -1,0 +1,113 @@
+/* 필터 시트 — 가게(후기 유무)와 업종 고르기 */
+.filter-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.filter-sheet__reset {
+  flex: none;
+  min-height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.filter-sheet__reset:disabled {
+  color: var(--ink-soft);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.filter-sheet__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-sheet__label {
+  margin: 0;
+  padding-left: 2px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* 둘 중 하나 고르기 */
+.filter-sheet__segments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--fill);
+}
+
+.filter-sheet__segment {
+  min-height: 42px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.filter-sheet__segment--on {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(20, 20, 30, 0.14);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 업종 — 네 칸씩 */
+.filter-sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.filter-sheet__tile {
+  min-height: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 16px;
+  background: var(--fill);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: scale 120ms ease;
+}
+
+.filter-sheet__tile:active {
+  scale: 0.96;
+}
+
+.filter-sheet__tile--on {
+  background: #16161c;
+  font-weight: 700;
+  color: #fff;
+}
+
+.filter-sheet__apply {
+  flex: none;
+  width: 100%;
+  margin-top: 2px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
