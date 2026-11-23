@@ -702,7 +702,7 @@ function SheetBody({
                     addMenu()
                   }
                 }}
-                placeholder="예) 바지락칼국수"
+                placeholder={cafe ? '예) 아이스 라떼' : '예) 바지락칼국수'}
                 aria-label="추천 메뉴"
                 enterKeyHint="done"
               />
