@@ -207,7 +207,7 @@ export default function App() {
       if (lastFetchKey.current === key) lastFetchKey.current = ''
     }
     if (cellMode) {
-      // zoom-2로 요청하면 서버 셀 한 변이 4배(104px)가 된다 — 셀 핀(38px 원, 네 자리면 더 넓다)이
+      // zoom-2로 요청하면 서버 셀 한 변이 4배(104px)가 된다 — 셀 핀(32~44px 원, 네 자리면 더 넓고 후기 뱃지가 옆에 붙는다)이
       // 서로 겹치지 않고, 밀집 지역에서 마커 수백 개가 깔려 모바일 WebView가 깜빡이는 것도 막는다
       const cellZoom = zoom - 2
       fetchRestaurantCells(snapped, cellZoom, cuisines)
@@ -923,8 +923,17 @@ export default function App() {
     [reviewedRestaurants, reviewFilter, cuisineFilter, searchMode, deferredQuery, selectedPerson, personPins],
   )
 
-  // 누적된 서버 요약 셀을 배열로
-  const cellList = useMemo(() => (cellStore ? [...cellStore.byKey.values()] : []), [cellStore])
+  // 누적된 서버 요약 셀을 배열로. 칸마다 이웃 후기가 있는 가게가 몇 곳인지 같은 격자로 세어 붙인다 (묶음 마커의 뱃지)
+  const cellList = useMemo(() => {
+    if (!cellStore) return []
+    const reviewed = new Map<string, number>()
+    for (const r of visibleRestaurants) {
+      if (r.reviews.length === 0) continue
+      const key = cellKey(r.lat, r.lng, cellStore.cellDeg)
+      reviewed.set(key, (reviewed.get(key) ?? 0) + 1)
+    }
+    return [...cellStore.byKey].map(([key, cell]) => ({ ...cell, reviewed: reviewed.get(key) ?? 0 }))
+  }, [cellStore, visibleRestaurants])
 
   // 찜 모드: 후기·검색 필터와 무관하게 찜한 가게 전부
   // 후기 없는 가게가 보일 수 있는 상태: '전체' 필터, 찜 모드(후기 없는 찜 가게도 있다)
