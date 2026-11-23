@@ -28,7 +28,7 @@ const LONG_TIME = (nickname: string): PetLine => ({
 // 카페 화면(밤의 카페)에 처음 들어왔을 때 한 번 — 카페의 토끼가 불빛이 무슨 뜻인지 알려 준다
 export const NIGHT_CAFE_HINT: PetLine = {
   mood: 'wave',
-  title: '불 켜진 곳이 이웃이 다녀온 카페',
+  title: '불 켜진 곳은 이웃이 간 카페',
   body: '불빛이 없는 점은 아직 아무도 안 가 본 곳이에요.',
 }
 

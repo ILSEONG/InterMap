@@ -12,7 +12,7 @@ import './TurtlePet.css'
 
 // 자세별 그림과 화면에 그릴 크기.
 // 거북이는 원본 시안에서 그대로 오린 것 — 몸집이 세 장 모두 비슷하게 보이도록 맞췄다.
-// 토끼는 거북이와 같은 문법으로 그린 것(scripts/rabbit-art.py) — 그림 한 칸이 거북이와 같은 크기로 보이게 맞췄다
+// 토끼는 거북이 그림에서 만든 것(scripts/rabbit-art.py: 등딱지를 없애고 귀와 꼬리를 붙였다) — 거북이와 같은 배율로 그린다
 const ART: Record<PetCharacter, Record<PetMood, { src: string; w: number; h: number }>> = {
   turtle: {
     wave: { src: wave, w: 66, h: 65 },
@@ -20,9 +20,9 @@ const ART: Record<PetCharacter, Record<PetMood, { src: string; w: number; h: num
     rest: { src: rest, w: 76, h: 50 },
   },
   rabbit: {
-    wave: { src: rabbitWave, w: 61, h: 72 },
-    happy: { src: rabbitHappy, w: 58, h: 72 },
-    rest: { src: rabbitRest, w: 83, h: 57 },
+    wave: { src: rabbitWave, w: 70, h: 75 },
+    happy: { src: rabbitHappy, w: 83, h: 75 },
+    rest: { src: rabbitRest, w: 82, h: 67 },
   },
 }
 
