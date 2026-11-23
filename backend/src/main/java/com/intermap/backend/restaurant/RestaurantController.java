@@ -58,6 +58,7 @@ public class RestaurantController {
     }
 
     // q가 오면 검색(상한 50건 — RestaurantSearch), bbox 4개가 다 오면 그 영역만.
+    // 검색에 cuisine(업종 코드 하나)을 같이 주면 그 업종 안에서만 찾는다 — 모르는 코드면 무시한다.
     // 둘 다 없으면 빈 목록 — 서울 전체(10만+ 행)를
     // 통째로 내려주지 않는다. 폐업 가게는 빼고 준다.
     // 좌표 보정이 뒤에서 도는 동안 고친 위치가 빨리 보이도록 캐시는 10분 (그 뒤엔 ETag로 304).
@@ -67,14 +68,16 @@ public class RestaurantController {
             @RequestParam(required = false) Double maxLat,
             @RequestParam(required = false) Double minLng,
             @RequestParam(required = false) Double maxLng,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String cuisine) {
         boolean hasBox = minLat != null && maxLat != null && minLng != null && maxLng != null;
         if (hasBox && (maxLat - minLat > MAX_BOX_DEG || maxLng - minLng > MAX_BOX_DEG)) {
             return ResponseEntity.badRequest().build();
         }
         List<ListItem> items;
         if (q != null && !q.isBlank()) {
-            items = search.find(q, SEARCH_LIMIT).stream().map(ListItem::from).toList();
+            items = search.find(q, SEARCH_LIMIT, cuisine != null && Cuisine.isCode(cuisine.trim()) ? cuisine.trim() : null)
+                    .stream().map(ListItem::from).toList();
         } else if (hasBox) {
             // 번화가는 격자 한 칸에 가게가 3천 곳 가까이 된다 — 엔티티로 올리면 행마다 관리 대상이 되어 느리다. 필요한 열만 읽는다
             items = repository.findListRows(Restaurant.Status.OPEN, minLat, maxLat, minLng, maxLng).stream()

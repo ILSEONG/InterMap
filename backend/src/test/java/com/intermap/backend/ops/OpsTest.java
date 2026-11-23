@@ -135,7 +135,7 @@ class OpsTest {
         restaurantRepository.saveAndFlush(closed);
 
         List<com.intermap.backend.restaurant.RestaurantController.ListItem> items =
-                restaurants.list(33.45, 33.451, 126.57, 126.571, null).getBody();
+                restaurants.list(33.45, 33.451, 126.57, 126.571, null, null).getBody();
 
         com.intermap.backend.restaurant.RestaurantController.ListItem item =
                 items.stream().filter(i -> i.name().equals(name)).findFirst().orElseThrow();
@@ -146,7 +146,7 @@ class OpsTest {
         assertEquals(33.4501, item.lat());
         assertEquals(126.5701, item.lng());
         assertTrue(items.stream().noneMatch(i -> i.name().endsWith("폐업")), "폐업한 가게는 내려주지 않는다");
-        assertEquals(HttpStatus.BAD_REQUEST, restaurants.list(33.0, 34.0, 126.0, 127.0, null).getStatusCode(), "너무 넓은 범위는 거절");
+        assertEquals(HttpStatus.BAD_REQUEST, restaurants.list(33.0, 34.0, 126.0, 127.0, null, null).getStatusCode(), "너무 넓은 범위는 거절");
     }
 
     @Test

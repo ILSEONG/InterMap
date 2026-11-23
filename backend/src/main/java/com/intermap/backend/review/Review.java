@@ -46,6 +46,10 @@ public class Review {
     @Column(length = 100)
     private String menu;
 
+    // 카페 후기의 꼬리표 (ReviewTags 코드를 쉼표로 이은 것). 고르지 않았으면 null
+    @Column(length = 100)
+    private String tags;
+
     private Instant createdAt = Instant.now();
 
     protected Review() {
@@ -76,5 +80,10 @@ public class Review {
     public double getRating() { return rating; }
     public String getText() { return text; }
     public String getMenu() { return menu; }
+    public String getTags() { return tags; }
+
+    public void tag(String tags) {
+        this.tags = tags;
+    }
     public Instant getCreatedAt() { return createdAt; }
 }

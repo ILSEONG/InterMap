@@ -35,8 +35,24 @@ abstract class RestaurantSearchChecks {
     }
 
     private List<Long> search(String q) {
-        ResponseEntity<List<RestaurantController.ListItem>> res = controller.list(null, null, null, null, q);
+        return search(q, null);
+    }
+
+    private List<Long> search(String q, String cuisine) {
+        ResponseEntity<List<RestaurantController.ListItem>> res = controller.list(null, null, null, null, q, cuisine);
         return res.getBody().stream().map(RestaurantController.ListItem::id).toList();
+    }
+
+    // 카페 화면의 검색: 같은 낱말이라도 카페만
+    @Test
+    void aCuisineNarrowsTheSearch() {
+        Restaurant cafe = place("모모커피 " + tag, "커피숍", "서울특별시 중구 검색길 1", "서울특별시 중구 검색동 1");
+        Restaurant sushi = place("모모스시 " + tag, "일식", "서울특별시 중구 검색길 2", "서울특별시 중구 검색동 2");
+
+        assertEquals(List.of(cafe.getId(), sushi.getId()), search(tag));
+        assertEquals(List.of(cafe.getId()), search(tag, "CAFE"));
+        assertEquals(List.of(sushi.getId()), search(tag, " JAPANESE "));
+        assertEquals(List.of(cafe.getId(), sushi.getId()), search(tag, "없는업종"), "모르는 코드는 없는 셈 친다");
     }
 
     @Test

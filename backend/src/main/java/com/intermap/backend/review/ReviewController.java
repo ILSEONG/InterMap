@@ -62,12 +62,19 @@ public class ReviewController {
     public record Author(Long id, String name, boolean owner, String avatar) {
     }
 
-    // menu = 추천 메뉴 (선택, 100자)
-    public record CreateRequest(Place restaurant, double rating, String text, String menu) {
+    // menu = 추천 메뉴 (선택, 100자). tags = 카페 후기의 꼬리표 (선택, ReviewTags 코드)
+    public record CreateRequest(Place restaurant, double rating, String text, String menu, List<String> tags) {
+        public CreateRequest(Place restaurant, double rating, String text, String menu) {
+            this(restaurant, rating, text, menu, null);
+        }
     }
 
     // keepPhotoIds에 없는 기존 사진은 지운다. 새 사진은 photos 파트로.
-    public record UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds) {
+    // tags가 아예 안 오면(예전 앱) 적혀 있던 꼬리표를 그대로 둔다. 빈 목록이 오면 지운다
+    public record UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds, List<String> tags) {
+        public UpdateRequest(double rating, String text, String menu, List<Long> keepPhotoIds) {
+            this(rating, text, menu, keepPhotoIds, null);
+        }
     }
 
     // 사진 하나의 id, 주소 키 (ReviewPhoto.accessKey), 가로/세로 비율 (모르면 null)
@@ -84,8 +91,10 @@ public class ReviewController {
 
     // photoUrls는 photoIds와 같은 순서의 사진 주소(API 경로, 키 포함). photoIds는 수정 때 남길 사진을 고르는 데 쓴다.
     // photoRatios도 같은 순서 — 사진이 받아지기 전에 칸을 잡을 가로/세로 비율 (모르면 null)
+    // tags = 카페 후기의 꼬리표 코드들 (없으면 빈 목록)
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
-                       Instant createdAt, List<Long> photoIds, List<String> photoUrls, List<Double> photoRatios) {
+                       Instant createdAt, List<Long> photoIds, List<String> photoUrls, List<Double> photoRatios,
+                       List<String> tags) {
         static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
             return from(r, photos, place == null ? null : new Spot(place.getLat(), place.getLng(), place.getCuisine(), place.getCafeKind()), avatar);
         }
@@ -104,7 +113,8 @@ public class ReviewController {
                     r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
                     photos.stream().map(Photo::id).toList(),
                     photos.stream().map(p -> "/api/photos/" + p.id() + "/" + p.key()).toList(),
-                    photos.stream().map(Photo::ratio).toList());
+                    photos.stream().map(Photo::ratio).toList(),
+                    ReviewTags.read(r.getTags()));
         }
     }
 
@@ -246,8 +256,10 @@ public class ReviewController {
         if (limits.exceeded("review:" + user.getId(), DAILY_REVIEWS) || overPhotoLimit(user, uploads.size())) {
             return tooMany();
         }
-        Review saved = repository.save(new Review(user, name, p.category() == null ? "" : p.category().trim(), address,
-                request.rating(), text, menu));
+        Review created = new Review(user, name, p.category() == null ? "" : p.category().trim(), address,
+                request.rating(), text, menu);
+        created.tag(ReviewTags.store(request.tags()));
+        Review saved = repository.save(created);
         List<Photo> savedPhotos = new ArrayList<>();
         for (MultipartFile f : uploads) {
             savedPhotos.add(savePhoto(saved, f));
@@ -294,6 +306,7 @@ public class ReviewController {
             return tooMany();
         }
         review.edit(request.rating(), text, menu);
+        if (request.tags() != null) review.tag(ReviewTags.store(request.tags()));
         store.deleteAfterCommit(photos.storageKeys(dropped));
         photos.deleteAllByIdInBatch(dropped);
         List<Photo> result = new ArrayList<>(kept);

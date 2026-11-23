@@ -106,7 +106,7 @@ class CuisineBackfillTest {
         backfill.fill(SbizPlacesTest.places(sbiz("가나다", "일식 회/초밥", 1)));
 
         double d = 0.0005;
-        Map<Long, String> listed = controller.list(lat - d, lat + d, lng - d, lng + d, null).getBody().stream()
+        Map<Long, String> listed = controller.list(lat - d, lat + d, lng - d, lng + d, null, null).getBody().stream()
                 .collect(Collectors.toMap(RestaurantController.ListItem::id, i -> String.valueOf(i.cuisine())));
         assertEquals(Map.of(sushi.getId(), "JAPANESE", plain.getId(), "KOREAN", noodle.getId(), "NOODLE"), listed);
 
@@ -165,7 +165,7 @@ class CuisineBackfillTest {
         assertNull(reload(boardGames).getCafeKind());
 
         double d = 0.0005;
-        Map<Long, String> kinds = controller.list(lat - d, lat + d, lng - d, lng + d, null).getBody().stream()
+        Map<Long, String> kinds = controller.list(lat - d, lat + d, lng - d, lng + d, null, null).getBody().stream()
                 .collect(Collectors.toMap(RestaurantController.ListItem::id, i -> String.valueOf(i.cafeKind())));
         assertEquals(Map.of(coffee.getId(), "COFFEE", bakery.getId(), "BAKERY", dessert.getId(), "DESSERT",
                 boardGames.getId(), "null", korean.getId(), "null"), kinds);
