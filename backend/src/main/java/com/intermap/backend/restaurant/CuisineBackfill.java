@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 가게마다 필터용 업종을 채운다 — 상가(상권)정보에서 짝을 찾아 소분류를 적고(SbizPlaces), 규칙대로 업종을 정한다(Cuisine).
  *
  * 도는 때:
- *   - 서버가 켜질 때, 규칙 파일이나 상가 파일이 지난번과 달라졌으면 (배포로 새 규칙·새 분기 데이터가 들어왔을 때)
+ *   - 서버가 켜지고 90초 뒤, 규칙 파일이나 상가 파일이 지난번과 달라졌으면 (배포로 새 규칙·새 분기 데이터가 들어왔을 때)
  *   - 매주 금요일 새벽 — 목요일 밤 최신화(RestaurantRefresh)로 들어온 새 가게에 상가 소분류를 덧입힌다
  * 가게를 id 순으로 조금씩 읽어 값이 달라진 행만 고친다. 달라진 게 없으면 읽기만 하고 끝난다.
  */
@@ -34,6 +34,8 @@ public class CuisineBackfill implements ApplicationRunner {
     private static final int PAGE = 2000;
     // 마지막으로 채웠을 때의 규칙·상가 파일 표시를 적어 둔다 (ServerState는 만료가 있어야 해서 넉넉히)
     private static final Duration REMEMBER = Duration.ofDays(3650);
+    // 서버가 켜진 뒤 이만큼 지나서 채우기 시작한다
+    private static final Duration START_DELAY = Duration.ofSeconds(90);
 
     public record Result(int seen, int matched, int changed) {
     }
@@ -54,12 +56,22 @@ public class CuisineBackfill implements ApplicationRunner {
         this.onStart = onStart;
     }
 
-    // 서버 시작을 막지 않게 뒤에서 돈다
+    // 서버 시작을 막지 않게 뒤에서, 그것도 켜지고 한숨 돌린 뒤에 돈다 — 작은 서버(0.5 CPU)에서 켜지자마자
+    // 상가 파일 13만 행을 읽고 가게 11만 곳을 고치면 배포 직후의 상태 확인 응답과 CPU를 다툰다
     @Override
     public void run(ApplicationArguments args) {
         if (!onStart) return;
-        Thread worker = new Thread(() -> run(true), "cuisine-backfill");
+        Thread worker = new Thread(() -> {
+            try {
+                Thread.sleep(START_DELAY.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            run(true);
+        }, "cuisine-backfill");
         worker.setDaemon(true);
+        worker.setPriority(Thread.MIN_PRIORITY);
         worker.start();
     }
 

@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useBackLayer } from '../lib/backLayer'
+import { useEffect, useRef, type ReactNode } from 'react'
 import Avatar from './Avatar'
 import StarIcon from './StarIcon'
-import { CUISINES, cuisineChipLabel, toggleCuisine } from '../lib/cuisine'
 import './TopBar.css'
 
 export type SearchMode = 'restaurant' | 'person'
@@ -43,18 +41,11 @@ interface TopBarProps {
   // 찜 모드 — 켜면 지도에 내가 찜한 가게만 별로 나온다
   favMode: boolean
   onToggleFavMode: () => void
-  reviewFilter: ReviewFilter
-  onReviewFilterChange: (value: ReviewFilter) => void
-  // 로그인 전이거나 친구 한 명 보기 중엔 후기 필터가 무의미하니 숨긴다
-  showReviewFilter: boolean
-  // 업종 필터 — 고른 업종 코드들 (lib/cuisine). 비어 있으면 전부 보인다
-  cuisines: string[]
-  onCuisinesChange: (next: string[]) => void
-}
-
-const FILTER_LABELS: Record<ReviewFilter, string> = {
-  all: '모든 가게',
-  with: '후기 있는 곳',
+  // 필터 칩 — 누르면 필터 시트(후기 유무 + 업종)가 열린다 (FilterSheet)
+  onOpenFilter: () => void
+  // 필터가 걸려 있는지(칩을 진하게), 고른 업종 수(칩의 숫자)
+  filterActive: boolean
+  cuisineCount: number
 }
 
 const SEARCH_MODES: [SearchMode, string][] = [
@@ -65,36 +56,12 @@ const SEARCH_MODES: [SearchMode, string][] = [
 // 상단 — 검색칸(오른쪽 끝에 내 계정) 한 줄과, 그 아래 팔로잉 현황 · 찜한 곳 · 후기 필터 칩 한 줄.
 // 검색을 열면 칩 줄이 가게/사람 토글로 바뀌고 결과가 그 아래 펼쳐진다.
 export default function TopBar(props: TopBarProps) {
-  const { nickname, avatar, searching, query, searchMode, reviewFilter, results } = props
+  const { nickname, avatar, searching, query, searchMode, results } = props
   const inputRef = useRef<HTMLInputElement>(null)
-  const [menu, setMenu] = useState<'filter' | 'cuisine' | null>(null)
-  // 펼친 메뉴는 안드로이드 뒤로가기로 먼저 닫힌다
-  useBackLayer(menu !== null, () => setMenu(null))
-  const filterRef = useRef<HTMLDivElement>(null)
-  const filterMenuRef = useRef<HTMLDivElement>(null)
-  const cuisineRef = useRef<HTMLDivElement>(null)
-  const cuisineMenuRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     // preventScroll — 초점을 줄 때 브라우저가 페이지를 몇 px 끌어올려 상단 바가 움찔하지 않게
     if (searching) inputRef.current?.focus({ preventScroll: true })
   }, [searching])
-
-  // 메뉴 밖을 (터치 포함) 누르면 닫는다
-  useEffect(() => {
-    if (!menu) return
-    const anchors = [filterRef, filterMenuRef, cuisineRef, cuisineMenuRef]
-    const close = (e: PointerEvent) => {
-      if (!anchors.some((a) => a.current?.contains(e.target as Node))) setMenu(null)
-    }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [menu])
-
-  const pick = (fn: () => void) => () => {
-    setMenu(null)
-    fn()
-  }
 
   return (
     <div className="topbar">
@@ -219,126 +186,22 @@ export default function TopBar(props: TopBarProps) {
                 </svg>
               </button>
             )}
-            {/* 업종 칩을 후기 필터 앞에 둔다 — 좁은 화면에서 칩 줄이 넘칠 때 새 칩이 통째로 가려지지 않게 */}
-            <div className="topbar__anchor" ref={cuisineRef}>
-              <button
-                type="button"
-                className={`topbar__chip${props.cuisines.length > 0 ? ' topbar__chip--dark' : ''}`}
-                onClick={() => setMenu((m) => (m === 'cuisine' ? null : 'cuisine'))}
-                aria-haspopup="menu"
-                aria-expanded={menu === 'cuisine'}
-                aria-label={props.cuisines.length > 0 ? `업종 필터: ${cuisineChipLabel(props.cuisines)}` : '업종 필터'}
-              >
-                {cuisineChipLabel(props.cuisines)}
-                <svg
-                  className="topbar__chevron"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-            </div>
-            {props.showReviewFilter && (
-              <div className="topbar__anchor" ref={filterRef}>
-                <button
-                  type="button"
-                  className={`topbar__chip${reviewFilter !== 'all' ? ' topbar__chip--dark' : ''}`}
-                  onClick={() => setMenu((m) => (m === 'filter' ? null : 'filter'))}
-                  aria-haspopup="menu"
-                  aria-expanded={menu === 'filter'}
-                >
-                  {FILTER_LABELS[reviewFilter]}
-                  <svg
-                    className="topbar__chevron"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              className={`topbar__chip topbar__chip--filter${props.filterActive ? ' topbar__chip--dark' : ''}`}
+              onClick={props.onOpenFilter}
+              aria-haspopup="dialog"
+              aria-label={props.cuisineCount > 0 ? `필터, 업종 ${props.cuisineCount}개 고름` : '필터'}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+                <circle cx="16" cy="7" r="2" />
+                <circle cx="8" cy="17" r="2" />
+              </svg>
+              필터
+              {props.cuisineCount > 0 && <span className="topbar__chip-count">{props.cuisineCount}</span>}
+            </button>
           </div>
-          {/* 업종은 여러 개를 고를 수 있어 눌러도 닫히지 않는다 — 바깥을 누르거나 뒤로가기로 닫는다 */}
-          {menu === 'cuisine' && (
-            <div className="topbar__menu topbar__menu--filter topbar__menu--cuisine" role="menu" aria-label="업종 고르기" ref={cuisineMenuRef}>
-              <div className="topbar__cuisine-head">
-                <span>보고 싶은 업종</span>
-                <button
-                  type="button"
-                  className="topbar__cuisine-clear"
-                  onClick={() => props.onCuisinesChange([])}
-                  disabled={props.cuisines.length === 0}
-                >
-                  전체 보기
-                </button>
-              </div>
-              <div className="topbar__cuisine-grid">
-                {CUISINES.map(([code, label]) => {
-                  const on = props.cuisines.includes(code)
-                  return (
-                    <button
-                      key={code}
-                      type="button"
-                      role="menuitemcheckbox"
-                      aria-checked={on}
-                      className={`topbar__cuisine${on ? ' topbar__cuisine--on' : ''}`}
-                      onClick={() => props.onCuisinesChange(toggleCuisine(props.cuisines, code))}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          {/* 칩 줄은 가로로 밀리는 스크롤 칸이라 메뉴를 그 밖에 둔다 — 안에 두면 열 때 줄 스크롤이 풀려 칩이 튄다 */}
-          {menu === 'filter' && (
-            <div className="topbar__menu topbar__menu--filter" role="menu" ref={filterMenuRef}>
-              {(Object.keys(FILTER_LABELS) as ReviewFilter[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={reviewFilter === value}
-                  className={reviewFilter === value ? 'topbar__menu-item--active' : undefined}
-                  onClick={pick(() => props.onReviewFilterChange(value))}
-                >
-                  {FILTER_LABELS[value]}
-                  {reviewFilter === value && (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M5 12.5l4.5 4.5L19 7.5" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

@@ -18,8 +18,6 @@ export const CUISINES: [code: string, label: string][] = [
   ['BAR', '술집'],
 ]
 
-const LABELS = new Map(CUISINES)
-
 // 고른 업종을 화면 순서대로 정리한다 (모르는 코드는 버린다)
 function ordered(selected: string[]): string[] {
   return CUISINES.map(([code]) => code).filter((code) => selected.includes(code))
@@ -28,14 +26,6 @@ function ordered(selected: string[]): string[] {
 // 하나를 켜거나 끈 뒤의 선택
 export function toggleCuisine(selected: string[], code: string): string[] {
   return ordered(selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code])
-}
-
-// 칩에 쓸 글 — 안 골랐으면 "업종", 하나면 그 이름, 여럿이면 "한식 외 2"
-export function cuisineChipLabel(selected: string[]): string {
-  const picked = ordered(selected)
-  if (picked.length === 0) return '업종'
-  const first = LABELS.get(picked[0])!
-  return picked.length === 1 ? first : `${first} 외 ${picked.length - 1}`
 }
 
 // 이 가게가 고른 업종에 드는지. 고른 게 없으면 전부 든다

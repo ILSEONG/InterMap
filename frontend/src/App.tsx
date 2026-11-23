@@ -11,6 +11,7 @@ import TopBar from './components/TopBar'
 import SearchResults, { type NeighborHit } from './components/SearchResults'
 import FollowingBoard from './components/FollowingBoard'
 import NoticeSheet from './components/NoticeSheet'
+import FilterSheet from './components/FilterSheet'
 import PersonPanel from './components/PersonPanel'
 import type { PersonPlace } from './components/PersonPanel'
 import StoryStrip from './components/StoryStrip'
@@ -185,6 +186,12 @@ export default function App() {
   // 전체를 한 번에 받는 대신, 지도가 멈출 때마다 보이는 영역만 받아 누적한다.
   // 한 번 본 영역의 가게는 목록에 남으므로 검색·필터는 본 영역 기준으로 동작한다.
   // 줌이 낮으면(넓은 영역) 개별 가게 대신 서버 격자 요약만 받는다.
+  // 서버가 가게에 업종을 실어 주는지 — 가게 목록 응답에서 본다 (null = 아직 받은 게 없다).
+  // 앱이 서버보다 먼저 새 버전이 되는 동안(배포 순서가 엇갈릴 때)은 업종이 안 온다.
+  const [recordsHaveCuisine, setRecordsHaveCuisine] = useState<boolean | null>(null)
+  const noteCuisine = useCallback((records: RestaurantRecord[]) => {
+    if (records.length > 0) setRecordsHaveCuisine('cuisine' in records[0])
+  }, [])
   // 고른 업종 (lib/cuisine) — 요약 셀은 서버가 세어 주므로 요청에 실어 보낸다. 개별 가게는 다 받아 앱에서 거른다
   const cuisineAsk = useRef<string[]>([])
   const fetchViewport = useCallback((bbox: BBox, zoom: number) => {
@@ -221,11 +228,14 @@ export default function App() {
         .catch(forget)
     } else {
       fetchRestaurants(snapped)
-        .then((records) => setRestaurants((prev) => mergeRecords(prev, records)))
+        .then((records) => {
+          noteCuisine(records)
+          setRestaurants((prev) => mergeRecords(prev, records))
+        })
         // 백엔드 미기동 시 빈 지도 — 다음 멈춤에서 다시 받는다
         .catch(forget)
     }
-  }, [])
+  }, [noteCuisine])
   // 지금 필터로 보일 수 있을 때만 받는다 — 기본 "후기 있는 곳만"이면 후기 없는 가게·요약 셀은 화면에 안 나오는데
   // 멈출 때마다 받으면 그만큼 데이터·재계산만 늘어난다. 필터를 바꾸면 마지막으로 멈춘 자리부터 받는다
   const lastViewport = useRef<{ bbox: BBox; zoom: number } | null>(null)
@@ -251,6 +261,7 @@ export default function App() {
   const [reviewFilterChoice, setReviewFilter] = useState<'all' | 'with'>('with')
   // 업종 필터 — 고른 업종 코드들. 비어 있으면 전부
   const [cuisineFilter, setCuisineFilter] = useState<string[]>([])
+  const [filterOpen, setFilterOpen] = useState(false)
   // 검색어를 가게 이름/주소로 볼지, 후기 작성자 이름으로 볼지
   const [searchModeChoice, setSearchMode] = useState<'restaurant' | 'person'>('restaurant')
   const [query, setQuery] = useState('')
@@ -369,6 +380,15 @@ export default function App() {
   // 서버가 거른다 — 로그아웃이면 주인장 후기만, 로그인하면 나·팔로우한 사람·주인장 후기.
   // 지난번에 받아 둔 후기(기기 저장)로 바로 시작한다 — 앱을 켜자마자 핀·스토리가 뜨고, 새 목록은 뒤에서 받아 바꾼다
   const [reviewData, setRawReviews] = useServerState<Review[]>(['reviews'], fetchReviews, { empty: [] })
+  // 서버가 업종을 안 주는 버전이면 업종 고르기를 숨긴다 — 그대로 두면 고르는 순간 지도가 텅 빈다.
+  // 받은 것 중 하나라도 업종 칸이 있으면 주는 서버다.
+  const cuisineUnsupported = useMemo(() => {
+    const known = recordsHaveCuisine === true || (reviewData ?? []).some((r) => r.restaurant.cuisine !== undefined)
+    return !known && (recordsHaveCuisine === false || (reviewData?.length ?? 0) > 0)
+  }, [recordsHaveCuisine, reviewData])
+  useEffect(() => {
+    if (cuisineUnsupported) setCuisineFilter((prev) => (prev.length > 0 ? [] : prev))
+  }, [cuisineUnsupported])
   const rawReviews = reviewData ?? NO_REVIEWS
   // 후기 id → 그 후기의 댓글들 (서버 /api/comments를 후기별로 나눠 둔 것)
   const [commentData, setReviewComments] = useServerState<Record<number, Comment[]>>(['comments'], fetchGroupedComments, { empty: {} })
@@ -456,6 +476,8 @@ export default function App() {
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
   // 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕로 해제.
   const personPins = selectedPerson !== null
+  // 후기 유무 고르기는 로그인했고 이웃 한 명의 지도를 보는 중이 아닐 때만 의미가 있다
+  const showReviewFilter = !!session && !personPins
   // 팔로우한 사람(+나, 주인장)의 후기만 남기고, 내가 붙인 이름을 작성자 이름 자리에 씌운다.
   // 가게 시트·스토리·사람 검색이 전부 이 목록을 쓴다. social을 못 받았으면 필터 없이 동작.
   const reviews = useMemo(() => {
@@ -778,6 +800,7 @@ export default function App() {
     if (openStory) return setOpenStory(null), true
     if (boardOpen) return setBoardOpen(false), true
     if (noticesOpen) return setNoticesOpen(false), true
+    if (filterOpen) return setFilterOpen(false), true
     if (authMode) return setAuthMode(null), setSocialLink(null), true
     if (myPageOpen) return setMyPageOpen(false), true
     if (selectedId) return setSelectedId(null), true
@@ -859,7 +882,10 @@ export default function App() {
     let cancelled = false
     searchRestaurants(serverQuery.trim())
       .then((records) => {
-        if (!cancelled) setRestaurants((prev) => mergeRecords(prev, records))
+        if (!cancelled) {
+          noteCuisine(records)
+          setRestaurants((prev) => mergeRecords(prev, records))
+        }
       })
       .catch(() => {
         // 실패하면 클라이언트에 있는 목록만으로 검색
@@ -867,7 +893,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [searchActive, searchMode, serverQuery])
+  }, [searchActive, searchMode, serverQuery, noteCuisine])
   const selectedRestaurant = useMemo(
     () => reviewedRestaurants.find((r) => r.id === selectedId) ?? null,
     [reviewedRestaurants, selectedId],
@@ -1436,6 +1462,7 @@ export default function App() {
     profileUserId !== null ||
     boardOpen ||
     noticesOpen ||
+    filterOpen ||
     openStory ||
     authMode ||
     myPageOpen ||
@@ -1456,6 +1483,7 @@ export default function App() {
     profileUserId !== null ||
     boardOpen ||
     noticesOpen ||
+    filterOpen ||
     openStory ||
     authMode ||
     myPageOpen ||
@@ -1586,11 +1614,9 @@ export default function App() {
             }
             setFavMode((prev) => !prev)
           }}
-          reviewFilter={reviewFilter}
-          onReviewFilterChange={setReviewFilter}
-          cuisines={cuisineFilter}
-          onCuisinesChange={setCuisineFilter}
-          showReviewFilter={!!session && !personPins}
+          onOpenFilter={() => setFilterOpen(true)}
+          filterActive={cuisineFilter.length > 0 || (showReviewFilter && reviewFilter !== 'all')}
+          cuisineCount={cuisineFilter.length}
         />
         {!searching && (
           <StoryStrip
@@ -1802,6 +1828,21 @@ export default function App() {
           </svg>
           {!!notices?.unread && <span className="map-bell__badge">{notices.unread > 9 ? '9+' : notices.unread}</span>}
         </button>
+      )}
+
+      {filterOpen && (
+        <FilterSheet
+          reviewFilter={reviewFilter}
+          showReviewFilter={showReviewFilter}
+          showCuisines={!cuisineUnsupported}
+          cuisines={cuisineFilter}
+          onApply={(review, cuisines) => {
+            if (showReviewFilter) setReviewFilter(review)
+            setCuisineFilter(cuisines)
+            setFilterOpen(false)
+          }}
+          onClose={() => setFilterOpen(false)}
+        />
       )}
 
       {session && noticesOpen && (
