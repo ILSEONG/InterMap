@@ -1,4 +1,4 @@
-/* 필터 시트 — 가게(후기 유무)와 업종 고르기 */
+/* 필터 시트 — 가게(후기 유무)와 업종 고르기. 카페 화면에서는 종류와 꼬리표 */
 .filter-sheet__body {
   display: flex;
   flex-direction: column;
@@ -74,6 +74,11 @@
   gap: 8px;
 }
 
+/* 카페의 종류는 셋 — 한 줄에 */
+.filter-sheet__grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .filter-sheet__tile {
   min-height: 66px;
   display: flex;
@@ -99,6 +104,37 @@
 }
 
 .filter-sheet__tile--on {
+  background: #16161c;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* 꼬리표 — 여러 개 고르는 알약 */
+.filter-sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-sheet__chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: scale 120ms ease;
+}
+
+.filter-sheet__chip:active {
+  scale: 0.96;
+}
+
+.filter-sheet__chip--on {
   background: #16161c;
   font-weight: 700;
   color: #fff;

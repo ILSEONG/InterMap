@@ -6,6 +6,7 @@ import { useOpenProfile } from '../lib/openProfile'
 import { useBackLayer } from '../lib/backLayer'
 import { canReport, useModeration } from '../lib/moderation'
 import { reviewDate } from '../lib/time'
+import { CAFE_TAGS } from '../lib/cafe'
 import { STAR_SHAPE } from './Stars'
 import Avatar from './Avatar'
 import './ReportSheet.css'
@@ -36,6 +37,8 @@ export default function ReviewCard({ review, onEdit, footer }: { review: Review;
   useBackLayer(lightbox !== null, () => setLightbox(null))
 
   const owner = review.author.owner
+  // 카페 후기의 꼬리표 — 화면 순서대로, 모르는 코드는 뺀다
+  const tagLabels = CAFE_TAGS.filter(([code]) => (review.tags ?? []).includes(code)).map(([, label]) => label)
   // 신고 — 남의 후기일 때만 (로그인했을 때만). 사이렌 아이콘
   const reportButton = canReport(moderation, review.author.id) ? (
     <button
@@ -122,6 +125,15 @@ export default function ReviewCard({ review, onEdit, footer }: { review: Review;
             </button>
           ))}
         </div>
+      )}
+      {tagLabels.length > 0 && (
+        <ul className="review-card__tags" aria-label="이런 점이 좋아요">
+          {tagLabels.map((label) => (
+            <li key={label} className="review-card__tag">
+              {label}
+            </li>
+          ))}
+        </ul>
       )}
       {review.menu && (
         <p className="review-card__menu">

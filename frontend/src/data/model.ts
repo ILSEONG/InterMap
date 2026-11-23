@@ -29,12 +29,14 @@ export interface Review {
   id: number
   // 가게 스냅샷. name|address 가 가게 키 (api.restaurantKey)
   // lat/lng는 서버가 가게 행을 찾았을 때만 채워준다 — 뷰포트에 안 실린 가게도 핀으로 찍기 위해
-  // cuisine = 필터용 업종 코드 (lib/cuisine) — 정해지지 않았으면 null
-  restaurant: { name: string; category: string; address: string; lat?: number | null; lng?: number | null; cuisine?: string | null }
+  // cuisine = 필터용 업종 코드 (lib/cuisine) — 정해지지 않았으면 null. cafeKind = 카페의 종류 (lib/cafe) — 카페가 아니면 null
+  restaurant: { name: string; category: string; address: string; lat?: number | null; lng?: number | null; cuisine?: string | null; cafeKind?: string | null }
   author: ReviewAuthor
   rating: number
   text: string
   menu?: string | null // 추천 메뉴 (선택)
+  // 카페 후기의 꼬리표 코드들 (lib/cafe의 CAFE_TAGS). 예전 서버·예전에 저장해 둔 목록에는 없을 수 있다
+  tags?: string[]
   createdAt: string // ISO
   photoIds: number[] // 수정 때 남길 사진을 고르는 데 쓴다
   photoUrls: string[] // photoIds와 같은 순서의 사진 경로(키 포함) — api.photoUrl(path)로 이미지 URL
@@ -70,6 +72,8 @@ export interface Restaurant {
   lotAddress?: string
   // 필터용 업종 코드 (lib/cuisine). 정해지지 않은 가게는 null
   cuisine?: string | null
+  // 카페의 종류 (lib/cafe의 CAFE_KINDS) — 카페가 아니면 null, 예전 서버면 없다
+  cafeKind?: string | null
   lat: number
   lng: number
   groupIds: GroupId[]

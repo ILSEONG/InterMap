@@ -254,6 +254,37 @@
   gap: 12px;
 }
 
+/* 카페: 이웃이 후기에 고른 꼬리표를 모은 줄 ("작업·공부 2") — 요약 바로 아래 */
+.restaurant-sheet__cafe-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+
+.restaurant-sheet__cafe-tag {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--fill);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+}
+
+.restaurant-sheet__cafe-tag b {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 /* 이웃 평균 — 크게 */
 .restaurant-sheet__score {
   flex: none;
@@ -634,6 +665,29 @@
   line-height: 1.4;
   color: var(--mint-ink);
   overflow-wrap: anywhere;
+}
+
+/* 카페 후기의 꼬리표 ("작업·공부") — 추천 메뉴 위에 작게 */
+.review-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-card__tag {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 8px;
+  background: var(--fill);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
 }
 
 .review-card__menu-label {
@@ -1245,6 +1299,37 @@ button.comment__author:active {
 .review-form__menu-add:disabled {
   color: var(--ink-soft);
   cursor: not-allowed;
+}
+
+/* 카페 후기 쓰기 — "이런 점이 좋아요" 꼬리표 고르기 */
+.review-form__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review-form__tag {
+  min-height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: scale 120ms ease;
+}
+
+.review-form__tag:active {
+  scale: 0.96;
+}
+
+.review-form__tag--on {
+  background: var(--ink);
+  font-weight: 700;
+  color: #fff;
 }
 
 .review-form__menu-chips {

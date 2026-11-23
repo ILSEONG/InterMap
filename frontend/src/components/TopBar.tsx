@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Avatar from './Avatar'
 import StarIcon from './StarIcon'
+import type { PlaceMode } from '../lib/cafe'
 import './TopBar.css'
 
 export type SearchMode = 'restaurant' | 'person'
@@ -43,20 +44,33 @@ interface TopBarProps {
   onToggleFavMode: () => void
   // 필터 칩 — 누르면 필터 시트(후기 유무 + 업종)가 열린다 (FilterSheet)
   onOpenFilter: () => void
-  // 필터가 걸려 있는지(칩을 진하게), 고른 업종 수(칩의 숫자)
+  // 필터가 걸려 있는지(칩을 진하게), 고른 업종(카페 화면이면 종류·꼬리표) 수(칩의 숫자)
   filterActive: boolean
-  cuisineCount: number
+  filterCount: number
+
+  // 맨 위 전환 — 맛집 / 카페. 검색칸 왼쪽에 둔다 (로그인 전에도 보인다)
+  placeMode: PlaceMode
+  // 서버가 업종을 안 주는 버전이면 어느 가게가 카페인지 몰라 전환을 숨긴다
+  showPlaceMode: boolean
+  onPlaceModeChange: (mode: PlaceMode) => void
 }
+
+const PLACE_MODES: [PlaceMode, string][] = [
+  ['food', '맛집'],
+  ['cafe', '카페'],
+]
 
 const SEARCH_MODES: [SearchMode, string][] = [
   ['restaurant', '가게'],
   ['person', '이웃'],
 ]
 
-// 상단 — 검색칸(오른쪽 끝에 내 계정) 한 줄과, 그 아래 팔로잉 현황 · 찜한 곳 · 후기 필터 칩 한 줄.
+// 상단 — 검색칸(왼쪽 끝에 맛집/카페 전환, 오른쪽 끝에 내 계정) 한 줄과, 그 아래 팔로잉 현황 · 찜한 곳 · 필터 칩 한 줄.
 // 검색을 열면 칩 줄이 가게/사람 토글로 바뀌고 결과가 그 아래 펼쳐진다.
 export default function TopBar(props: TopBarProps) {
   const { nickname, avatar, searching, query, searchMode, results } = props
+  const cafe = props.showPlaceMode && props.placeMode === 'cafe'
+  const placeWord = cafe ? '카페' : '가게'
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     // preventScroll — 초점을 줄 때 브라우저가 페이지를 몇 px 끌어올려 상단 바가 움찔하지 않게
@@ -84,8 +98,8 @@ export default function TopBar(props: TopBarProps) {
                 }
               }}
               enterKeyHint="search"
-              placeholder={searchMode === 'restaurant' ? '가게 이름으로 찾기' : '이웃 이름으로 찾기'}
-              aria-label={searchMode === 'restaurant' ? '가게 이름으로 검색' : '이웃 이름으로 검색'}
+              placeholder={searchMode === 'restaurant' ? `${placeWord} 이름으로 찾기` : '이웃 이름으로 찾기'}
+              aria-label={searchMode === 'restaurant' ? `${placeWord} 이름으로 검색` : '이웃 이름으로 검색'}
             />
             <button type="button" className="topbar__icon-btn" aria-label="검색 닫기" onClick={props.onCloseSearch}>
               <svg
@@ -104,9 +118,24 @@ export default function TopBar(props: TopBarProps) {
           </>
         ) : (
           <>
+            {props.showPlaceMode && (
+              <div className="topbar__modes" role="group" aria-label="지도에 보일 곳">
+                {PLACE_MODES.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`topbar__mode${props.placeMode === value ? ' topbar__mode--on' : ''}`}
+                    aria-pressed={props.placeMode === value}
+                    onClick={() => props.onPlaceModeChange(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button type="button" className="topbar__open" onClick={props.onOpenSearch}>
               <SearchGlyph />
-              {nickname ? '가게, 이웃 검색' : '가게 검색'}
+              <span className="topbar__open-text">{nickname ? `${placeWord}, 이웃 검색` : `${placeWord} 검색`}</span>
             </button>
             {/* 내 계정 — 누르면 바로 마이페이지(로그인 전엔 로그인). 로그아웃은 마이페이지 안에 */}
             <button
@@ -191,7 +220,7 @@ export default function TopBar(props: TopBarProps) {
               className={`topbar__chip topbar__chip--filter${props.filterActive ? ' topbar__chip--dark' : ''}`}
               onClick={props.onOpenFilter}
               aria-haspopup="dialog"
-              aria-label={props.cuisineCount > 0 ? `필터, 업종 ${props.cuisineCount}개 고름` : '필터'}
+              aria-label={props.filterCount > 0 ? `필터, ${props.filterCount}개 고름` : '필터'}
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
@@ -199,7 +228,7 @@ export default function TopBar(props: TopBarProps) {
                 <circle cx="8" cy="17" r="2" />
               </svg>
               필터
-              {props.cuisineCount > 0 && <span className="topbar__chip-count">{props.cuisineCount}</span>}
+              {props.filterCount > 0 && <span className="topbar__chip-count">{props.filterCount}</span>}
             </button>
           </div>
         </div>

@@ -12,6 +12,8 @@ export interface RestaurantRecord {
   lng: number
   // 필터용 업종 코드 (lib/cuisine). 정해지지 않은 가게는 null, 예전 서버 응답에는 없다
   cuisine?: string | null
+  // 카페의 종류 (lib/cafe). 카페가 아니면 null, 예전 서버 응답에는 없다
+  cafeKind?: string | null
 }
 
 // 서버 격자 요약 셀 — 낮은 줌에서 개별 가게 대신 받는다 (폐업 가게는 건수에 없다)
@@ -63,8 +65,9 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
 }
 
 // 서버 검색 (상한 50건) — 낱말마다 이름·업종·주소 어디든 들어 있으면 걸린다. 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
-export async function searchRestaurants(q: string): Promise<RestaurantRecord[]> {
-  const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}`)
+// cuisine: 이 업종 안에서만 찾는다 (카페 화면의 검색). 예전 서버는 이 값을 모르고 전부에서 찾는다 — 받은 뒤 앱이 한 번 더 거른다
+export async function searchRestaurants(q: string, cuisine?: string): Promise<RestaurantRecord[]> {
+  const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}${cuisine ? `&cuisine=${cuisine}` : ''}`)
   if (!res.ok) throw new Error(`음식점 검색 실패 (${res.status})`)
   return res.json()
 }
@@ -326,9 +329,11 @@ export function postReview(
   text: string,
   menu: string,
   photos: Blob[] = [],
+  // 카페 후기의 꼬리표 (lib/cafe)
+  tags: string[] = [],
 ): Promise<Review> {
   const form = new FormData()
-  form.append('review', new Blob([JSON.stringify({ restaurant, rating, text, menu })], { type: 'application/json' }))
+  form.append('review', new Blob([JSON.stringify({ restaurant, rating, text, menu, tags })], { type: 'application/json' }))
   photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
   return post<Review>('/api/reviews', form)
 }
@@ -341,9 +346,10 @@ export function updateReview(
   menu: string,
   keepPhotoIds: number[],
   photos: Blob[] = [],
+  tags: string[] = [],
 ): Promise<Review> {
   const form = new FormData()
-  form.append('review', new Blob([JSON.stringify({ rating, text, menu, keepPhotoIds })], { type: 'application/json' }))
+  form.append('review', new Blob([JSON.stringify({ rating, text, menu, keepPhotoIds, tags })], { type: 'application/json' }))
   photos.forEach((photo, i) => form.append('photos', photo, `photo-${i}.jpg`))
   return post<Review>(`/api/reviews/${id}`, form, {}, 'PUT')
 }
@@ -579,9 +585,11 @@ export async function deleteAvatar(): Promise<void> {
 }
 
 // cuisines: 업종 필터를 켰으면 그 업종의 가게만 센다
-export async function fetchRestaurantCells(bbox: BBox, zoom: number, cuisines: string[] = []): Promise<ClusterCell[]> {
+// cafeKinds: 카페 화면에서 종류를 골랐으면 그 종류의 카페만 센다 (cuisines에는 카페가 같이 온다 — 종류를 모르는 예전 서버는 카페 전부를 센다)
+export async function fetchRestaurantCells(bbox: BBox, zoom: number, cuisines: string[] = [], cafeKinds: string[] = []): Promise<ClusterCell[]> {
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom, v: COORDS_VERSION }).map(([k, v]) => [k, String(v)]))
   if (cuisines.length > 0) params.set('cuisine', cuisines.join(','))
+  if (cafeKinds.length > 0) params.set('cafeKind', cafeKinds.join(','))
   const res = await send(`${API_BASE}/api/restaurants/summary?${params}`)
   if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
   return res.json()

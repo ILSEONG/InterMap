@@ -35,6 +35,42 @@
   color: var(--ink);
 }
 
+/* 맛집 / 카페 전환 — 검색칸 왼쪽 끝의 낱말 둘. 고른 쪽만 진하게, 그 뒤에 가는 세로줄 */
+.topbar__modes {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+  margin: 0 12px 0 -10px;
+  padding-right: 8px;
+  background: linear-gradient(rgba(60, 60, 67, 0.16), rgba(60, 60, 67, 0.16)) right center / 1px 20px no-repeat;
+}
+
+.topbar__mode {
+  /* 굵기가 바뀌어도 옆 글자가 밀리지 않게 폭을 잡아 둔다 */
+  min-width: 46px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topbar__mode--on {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.topbar__mode:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -6px;
+  border-radius: 12px;
+}
+
 /* 평소 — 누르면 검색이 열린다 */
 .topbar__open {
   flex: 1;
@@ -51,6 +87,14 @@
   color: var(--ink-soft);
   text-align: left;
   cursor: pointer;
+}
+
+/* 좁은 화면에서 전환과 내 계정 사이에 못 들어가면 말줄임 */
+.topbar__open-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar__input {
