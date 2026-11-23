@@ -1,0 +1,68 @@
+# 실험: main의 서버 이미지를 운영과 같은 조건(메모리 512MB, PostgreSQL, 가게 11만 5천 곳)으로 띄워 본다
+name: Repro deploy (experiment)
+
+on:
+  push:
+    branches: [exp/category-match]
+    paths:
+      - .github/workflows/repro-deploy.yml
+
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: intermap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      JDBC_URL: jdbc:postgresql://localhost:5432/intermap?user=test&password=test
+      PGPASSWORD: test
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Build image
+        run: docker build -q -t be backend
+      - name: Create schema (backfill off)
+        run: |
+          docker run -d --name s1 --network host -e JDBC_URL -e CUISINE_BACKFILL_ON_START=false be
+          for i in $(seq 1 60); do curl -sf "http://localhost:8080/api/restaurants?q=xx" >/dev/null && break; sleep 3; done
+          curl -s -o /dev/null -w "s1 http %{http_code}\n" "http://localhost:8080/api/restaurants?q=xx"
+          docker stop s1 >/dev/null
+          docker logs s1 2>&1 | grep -i "started\|error" | tail -5
+      - name: Seed 115,000 restaurants
+        run: |
+          psql -h localhost -U test intermap -c "insert into restaurant (name, category, road_address, address, lat, lng, status)
+            select (array['할매칼국수','타마','제일식당','스타벅스','홍콩반점','돈까스클럽','별이네 포차','가나다'])[1 + g % 8] || ' ' || g,
+                   (array['한식','기타','경양식','일식','분식','호프/통닭'])[1 + g % 6],
+                   '서울특별시 강남구 테헤란로' || (g % 90) || '길 ' || (g % 300) || ', 1층 (역삼동)',
+                   '서울특별시 강남구 역삼동 ' || (g % 900) || '-' || (g % 40),
+                   37.4 + (g % 1000) / 4000.0, 126.8 + (g % 1500) / 4000.0, 0
+            from generate_series(1, 115000) g"
+          psql -h localhost -U test intermap -c "select count(*), count(cuisine) from restaurant"
+      - name: Start like production (512MB)
+        run: |
+          docker run -d --name s2 --network host --memory=512m --memory-swap=512m -e JDBC_URL be
+          for i in $(seq 1 36); do
+            sleep 10
+            state=$(docker inspect -f '{{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' s2)
+            mem=$(docker stats --no-stream --format '{{.MemUsage}}' s2 2>/dev/null || true)
+            code=$(curl -s -o /dev/null -m 5 -w "%{http_code}" "http://localhost:8080/api/restaurants?q=xx" || true)
+            filled=$(psql -h localhost -U test intermap -Atc "select count(cuisine) from restaurant")
+            echo "t=$((i*10))s $state mem=$mem http=$code cuisine=$filled"
+            case "$state" in exited*) break;; esac
+          done
+          echo "---- 로그 ----"
+          docker logs s2 2>&1 | grep -v "^$" | grep -i "started\|업종\|OutOfMemory\|error\|exception\|killed\|WARN" | cut -c1-300 | tail -40
+          psql -h localhost -U test intermap -c "select cuisine, count(*) from restaurant group by 1 order by 2 desc"
