@@ -7,6 +7,8 @@ export interface Pin {
   items: Restaurant[]
   // 서버 요약 셀로 만든 핀: items는 비어 있고 건수만 안다
   count?: number
+  // 서버 요약 셀 안에서 이웃 후기가 있는 가게 수 (items가 있으면 거기서 센다)
+  reviewed?: number
 }
 
 // 핀 지름 16px + 터치 여유. 이보다 가까우면 손가락으로 개별 선택이 안 되므로 하나로 묶는다.

@@ -9,11 +9,14 @@ import type { ClusterCell } from '../lib/api'
 import { STAR_PATH } from './StarIcon'
 import './MapCanvas.css'
 
+// 서버 요약 셀 + 그 칸에서 이웃 후기가 있는 가게 수. 후기는 사람마다 보이는 게 달라 서버 셀에는 없다 — App이 같은 격자로 세어 붙인다
+export type MapCell = ClusterCell & { reviewed?: number }
+
 interface MapCanvasProps {
   restaurants: Restaurant[]
   groups: FriendGroup[]
   // 낮은 줌에서 개별 가게 대신 그리는 서버 격자 요약 셀
-  cells?: ClusterCell[]
+  cells?: MapCell[]
   // 요약 모드에서도 넘겨받은 가게를 개별 핀으로 그릴지 — 후기 있음 필터·검색 중처럼 목록이 이미 작을 때 true
   pinsWhenFar?: boolean
   // 찜 모드: 모든 핀을 초록 별 모양으로 그린다
@@ -87,8 +90,17 @@ const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="dis
 // 후기 있는 가게 알약 앞 작은 별 (빨강) — 그 옆에 이웃 평균 별점
 const RATING_STAR_SVG = `<svg class="map-pin__star" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="${STAR_PATH}" style="fill:var(--pin-color)"/></svg>`
 
+// 묶음 뱃지 안의 작은 별
+const BADGE_STAR_SVG = `<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true"><path d="${STAR_PATH}" fill="currentColor"/></svg>`
+
+// 묶음 안에서 이웃 후기가 있는 가게 수 — 서버 요약 셀은 App이 세어 준 값
+function reviewedIn(pin: Pin): number {
+  return pin.items.length > 0 ? pin.items.filter((r) => r.reviews.length > 0).length : (pin.reviewed ?? 0)
+}
+
 // 가게 핀 모양 (CSS가 전부 가운데 정렬하므로 너비가 달라도 anchor는 0,0 하나):
-// 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양), 후기 있는 가게 = 흰 알약 "★ 평균 별점",
+// 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양). 그 안에 이웃 후기가 있는 가게가 섞여 있으면 오른쪽 위에 "★ 몇 곳" 뱃지,
+// 전부 후기 있는 가게면 숫자가 같으니 별만. 후기 있는 가게 = 흰 알약 "★ 평균 별점",
 // 후기 없는 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 ★ 이름 + 평균 별점으로 펼친다.
 function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
   const count = pin.count ?? pin.items.length
@@ -107,17 +119,33 @@ function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false
           : reviewCount > 0
             ? 'pill'
             : 'dot'
+  // 찜 모드의 별은 찜이라는 뜻이라 후기 뱃지를 달지 않는다
+  const reviewed = variant === 'cluster' && !star ? Math.min(reviewedIn(pin), count) : 0
+  const badge =
+    reviewed === 0
+      ? ''
+      : reviewed === count
+        ? `<span class="map-pin__reviewed map-pin__reviewed--all">${BADGE_STAR_SVG}</span>`
+        : `<span class="map-pin__reviewed">${BADGE_STAR_SVG}${reviewed}</span>`
   const lead = star ? STAR_PIN_SVG : reviewCount > 0 ? RATING_STAR_SVG : '<span class="map-pin__dot"></span>'
   const body = {
-    cluster: `${count}`,
+    cluster: `${count}${badge}`,
     label: `${lead}<span class="map-pin__name">${escapeHtml(place?.name ?? '')}</span>${reviewCount > 0 ? `<span class="map-pin__badge">${avg}</span>` : ''}`,
     star: STAR_PIN_SVG,
     pill: `${lead}<span class="map-pin__count">${avg}</span>`,
     dot: '',
   }[variant]
-  const title = place ? escapeHtml(place.name) : `이 자리 ${count}곳`
+  // 묶음은 곳 수에 따라 세 단계 크기
+  const size = variant !== 'cluster' ? '' : count >= 200 ? ' map-pin--cluster-l' : count >= 50 ? ' map-pin--cluster-m' : ''
+  const title = place
+    ? escapeHtml(place.name)
+    : reviewed === 0
+      ? `이 자리 ${count}곳`
+      : reviewed === count
+        ? `이 자리 ${count}곳, 모두 이웃 후기 있음`
+        : `이 자리 ${count}곳, 이웃 후기 ${reviewed}곳`
   return {
-    content: `<button type="button" class="map-pin map-pin--${variant}${focused ? ' map-pin--focused' : ''}" style="--pin-color:${color}" aria-label="${title}">${body}</button>`,
+    content: `<button type="button" class="map-pin map-pin--${variant}${size}${focused ? ' map-pin--focused' : ''}" style="--pin-color:${color}" aria-label="${title}">${body}</button>`,
     anchor: new window.naver.maps.Point(0, 0),
   }
 }
@@ -219,6 +247,7 @@ export default function MapCanvas({
           lng: c.lng,
           items: [],
           count: c.count,
+          reviewed: c.reviewed,
         })
       }
     }
@@ -495,8 +524,8 @@ export default function MapCanvas({
 
     visiblePins.forEach((pin) => {
       const existing = markers.get(pin.key)
-      // 색·후기수·찜 모드 여부를 키에 담는다 — 셋 중 하나만 바뀌어도 같은 자리 핀의 아이콘이 갈린다
-      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}|${pin.items.length === 1 ? pin.items[0].reviews.length : ''}${starPins ? '|star' : ''}`
+      // 색·후기수(묶음이면 후기 있는 가게 수)·찜 모드 여부를 키에 담는다 — 셋 중 하나만 바뀌어도 같은 자리 핀의 아이콘이 갈린다
+      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}|${pin.items.length === 1 ? pin.items[0].reviews.length : `r${reviewedIn(pin)}`}${starPins ? '|star' : ''}`
       const focused = pin.items.some((r) => r.id === focusedRef.current)
       if (existing) {
         // 같은 묶음이라도 후기가 새로 달리면 색이 바뀐다 — 아이콘만 갈아끼운다
