@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import {
   checkNickname,
   login,
@@ -15,7 +15,9 @@ import {
 import type { AuthSession, SocialTicket } from '../lib/api'
 import './AuthModal.css'
 import { SiApple, SiNaver } from 'react-icons/si'
+import rabbitWave from '../assets/rabbit-wave.png'
 import turtleWave from '../assets/turtle-wave.png'
+import { CharacterContext } from '../lib/character'
 
 // start: 소셜 버튼 + 이메일 입력. 이메일이 기존 회원이면 로그인, 아니면 가입으로 이어진다.
 // social: 소셜 최초 인증 뒤 닉네임+약관만 받는 가입 화면
@@ -185,6 +187,7 @@ interface AuthModalProps {
 
 export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolicy }: AuthModalProps) {
   const open = mode !== null
+  const character = useContext(CharacterContext)
   // 닫히는 애니메이션 동안 내용이 유지되도록 마지막 모드를 기억한다
   const lastModeRef = useRef<AuthMode>('start')
   if (mode) lastModeRef.current = mode
@@ -696,8 +699,12 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
         return (
           <>
             <div className="auth-modal__hero">
-              {/* 손 흔드는 거북이가 맞아 준다 — 지도 화면 구석에 사는 그 거북이 */}
-              <img className="auth-modal__mascot" src={turtleWave} alt="" width={122} height={120} />
+              {/* 손 흔드는 거북이가 맞아 준다 — 지도 화면 구석에 사는 그 거북이. 카페 화면에서 열었으면 토끼 */}
+              {character === 'rabbit' ? (
+                <img className="auth-modal__mascot auth-modal__mascot--rabbit" src={rabbitWave} alt="" width={130} height={152} />
+              ) : (
+                <img className="auth-modal__mascot" src={turtleWave} alt="" width={122} height={120} />
+              )}
               <h2 className="auth-modal__brand">인터맵</h2>
               <p className="auth-modal__tagline">
                 이웃들이 다녀온 맛집,

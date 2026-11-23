@@ -126,6 +126,25 @@ def resting():
     return render(c, shadow=(19, 26.4, 17, 1.4), heart=(37, 1), smiles=[(hx - 3.2, fy), (hx + 4.0, fy)], mouth=(hx + 0.4, fy + 2.3),
                   blush=[(hx - 5.4, fy + 2.7, 1.7, 1.05), (hx + 6.2, fy + 2.7, 1.7, 1.05)])
 
+def avatar(size=168, fill=0.8):
+    # 기본 프로필용 — 얼굴만 크게: 웃는 얼굴에 한쪽 귀를 접었다. 반짝이·그림자는 없다 (거북이 프로필 그림처럼).
+    # 거북이 프로필 그림(168px 정사각, 가운데)과 같은 판에 얹고, 동그라미에 잘리지 않게 여백을 둔다
+    c = Canvas(38, 30)
+    hx, hy, rx, ry = HEAD
+    ear(c, 11, 2, 15, lean=1)
+    ear_folded(c, 19, 0, 15)
+    c.part(ellipse(hx, hy, rx, ry - 0.1))   # 몸이 없으니 턱 끝에 한 칸 튀어나오지 않게 살짝 납작하게
+    fy = hy - 0.2
+    fig = render(c, smiles=[(hx - 3.2, fy), (hx + 4.0, fy)], mouth=(hx + 0.4, fy + 2.3),
+                 blush=[(hx - 5.4, fy + 2.7, 1.7, 1.05), (hx + 6.2, fy + 2.7, 1.7, 1.05)])
+    fig = trim(fig, pad=0)
+    k = size * fill / max(fig.width, fig.height)
+    fig = fig.resize((round(fig.width * k), round(fig.height * k)), Image.LANCZOS)
+    out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    # 귀 때문에 위로 길다 — 얼굴이 동그라미 가운데쯤 오게 조금 올려 둔다
+    out.paste(fig, ((size - fig.width) // 2 - round(k * K * 0.5), (size - fig.height) // 2 - round(size * 0.02)), fig)
+    return out
+
 def trim(im, pad=2):
     # 빈 가장자리를 잘라 낸다 — 화면에서 거북이와 같은 자리에 서도록
     x0, y0, x1, y1 = im.getbbox()
@@ -138,6 +157,7 @@ if __name__ == '__main__':
         'rabbit-happy': standing('happy', sparks=[(30.4, 12.4, 31.4, 14.6), (32.4, 17.0, 34.4, 18.2), (32.2, 21.4, 34.6, 21.7)]),
         'rabbit-rest': resting(),
     }
+    avatar().save(f'{out}/rabbit-avatar.png', optimize=True)
     for name, im in items.items():
         im = trim(im); im.save(f'{out}/{name}.png', optimize=True)
         # 화면에 그릴 크기: 격자 한 칸이 거북이와 같은 1.89px이 되게 (그림은 한 칸 4px)

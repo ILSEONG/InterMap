@@ -34,6 +34,8 @@ import PollCartBar from './components/PollCartBar'
 import RecapSheet from './components/RecapSheet'
 import { backProfile, pushProfile, setTopList, type ProfileList, type ProfileStep } from './lib/profileStack'
 import { OpenProfileContext } from './lib/openProfile'
+import { CharacterContext } from './lib/character'
+import type { PetCharacter } from './lib/character'
 import { ModerationContext } from './lib/moderation'
 import type { Moderation, ReportTarget } from './lib/moderation'
 import { groups } from './data/model'
@@ -1025,6 +1027,8 @@ export default function App() {
   // 이웃의 카페 후기에 꼬리표가 하나라도 달려 있는지 — 없으면 꼬리표로 거를 게 없어 필터에서 숨긴다
   const cafeTagsInUse = useMemo(() => reviews.some((rv) => (rv.tags?.length ?? 0) > 0 && isCafe(rv.restaurant)), [reviews])
   const hasPet = session?.id != null
+  // 지금 화면의 캐릭터 (lib/character) — 맛집은 거북이, 카페는 토끼
+  const character: PetCharacter = cafeMode ? 'rabbit' : 'turtle'
   // 화면을 바꾼다 (맛집 ↔ 카페)
   const enterPlaceMode = useCallback((mode: PlaceMode) => {
     setPlaceModeChoice(mode)
@@ -1621,6 +1625,8 @@ export default function App() {
   return (
     <OpenProfileContext.Provider value={openProfile}>
     <ModerationContext.Provider value={moderation}>
+    {/* 카페 화면에서는 캐릭터가 토끼 — 지도의 캐릭터뿐 아니라 스토리·후기·프로필의 기본 그림까지 */}
+    <CharacterContext.Provider value={character}>
     <div
       className={`app${searching ? ' app--searching' : ''}${cafeMode ? ' app--night' : ''}`}
       style={Object.fromEntries(Object.entries(groupColors).map(([id, c]) => [`--gc-${id}`, c])) as React.CSSProperties}
@@ -1930,7 +1936,7 @@ export default function App() {
           userId={session.id}
           nickname={session.nickname}
           hidden={petHidden}
-          character={cafeMode ? 'rabbit' : 'turtle'}
+          character={character}
           hint={petHint}
           onAction={(action) => {
             if (action === 'favorites') setFavMode(true)
@@ -2049,6 +2055,7 @@ export default function App() {
       {policyPage && <PolicyViewer page={policyPage} onClose={() => setPolicyPage(null)} />}
       <ConnectionNotice />
     </div>
+    </CharacterContext.Provider>
     </ModerationContext.Provider>
     </OpenProfileContext.Provider>
   )

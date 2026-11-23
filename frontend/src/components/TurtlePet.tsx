@@ -5,12 +5,10 @@ import rabbitWave from '../assets/rabbit-wave.png'
 import happy from '../assets/turtle-happy.png'
 import rest from '../assets/turtle-rest.png'
 import wave from '../assets/turtle-wave.png'
+import type { PetCharacter } from '../lib/character'
 import { chatLines, pickGreeting, rememberVisit } from '../lib/pet'
 import type { PetAction, PetLine, PetMood } from '../lib/pet'
 import './TurtlePet.css'
-
-// 지도에 사는 캐릭터 — 맛집 화면은 거북이, 카페 화면(밤의 카페)은 토끼
-export type PetCharacter = 'turtle' | 'rabbit'
 
 // 자세별 그림과 화면에 그릴 크기.
 // 거북이는 원본 시안에서 그대로 오린 것 — 몸집이 세 장 모두 비슷하게 보이도록 맞췄다.
@@ -41,7 +39,7 @@ interface TurtlePetProps {
   // 다른 화면이 지도를 덮고 있으면 잠시 안 보인다 (말풍선 타이머는 계속 간다).
   // 자리는 그대로 지킨다 — 덮은 화면이 걷히면 걸어 들어오지 않고 그 자리에 그대로 있다
   hidden: boolean
-  // 어느 캐릭터로 설지 — 안 주면 거북이
+  // 어느 캐릭터로 설지 (맛집 화면은 거북이, 카페 화면은 토끼) — 안 주면 거북이
   character?: PetCharacter
   // 밖에서 건네는 한마디 (카페 화면에 처음 들어왔을 때의 안내) — 값이 생기면 그 말풍선을 띄운다
   hint?: PetLine | null

@@ -189,7 +189,7 @@ button:active {
   display: block;
 }
 
-/* 사진이 없을 때의 거북이 — 전체 모습이 동그라미 안에 다 들어오게 */
+/* 사진이 없을 때의 캐릭터(거북이·토끼) — 전체 모습이 동그라미 안에 다 들어오게 */
 .avatar-img--turtle {
   object-fit: contain;
   border-radius: 0;
