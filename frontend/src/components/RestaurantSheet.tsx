@@ -19,6 +19,8 @@ interface RestaurantSheetProps {
   // 주인장(admin)으로 로그인한 상태 — 후기 폼이 주인장 후기로 저장된다
   asOwner: boolean
   groups: FriendGroup[]
+  // 밤의 카페(카페 화면)에서 열렸는지 — 문구를 불빛에 맞춘다. 색은 night.css가 바꾼다
+  night?: boolean
   onClose: () => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
   onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[], tags: string[]) => Promise<void>
@@ -60,6 +62,7 @@ export default function RestaurantSheet({
   ownerReviews,
   asOwner,
   groups,
+  night = false,
   onClose,
   onAddReview,
   myUserId,
@@ -339,6 +342,7 @@ export default function RestaurantSheet({
               ownerReviews={ownerReviews}
               asOwner={asOwner}
               groups={groups}
+              night={night}
               onClose={onClose}
               onExpand={expand}
               onAddReview={onAddReview}
@@ -367,6 +371,8 @@ interface SheetBodyProps {
   ownerReviews: Review[]
   asOwner: boolean
   groups: FriendGroup[]
+  // 밤의 카페(카페 화면)에서 열렸는지 — 문구를 불빛에 맞춘다. 색은 night.css가 바꾼다
+  night?: boolean
   onClose: () => void
   // 후기 쓰기 화면으로 넘어갈 때 시트를 크게 펼친다
   onExpand: () => void
@@ -420,6 +426,7 @@ function SheetBody({
   ownerReviews,
   asOwner,
   groups,
+  night = false,
   onClose,
   onExpand,
   onAddReview,
@@ -855,7 +862,7 @@ function SheetBody({
               </span>
               <span className="restaurant-sheet__visitors">
                 <span className="restaurant-sheet__visitors-main">
-                  이웃 <b>{visitors.length}명</b>이 다녀왔어요
+                  이웃 <b>{visitors.length}명</b>이 {night ? '불을 켰어요' : '다녀왔어요'}
                 </span>
                 <span className="restaurant-sheet__visitors-sub">후기 {restaurant.reviews.length}개 평균</span>
               </span>

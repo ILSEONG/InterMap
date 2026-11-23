@@ -66,8 +66,10 @@ export async function fetchRestaurants(bbox?: BBox): Promise<RestaurantRecord[]>
 
 // 서버 검색 (상한 50건) — 낱말마다 이름·업종·주소 어디든 들어 있으면 걸린다. 아직 뷰포트로 안 받은 영역의 가게도 검색에 걸리게.
 // cuisine: 이 업종 안에서만 찾는다 (카페 화면의 검색). 예전 서버는 이 값을 모르고 전부에서 찾는다 — 받은 뒤 앱이 한 번 더 거른다
-export async function searchRestaurants(q: string, cuisine?: string): Promise<RestaurantRecord[]> {
-  const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}${cuisine ? `&cuisine=${cuisine}` : ''}`)
+export async function searchRestaurants(q: string, cuisine?: string, exceptCuisine?: string): Promise<RestaurantRecord[]> {
+  const only = cuisine ? `&cuisine=${cuisine}` : ''
+  const except = exceptCuisine ? `&exceptCuisine=${exceptCuisine}` : ''
+  const res = await send(`${API_BASE}/api/restaurants?q=${encodeURIComponent(q)}${only}${except}`)
   if (!res.ok) throw new Error(`음식점 검색 실패 (${res.status})`)
   return res.json()
 }
@@ -586,10 +588,18 @@ export async function deleteAvatar(): Promise<void> {
 
 // cuisines: 업종 필터를 켰으면 그 업종의 가게만 센다
 // cafeKinds: 카페 화면에서 종류를 골랐으면 그 종류의 카페만 센다 (cuisines에는 카페가 같이 온다 — 종류를 모르는 예전 서버는 카페 전부를 센다)
-export async function fetchRestaurantCells(bbox: BBox, zoom: number, cuisines: string[] = [], cafeKinds: string[] = []): Promise<ClusterCell[]> {
+export async function fetchRestaurantCells(
+  bbox: BBox,
+  zoom: number,
+  cuisines: string[] = [],
+  cafeKinds: string[] = [],
+  exceptCuisines: string[] = [],
+): Promise<ClusterCell[]> {
   const params = new URLSearchParams(Object.entries({ ...bbox, zoom, v: COORDS_VERSION }).map(([k, v]) => [k, String(v)]))
   if (cuisines.length > 0) params.set('cuisine', cuisines.join(','))
   if (cafeKinds.length > 0) params.set('cafeKind', cafeKinds.join(','))
+  // 고른 업종이 없을 때만 — 이 업종들은 빼고 센다 (맛집 화면: 카페). 이 값을 모르는 예전 서버는 전부 센다
+  if (cuisines.length === 0 && cafeKinds.length === 0 && exceptCuisines.length > 0) params.set('exceptCuisine', exceptCuisines.join(','))
   const res = await send(`${API_BASE}/api/restaurants/summary?${params}`)
   if (!res.ok) throw new Error(`음식점 요약 조회 실패 (${res.status})`)
   return res.json()

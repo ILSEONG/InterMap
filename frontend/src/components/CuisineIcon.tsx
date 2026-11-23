@@ -101,13 +101,6 @@ const SHAPES: Record<string, ReactNode> = {
       <path d="M10 10v.5M14 11v.5M12 15v.5" />
     </>
   ),
-  // 커피잔
-  CAFE: (
-    <>
-      <path d="M5 9h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z" />
-      <path d="M17 10h1a3 3 0 0 1 0 6h-1M8 5v1M11 4v2M14 5v1" />
-    </>
-  ),
   // 맥주잔
   BAR: (
     <>

@@ -254,6 +254,38 @@
   justify-content: center;
 }
 
+/* 밤의 카페: 이웃이 다녀온 가게의 핀 뒤로 번지는 불빛. 누를 수 없고(뒤의 지도·핀이 눌린다), 핀이 많으면 MapCanvas가 아예 안 그린다.
+   그림자·필터가 아니라 그냥 칠한 원이다 */
+.map-pin-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 96px;
+  height: 96px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(243, 189, 108, 0.3) 0%, rgba(243, 189, 108, 0.11) 36%, rgba(243, 189, 108, 0) 68%);
+  pointer-events: none;
+}
+
+.map-pin-glow--small {
+  width: 84px;
+  height: 84px;
+  background: radial-gradient(circle, rgba(243, 189, 108, 0.2) 0%, rgba(243, 189, 108, 0.08) 36%, rgba(243, 189, 108, 0) 68%);
+}
+
+/* 밤의 카페: 지도 그림을 뒤집어 어둡게 한다 — 밝은 땅은 어둡게, 어두운 글자는 밝게, 색조는 되돌리고 조금 따뜻하게.
+   벡터(GL) 지도는 캔버스 한 장이라 그 한 장에만 건다 (핀은 캔버스 밖의 요소라 그대로다) */
+.map-canvas--night .map-canvas__surface canvas {
+  filter: invert(1) hue-rotate(180deg) contrast(0.84) sepia(0.38) saturate(0.7) brightness(0.9);
+}
+
+/* 이미지 타일 지도(벡터 지도를 못 쓰는 기기)는 타일 그림에 건다. 핀 안의 그림은 뺀다.
+   위 규칙과 따로 쓴다 — 오래된 웹뷰가 이 선택자를 못 읽어도 위 규칙은 살아야 한다 */
+.map-canvas--night:not(.map-canvas--gl) .map-canvas__surface img:not(.map-pin img) {
+  filter: invert(1) hue-rotate(180deg) contrast(0.84) sepia(0.38) saturate(0.7) brightness(0.9);
+}
+
 /* 목록에서 방금 고른 가게가 군집 안에 있으면 퍼지는 링으로 구분한다 */
 .map-pin--cluster.map-pin--focused::after {
   content: '';

@@ -1,4 +1,5 @@
-// 업종 필터 — 코드는 서버(Cuisine.java, resources/cuisine/rules.json)와 같다. 순서가 곧 화면에 보이는 순서.
+// 맛집 화면의 업종 필터 — 코드는 서버(Cuisine.java, resources/cuisine/rules.json)와 같다. 순서가 곧 화면에 보이는 순서.
+// 카페(CAFE)는 여기 없다 — 카페는 카페 화면에 따로 있고, 맛집 화면에는 나오지 않는다 (lib/cafe).
 // 가게의 업종은 서버가 정해 준다 (이름 낱말 · 상가(상권)정보 소분류 · 인허가 업종). 정해지지 않은 가게도 있다 —
 // 그런 가게는 업종을 고르지 않았을 때만 보인다.
 export const CUISINES: [code: string, label: string][] = [
@@ -14,7 +15,6 @@ export const CUISINES: [code: string, label: string][] = [
   ['SNACK', '분식'],
   ['CHICKEN', '치킨'],
   ['PIZZA_BURGER', '피자·버거'],
-  ['CAFE', '카페·디저트'],
   ['BAR', '술집'],
 ]
 

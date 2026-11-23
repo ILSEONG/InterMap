@@ -25,6 +25,26 @@ const LONG_TIME = (nickname: string): PetLine => ({
   action: 'nearby',
   actionLabel: '내 주변 둘러보기',
 })
+// 카페 화면(밤의 카페)에 처음 들어왔을 때 한 번 — 카페의 토끼가 불빛이 무슨 뜻인지 알려 준다
+export const NIGHT_CAFE_HINT: PetLine = {
+  mood: 'wave',
+  title: '불 켜진 곳이 이웃이 다녀온 카페',
+  body: '불빛이 없는 점은 아직 아무도 안 가 본 곳이에요.',
+}
+
+const NIGHT_HINT_KEY = 'intermap.cafe.night-hint'
+
+// 이 기기에서 밤의 카페 안내를 아직 안 봤으면 true를 주고, 봤다고 적어 둔다 (저장소를 못 쓰면 매번 안내하지 않게 false)
+export function takeNightCafeHint(): boolean {
+  try {
+    if (localStorage.getItem(NIGHT_HINT_KEY)) return false
+    localStorage.setItem(NIGHT_HINT_KEY, '1')
+    return true
+  } catch {
+    return false
+  }
+}
+
 const TODAY: PetLine = {
   mood: 'rest',
   title: '오늘은 어디로 가볼까요?',
