@@ -106,7 +106,7 @@ class CuisineBackfillTest {
         backfill.fill(SbizPlacesTest.places(sbiz("가나다", "일식 회/초밥", 1)));
 
         double d = 0.0005;
-        Map<Long, String> listed = controller.list(lat - d, lat + d, lng - d, lng + d, null, null).getBody().stream()
+        Map<Long, String> listed = controller.list(lat - d, lat + d, lng - d, lng + d, null, null, null).getBody().stream()
                 .collect(Collectors.toMap(RestaurantController.ListItem::id, i -> String.valueOf(i.cuisine())));
         assertEquals(Map.of(sushi.getId(), "JAPANESE", plain.getId(), "KOREAN", noodle.getId(), "NOODLE"), listed);
 
@@ -140,7 +140,14 @@ class CuisineBackfillTest {
     // 내 가게들이 있는 자리의 요약 셀 건수 합
     private int counted(String cuisine) {
         double d = 0.0005;
-        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, cuisine, null).getBody().stream()
+        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, cuisine, null, null).getBody().stream()
+                .mapToInt(RestaurantController.Cell::count).sum();
+    }
+
+    // 고른 업종만 빼고 센 건수 합 (맛집 화면)
+    private int countedExcept(String exceptCuisine) {
+        double d = 0.0005;
+        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, null, null, exceptCuisine).getBody().stream()
                 .mapToInt(RestaurantController.Cell::count).sum();
     }
 
@@ -165,7 +172,7 @@ class CuisineBackfillTest {
         assertNull(reload(boardGames).getCafeKind());
 
         double d = 0.0005;
-        Map<Long, String> kinds = controller.list(lat - d, lat + d, lng - d, lng + d, null, null).getBody().stream()
+        Map<Long, String> kinds = controller.list(lat - d, lat + d, lng - d, lng + d, null, null, null).getBody().stream()
                 .collect(Collectors.toMap(RestaurantController.ListItem::id, i -> String.valueOf(i.cafeKind())));
         assertEquals(Map.of(coffee.getId(), "COFFEE", bakery.getId(), "BAKERY", dessert.getId(), "DESSERT",
                 boardGames.getId(), "null", korean.getId(), "null"), kinds);
@@ -176,6 +183,12 @@ class CuisineBackfillTest {
         assertEquals(3, countedKind("COFFEE,BAKERY,DESSERT"));
         assertEquals(1, countedKind("COFFEE,없는종류"), "모르는 코드는 버린다");
         assertEquals(0, countedKind("없는종류"), "아는 코드가 하나도 없으면 아무것도 세지 않는다");
+        // 맛집 화면: 카페만 빼고 센다 — 업종을 모르는 보드게임카페와 한식집이 남는다
+        assertEquals(5, counted(null));
+        assertEquals(2, countedExcept("CAFE"));
+        assertEquals(1, countedExcept("CAFE, KOREAN"));
+        assertEquals(2, countedExcept("CAFE,없는업종"), "모르는 코드는 버린다");
+        assertEquals(5, countedExcept("없는업종"), "아는 코드가 하나도 없으면 빼는 것 없이 전부 센다");
 
         AppUser me = users.save(new AppUser("cafekind" + tag + "@test.local", null, "카페" + tag, null));
         String token = UUID.randomUUID().toString();
@@ -193,7 +206,7 @@ class CuisineBackfillTest {
 
     private int countedKind(String cafeKind) {
         double d = 0.0005;
-        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, null, cafeKind).getBody().stream()
+        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, null, cafeKind, null).getBody().stream()
                 .mapToInt(RestaurantController.Cell::count).sum();
     }
 

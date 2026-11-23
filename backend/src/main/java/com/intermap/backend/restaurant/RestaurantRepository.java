@@ -51,6 +51,14 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     List<Object[]> summarizeCuisines(Restaurant.Status status, Collection<String> cuisines,
                                      double minLat, double maxLat, double minLng, double maxLng, double cell);
 
+    // 고른 업종만 빼고 센다 (맛집 화면: 카페를 뺀다). 업종이 안 정해진 가게는 센다
+    @Query("select avg(r.lat), avg(r.lng), count(r) from Restaurant r"
+            + " where r.status = :status and (r.cuisine is null or r.cuisine not in :except)"
+            + " and r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng"
+            + " group by floor(r.lat / :cell), floor(r.lng / :cell)")
+    List<Object[]> summarizeExcept(Restaurant.Status status, Collection<String> except,
+                                   double minLat, double maxLat, double minLng, double maxLng, double cell);
+
     // 카페 화면의 종류 필터 — 카페 가운데 고른 종류(Cuisine.cafeKind)만 센다
     @Query("select avg(r.lat), avg(r.lng), count(r) from Restaurant r"
             + " where r.status = :status and r.cafeKind in :kinds"

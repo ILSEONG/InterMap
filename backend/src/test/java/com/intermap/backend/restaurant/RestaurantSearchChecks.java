@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // 가게 검색(/api/restaurants?q=) — 낱말마다 이름·업종·주소 중 어디든 들어 있으면 걸린다.
@@ -39,7 +40,11 @@ abstract class RestaurantSearchChecks {
     }
 
     private List<Long> search(String q, String cuisine) {
-        ResponseEntity<List<RestaurantController.ListItem>> res = controller.list(null, null, null, null, q, cuisine);
+        return search(q, cuisine, null);
+    }
+
+    private List<Long> search(String q, String cuisine, String exceptCuisine) {
+        ResponseEntity<List<RestaurantController.ListItem>> res = controller.list(null, null, null, null, q, cuisine, exceptCuisine);
         return res.getBody().stream().map(RestaurantController.ListItem::id).toList();
     }
 
@@ -53,6 +58,21 @@ abstract class RestaurantSearchChecks {
         assertEquals(List.of(cafe.getId()), search(tag, "CAFE"));
         assertEquals(List.of(sushi.getId()), search(tag, " JAPANESE "));
         assertEquals(List.of(cafe.getId(), sushi.getId()), search(tag, "없는업종"), "모르는 코드는 없는 셈 친다");
+    }
+
+    // 맛집 화면의 검색: 카페만 뺀다. 업종이 안 정해진 가게는 남는다
+    @Test
+    void aCuisineCanBeLeftOutOfTheSearch() {
+        Restaurant cafe = place("모모커피 " + tag, "커피숍", "서울특별시 중구 검색길 1", "서울특별시 중구 검색동 1");
+        Restaurant sushi = place("모모스시 " + tag, "일식", "서울특별시 중구 검색길 2", "서울특별시 중구 검색동 2");
+        Restaurant unknown = place("모모 " + tag, "기타", "서울특별시 중구 검색길 3", "서울특별시 중구 검색동 3");
+        assertNull(unknown.getCuisine(), "업종을 모르는 가게");
+
+        assertEquals(List.of(cafe.getId(), sushi.getId(), unknown.getId()), search(tag));
+        assertEquals(List.of(sushi.getId(), unknown.getId()), search(tag, null, "CAFE"));
+        assertEquals(List.of(cafe.getId(), unknown.getId()), search(tag, null, " JAPANESE "));
+        assertEquals(List.of(cafe.getId(), sushi.getId(), unknown.getId()), search(tag, null, "없는업종"), "모르는 코드는 없는 셈 친다");
+        assertEquals(List.of(cafe.getId()), search(tag, "CAFE", "JAPANESE"), "둘 다 오면 둘 다 건다");
     }
 
     @Test

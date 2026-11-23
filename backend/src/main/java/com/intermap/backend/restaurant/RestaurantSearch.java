@@ -28,11 +28,14 @@ public class RestaurantSearch {
     }
 
     public List<Restaurant> find(String q, int limit) {
-        return find(q, limit, null);
+        return find(q, limit, null, null);
     }
 
-    /** @param cuisine 이 업종의 가게만 (Cuisine 코드). null이면 전부 */
-    public List<Restaurant> find(String q, int limit, String cuisine) {
+    /**
+     * @param cuisine 이 업종의 가게만 (Cuisine 코드). null이면 전부
+     * @param exceptCuisine 이 업종의 가게는 뺀다 (업종이 안 정해진 가게는 남는다). null이면 빼지 않는다
+     */
+    public List<Restaurant> find(String q, int limit, String cuisine, String exceptCuisine) {
         List<String> words = words(q);
         if (words.isEmpty()) return List.of();
         StringBuilder everywhere = new StringBuilder();
@@ -43,10 +46,12 @@ public class RestaurantSearch {
         }
         // 낱말이 전부 이름에 든 가게를 앞에 — 주소에 "여의도"가 든 수천 곳이 이름이 "여의도…"인 가게를 밀어내지 않게
         TypedQuery<Restaurant> query = em.createQuery("select r from Restaurant r where r.status = :status"
-                + (cuisine == null ? "" : " and r.cuisine = :cuisine") + everywhere
+                + (cuisine == null ? "" : " and r.cuisine = :cuisine")
+                + (exceptCuisine == null ? "" : " and (r.cuisine is null or r.cuisine <> :except)") + everywhere
                 + " order by case when " + inName + " then 0 else 1 end, r.id", Restaurant.class);
         query.setParameter("status", Restaurant.Status.OPEN);
         if (cuisine != null) query.setParameter("cuisine", cuisine);
+        if (exceptCuisine != null) query.setParameter("except", exceptCuisine);
         for (int i = 0; i < words.size(); i++) {
             query.setParameter("w" + i, "%" + words.get(i) + "%");
         }
