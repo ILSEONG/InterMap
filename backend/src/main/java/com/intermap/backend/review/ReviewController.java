@@ -47,15 +47,15 @@ import java.util.stream.Collectors;
 public class ReviewController {
 
     // lat/lng는 조회 응답에만 실린다 — 후기 있는 가게를 줌과 무관하게 핀으로 찍기 위해. 작성 요청은 비워 보낸다.
-    // cuisine(필터용 업종 코드)도 조회 응답에만 실린다
-    public record Place(String name, String category, String address, Double lat, Double lng, String cuisine) {
+    // cuisine(필터용 업종 코드)과 cafeKind(카페의 종류)도 조회 응답에만 실린다
+    public record Place(String name, String category, String address, Double lat, Double lng, String cuisine, String cafeKind) {
         public Place(String name, String category, String address, Double lat, Double lng) {
-            this(name, category, address, lat, lng, null);
+            this(name, category, address, lat, lng, null, null);
         }
     }
 
-    // 후기에 붙일 가게 자리와 업종
-    record Spot(double lat, double lng, String cuisine) {
+    // 후기에 붙일 가게 자리와 업종, 카페면 그 종류
+    record Spot(double lat, double lng, String cuisine, String cafeKind) {
     }
 
     // avatar: 프로필 사진 URL(API 경로) 또는 null
@@ -87,7 +87,7 @@ public class ReviewController {
     public record Item(Long id, Place restaurant, Author author, double rating, String text, String menu,
                        Instant createdAt, List<Long> photoIds, List<String> photoUrls, List<Double> photoRatios) {
         static Item from(Review r, List<Photo> photos, Restaurant place, String avatar) {
-            return from(r, photos, place == null ? null : new Spot(place.getLat(), place.getLng(), place.getCuisine()), avatar);
+            return from(r, photos, place == null ? null : new Spot(place.getLat(), place.getLng(), place.getCuisine(), place.getCafeKind()), avatar);
         }
 
         // spot = 가게를 못 찾았거나 폐업이면 null. 그때 업종은 후기에 적힌 이름과 인허가 업종만으로 정한다
@@ -95,9 +95,11 @@ public class ReviewController {
             AppUser a = r.getAuthor();
             String cuisine = spot != null && spot.cuisine() != null ? spot.cuisine()
                     : Cuisine.of(r.getRestaurantName(), null, r.getRestaurantCategory());
+            String cafeKind = spot != null && spot.cafeKind() != null ? spot.cafeKind()
+                    : Cuisine.cafeKind(cuisine, r.getRestaurantName(), null, r.getRestaurantCategory());
             return new Item(r.getId(),
                     new Place(r.getRestaurantName(), r.getRestaurantCategory(), r.getRestaurantAddress(),
-                            spot == null ? null : spot.lat(), spot == null ? null : spot.lng(), cuisine),
+                            spot == null ? null : spot.lat(), spot == null ? null : spot.lng(), cuisine, cafeKind),
                     new Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
                     r.getRating(), r.getText(), r.getMenu(), r.getCreatedAt(),
                     photos.stream().map(Photo::id).toList(),
@@ -207,7 +209,7 @@ public class ReviewController {
             if (out.containsKey(key)) continue;
             Object[] row = byRoad.getOrDefault(key, byLot.get(key));
             if (row != null && row[5] != Restaurant.Status.CLOSED) {
-                out.put(key, new Spot(((Number) row[3]).doubleValue(), ((Number) row[4]).doubleValue(), (String) row[6]));
+                out.put(key, new Spot(((Number) row[3]).doubleValue(), ((Number) row[4]).doubleValue(), (String) row[6], (String) row[7]));
             }
         }
         return out;

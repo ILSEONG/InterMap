@@ -17,16 +17,16 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     Optional<Restaurant> findFirstByNameAndAddress(String name, String address);
 
     // 후기 목록에 좌표를 붙일 때 — 후기에 나온 상호들의 행을 한 번에 읽는다 (가게마다 따로 조회하지 않게).
-    // 행 = [name, roadAddress, address, lat, lng, status, cuisine]. 같은 상호의 다른 지점도 섞여 오므로 주소는 호출부가 맞춘다.
-    @Query("select r.name, r.roadAddress, r.address, r.lat, r.lng, r.status, r.cuisine from Restaurant r where r.name in :names")
+    // 행 = [name, roadAddress, address, lat, lng, status, cuisine, cafeKind]. 같은 상호의 다른 지점도 섞여 오므로 주소는 호출부가 맞춘다.
+    @Query("select r.name, r.roadAddress, r.address, r.lat, r.lng, r.status, r.cuisine, r.cafeKind from Restaurant r where r.name in :names")
     List<Object[]> findPlaceRowsByNameIn(Collection<String> names);
 
     // 지도용 조회는 status를 받는다 — 폐업 가게는 아예 내려주지 않는다 (호출부가 OPEN을 넘긴다). 검색은 RestaurantSearch
     List<Restaurant> findByStatusAndLatBetweenAndLngBetween(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng);
 
-    // 지도 화면 한 칸의 가게들 — 목록 응답에 실리는 열만 [id, name, category, roadAddress, address, lat, lng, cuisine].
+    // 지도 화면 한 칸의 가게들 — 목록 응답에 실리는 열만 [id, name, category, roadAddress, address, lat, lng, cuisine, cafeKind].
     // 엔티티로 받으면 번화가 한 칸(3천 행)마다 영속성 컨텍스트에 올라가 느리다
-    @Query("select r.id, r.name, r.category, r.roadAddress, r.address, r.lat, r.lng, r.cuisine from Restaurant r"
+    @Query("select r.id, r.name, r.category, r.roadAddress, r.address, r.lat, r.lng, r.cuisine, r.cafeKind from Restaurant r"
             + " where r.status = :status and r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng")
     List<Object[]> findListRows(Restaurant.Status status, double minLat, double maxLat, double minLng, double maxLng);
 
@@ -51,8 +51,16 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     List<Object[]> summarizeCuisines(Restaurant.Status status, Collection<String> cuisines,
                                      double minLat, double maxLat, double minLng, double maxLng, double cell);
 
-    // 업종을 채울 때 훑는 열 — [id, name, category, roadAddress, address, sbizCategory, cuisine]. id 순으로 조금씩 (CuisineBackfill)
-    @Query("select r.id, r.name, r.category, r.roadAddress, r.address, r.sbizCategory, r.cuisine from Restaurant r"
+    // 카페 화면의 종류 필터 — 카페 가운데 고른 종류(Cuisine.cafeKind)만 센다
+    @Query("select avg(r.lat), avg(r.lng), count(r) from Restaurant r"
+            + " where r.status = :status and r.cafeKind in :kinds"
+            + " and r.lat between :minLat and :maxLat and r.lng between :minLng and :maxLng"
+            + " group by floor(r.lat / :cell), floor(r.lng / :cell)")
+    List<Object[]> summarizeCafeKinds(Restaurant.Status status, Collection<String> kinds,
+                                      double minLat, double maxLat, double minLng, double maxLng, double cell);
+
+    // 업종을 채울 때 훑는 열 — [id, name, category, roadAddress, address, sbizCategory, cuisine, cafeKind]. id 순으로 조금씩 (CuisineBackfill)
+    @Query("select r.id, r.name, r.category, r.roadAddress, r.address, r.sbizCategory, r.cuisine, r.cafeKind from Restaurant r"
             + " where r.id > :after order by r.id")
     List<Object[]> findCuisineRows(long after, Pageable page);
 

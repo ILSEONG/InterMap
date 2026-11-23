@@ -78,4 +78,44 @@ class CuisineTest {
         assertFalse(Cuisine.isCode("기타"));
         assertFalse(Cuisine.isCode(null));
     }
+
+    // 음료는 팔지만 카페를 찾는 사람이 가려는 곳은 아닌 가게들
+    @Test
+    void placesThatOnlyServeDrinksOnTheSideAreNotCafes() {
+        assertNull(Cuisine.of("홈즈앤루팡 보드게임카페", null, "기타"));
+        assertNull(Cuisine.of("작심 스터디카페", "카페", "까페"), "상가 소분류와 인허가 업종이 카페라고 해도");
+        assertNull(Cuisine.of("놀숲 만화카페", null, "커피숍"));
+        assertEquals("CAFE", Cuisine.of("북카페 파오", null, "기타"), "책 읽는 카페는 카페");
+        assertEquals("CAFE", Cuisine.of("빽다방 방학역점", null, "기타"), "낱말이 우연히 겹친 것은 그대로 카페");
+        assertEquals("CHICKEN", Cuisine.of("보드게임카페 치킨", null, "기타"), "카페만 빼고 다른 업종은 그대로 본다");
+    }
+
+    @Test
+    void theNewLicenseCategoriesAreCafes() {
+        assertEquals("CAFE", Cuisine.of("성심당", null, "제과점"));
+        assertEquals("CAFE", Cuisine.of("모모", null, "아이스크림"));
+        assertEquals("CAFE", Cuisine.of("모모", null, "과자점"));
+        assertNull(Cuisine.of("모모", null, "편의점"));
+        assertNull(Cuisine.of("모모", null, "기타 휴게음식점"));
+    }
+
+    // 카페의 종류: 이름 낱말(베이커리 → 디저트 → 카페) → 상가 소분류 → 인허가 업종 → 카페
+    @Test
+    void cafesSplitIntoCoffeeBakeryAndDessert() {
+        assertEquals(java.util.List.of("COFFEE", "BAKERY", "DESSERT"), Cuisine.cafeKinds());
+        assertEquals("BAKERY", Cuisine.cafeKind("CAFE", "파리바게뜨 신촌점", "카페", "기타"));
+        assertEquals("BAKERY", Cuisine.cafeKind("CAFE", "오월의 베이커리 카페", null, "커피숍"), "빵집 낱말이 카페 낱말보다 앞선다");
+        assertEquals("DESSERT", Cuisine.cafeKind("CAFE", "설빙 홍대점", "카페", "기타"));
+        assertEquals("DESSERT", Cuisine.cafeKind("CAFE", "누니 케이크", "빵/도넛", "제과점"), "케이크 가게는 빵집이 아니라 디저트");
+        assertEquals("COFFEE", Cuisine.cafeKind("CAFE", "Star Coffee 여의도점", "빵/도넛", "기타"), "이름이 커피면 소분류를 따르지 않는다");
+        assertEquals("BAKERY", Cuisine.cafeKind("CAFE", "성심당", "빵/도넛", "기타"), "이름에 단서가 없으면 상가 소분류");
+        assertEquals("DESSERT", Cuisine.cafeKind("CAFE", "모모", "아이스크림/빙수", "기타"));
+        assertEquals("BAKERY", Cuisine.cafeKind("CAFE", "성심당", null, "제과점"), "그다음은 인허가 업종");
+        assertEquals("DESSERT", Cuisine.cafeKind("CAFE", "모모", null, "아이스크림"));
+        assertEquals("COFFEE", Cuisine.cafeKind("CAFE", "모모", null, "까페"), "어디에도 안 걸리면 카페");
+        assertNull(Cuisine.cafeKind("KOREAN", "빵굽는 한식당", null, "한식"), "카페가 아니면 종류도 없다");
+        assertNull(Cuisine.cafeKind(null, "모모", null, "기타"));
+        assertTrue(Cuisine.isCafeKind("BAKERY"));
+        assertFalse(Cuisine.isCafeKind("CAFE"));
+    }
 }

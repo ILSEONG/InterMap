@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 가게마다 필터용 업종을 채운다 — 상가(상권)정보에서 짝을 찾아 소분류를 적고(SbizPlaces), 규칙대로 업종을 정한다(Cuisine).
+ * 가게마다 필터용 업종을 채운다 — 상가(상권)정보에서 짝을 찾아 소분류를 적고(SbizPlaces), 규칙대로 업종과 카페 종류를 정한다(Cuisine).
  *
  * 도는 때:
  *   - 서버가 켜지고 90초 뒤, 규칙 파일이나 상가 파일이 지난번과 달라졌으면 (배포로 새 규칙·새 분기 데이터가 들어왔을 때)
@@ -116,20 +116,21 @@ public class CuisineBackfill implements ApplicationRunner {
                     long id = (Long) r[0];
                     after = id;
                     String name = (String) r[1], category = (String) r[2];
-                    String oldSbiz = (String) r[5], oldCuisine = (String) r[6];
+                    String oldSbiz = (String) r[5], oldCuisine = (String) r[6], oldKind = (String) r[7];
                     // 상가 파일이 없으면(실리지 않은 빌드) 전에 짝지은 소분류를 지우지 않고 그대로 쓴다
                     String sbiz = places.isEmpty() ? oldSbiz : places.categoryOf(name, (String) r[3], (String) r[4]);
                     String cuisine = Cuisine.of(name, sbiz, category);
+                    String kind = Cuisine.cafeKind(cuisine, name, sbiz, category);
                     seen++;
                     if (sbiz != null) matched++;
-                    if (!Objects.equals(sbiz, oldSbiz) || !Objects.equals(cuisine, oldCuisine)) {
-                        updates.add(new Object[]{sbiz, cuisine, id});
+                    if (!Objects.equals(sbiz, oldSbiz) || !Objects.equals(cuisine, oldCuisine) || !Objects.equals(kind, oldKind)) {
+                        updates.add(new Object[]{sbiz, cuisine, kind, id});
                     }
                 }
                 if (!updates.isEmpty()) {
                     tx.executeWithoutResult(s -> jdbc.batchUpdate(
-                            "update restaurant set sbiz_category = ?, cuisine = ? where id = ?",
-                            updates, new int[]{Types.VARCHAR, Types.VARCHAR, Types.BIGINT}));
+                            "update restaurant set sbiz_category = ?, cuisine = ?, cafe_kind = ? where id = ?",
+                            updates, new int[]{Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.BIGINT}));
                     changed += updates.size();
                 }
             }

@@ -20,6 +20,8 @@ import java.util.Map;
  * (규칙은 resources/cuisine/rules.json, 순서도 거기 적혀 있다):
  *   가게 이름의 낱말("○○칼국수") · 상가(상권)정보의 소분류(SbizPlaces로 짝지은 것) · 인허가 업종
  * 어느 근거로도 정할 수 없으면 null — 그런 가게는 업종을 고르지 않았을 때만 보인다.
+ *
+ * 카페로 정해진 가게는 한 번 더 카페·베이커리·디저트로 가른다 (cafeKind) — 카페 화면의 종류 필터에 쓴다.
  */
 public final class Cuisine {
 
@@ -33,6 +35,14 @@ public final class Cuisine {
     private static final List<Words> NAMES = new ArrayList<>();
     private static final Map<String, Mapped> SBIZ = new HashMap<>();
     private static final Map<String, Mapped> LICENSE = new HashMap<>();
+    // 이름에 이 낱말이 있으면 카페로 치지 않는다 (보드게임카페·스터디카페 …)
+    private static final List<String> NOT_CAFE = new ArrayList<>();
+    private static final String CAFE = "CAFE";
+    // 카페의 종류: 이름 낱말(위에서부터) → 상가 소분류 → 인허가 업종 → 어디에도 안 걸리면 맨 앞의 것(카페)
+    private static final List<String> CAFE_KINDS = new ArrayList<>();
+    private static final List<Words> CAFE_KIND_NAMES = new ArrayList<>();
+    private static final Map<String, String> CAFE_KIND_SBIZ = new HashMap<>();
+    private static final Map<String, String> CAFE_KIND_LICENSE = new HashMap<>();
     private static final String VERSION;
 
     static {
@@ -48,6 +58,16 @@ public final class Cuisine {
             }
             read(root.get("sbiz"), SBIZ);
             read(root.get("license"), LICENSE);
+            root.get("notCafe").forEach(w -> NOT_CAFE.add(w.asText()));
+            JsonNode kinds = root.get("cafeKinds");
+            kinds.get("kinds").forEach(k -> CAFE_KINDS.add(k.asText()));
+            for (JsonNode group : kinds.get("names")) {
+                List<String> words = new ArrayList<>();
+                group.get("words").forEach(w -> words.add(w.asText()));
+                CAFE_KIND_NAMES.add(new Words(knownKind(group.get("kind").asText()), false, words));
+            }
+            kinds.get("sbiz").fields().forEachRemaining(e -> CAFE_KIND_SBIZ.put(e.getKey(), knownKind(e.getValue().asText())));
+            kinds.get("license").fields().forEachRemaining(e -> CAFE_KIND_LICENSE.put(e.getKey(), knownKind(e.getValue().asText())));
             VERSION = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)).substring(0, 16);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -67,6 +87,11 @@ public final class Cuisine {
     private static String known(String code) {
         if (!CODES.contains(code)) throw new IllegalStateException("rules.json에 없는 업종: " + code);
         return code;
+    }
+
+    private static String knownKind(String kind) {
+        if (!CAFE_KINDS.contains(kind)) throw new IllegalStateException("rules.json에 없는 카페 종류: " + kind);
+        return kind;
     }
 
     /** 업종 코드 전부 (필터에 보이는 순서) */
@@ -90,26 +115,70 @@ public final class Cuisine {
      * @return 업종 코드, 정할 수 없으면 null
      */
     public static String of(String name, String sbizCategory, String licenseCategory) {
-        String text = name == null ? "" : name.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
-        String byName = byName(text, false);
+        String text = normalize(name);
+        boolean notCafe = contains(text, NOT_CAFE);
+        String found = decide(text, sbizCategory, licenseCategory, notCafe);
+        // 상가 소분류나 인허가 업종이 카페라고 해도, 이름이 보드게임카페면 카페로 찾는 곳이 아니다
+        return notCafe && CAFE.equals(found) ? null : found;
+    }
+
+    private static String decide(String text, String sbizCategory, String licenseCategory, boolean notCafe) {
+        String byName = byName(text, false, notCafe);
         if (byName != null) return byName;
         Mapped sbiz = sbizCategory == null ? null : SBIZ.get(sbizCategory.trim());
         Mapped license = licenseCategory == null ? null : LICENSE.get(licenseCategory.trim());
         if (sbiz != null && !sbiz.vague()) return sbiz.cuisine();
         if (license != null && !license.vague()) return license.cuisine();
-        String byWeakName = byName(text, true);
+        String byWeakName = byName(text, true, notCafe);
         if (byWeakName != null) return byWeakName;
         if (sbiz != null) return sbiz.cuisine();
         return license == null ? null : license.cuisine();
     }
 
-    private static String byName(String text, boolean weak) {
+    /** 카페 종류 코드 전부 — 맨 앞이 기본(카페) */
+    public static List<String> cafeKinds() {
+        return List.copyOf(CAFE_KINDS);
+    }
+
+    public static boolean isCafeKind(String kind) {
+        return CAFE_KINDS.contains(kind);
+    }
+
+    /**
+     * 카페의 종류 — 카페(COFFEE)·베이커리(BAKERY)·디저트(DESSERT).
+     * @param cuisine 이 가게의 업종 (of의 결과). 카페가 아니면 종류도 없다
+     * @return 종류 코드, 카페가 아니면 null
+     */
+    public static String cafeKind(String cuisine, String name, String sbizCategory, String licenseCategory) {
+        if (!CAFE.equals(cuisine)) return null;
+        String text = normalize(name);
+        for (Words group : CAFE_KIND_NAMES) {
+            if (contains(text, group.words())) return group.cuisine();
+        }
+        String bySbiz = sbizCategory == null ? null : CAFE_KIND_SBIZ.get(sbizCategory.trim());
+        if (bySbiz != null) return bySbiz;
+        String byLicense = licenseCategory == null ? null : CAFE_KIND_LICENSE.get(licenseCategory.trim());
+        return byLicense != null ? byLicense : CAFE_KINDS.get(0);
+    }
+
+    private static String normalize(String name) {
+        return name == null ? "" : name.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+    }
+
+    private static boolean contains(String text, List<String> words) {
+        if (text.isEmpty()) return false;
+        for (String word : words) {
+            if (text.contains(word)) return true;
+        }
+        return false;
+    }
+
+    private static String byName(String text, boolean weak, boolean notCafe) {
         if (text.isEmpty()) return null;
         for (Words group : NAMES) {
             if (group.weak() != weak) continue;
-            for (String word : group.words()) {
-                if (text.contains(word)) return group.cuisine();
-            }
+            if (notCafe && CAFE.equals(group.cuisine())) continue;
+            if (contains(text, group.words())) return group.cuisine();
         }
         return null;
     }

@@ -59,6 +59,9 @@ public class Restaurant {
     // 필터용 업종 코드 (Cuisine) — 이름·상가 소분류·인허가 업종으로 정한다. 정할 수 없으면 null
     private String cuisine;
 
+    // 카페(cuisine = CAFE)의 종류 — COFFEE·BAKERY·DESSERT (Cuisine.cafeKind). 카페가 아니면 null
+    private String cafeKind;
+
     protected Restaurant() {
     }
 
@@ -71,6 +74,7 @@ public class Restaurant {
         this.lng = lng;
         // 새로 들어온 가게도 바로 필터에 걸리게 이름과 인허가 업종만으로 먼저 정한다. 상가 소분류는 CuisineBackfill이 나중에 덧입힌다
         this.cuisine = Cuisine.of(name, null, category);
+        this.cafeKind = Cuisine.cafeKind(this.cuisine, name, null, category);
     }
 
     public Long getId() { return id; }
@@ -87,6 +91,7 @@ public class Restaurant {
     public String getCoordSource() { return coordSource; }
     public String getSbizCategory() { return sbizCategory; }
     public String getCuisine() { return cuisine; }
+    public String getCafeKind() { return cafeKind; }
 
     public void markStatus(Status status, String mgtNo) {
         this.status = status;

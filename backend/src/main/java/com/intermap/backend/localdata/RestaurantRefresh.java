@@ -43,6 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   서버가 켜질 때 지난 목요일 22시 것을 아직 안 했으면 그때 돈다.
  * - 같은 자리에 같은 이름으로 다시 연 가게(주인만 바뀐 경우)는 가게도 후기도 남는다.
  * - 이름·주소가 바뀐 가게는 건드리지 않는다 — 후기가 상호+주소로 가게를 찾아서, 고치면 그 후기가 가게를 잃는다.
+ * - 일반음식점 다음에 휴게음식점·제과점영업도 본다 (카페). 새 가게는 카페만 넣고, 폐업은 똑같이 지운다.
+ *   이 둘은 활용신청이 안 돼 있으면 못 부른다 — 그래도 일반음식점 최신화는 끝까지 한다.
  */
 @Service
 public class RestaurantRefresh implements ApplicationRunner {
@@ -157,6 +159,15 @@ public class RestaurantRefresh implements ApplicationRunner {
         if (!client.isConfigured()) {
             throw new IllegalStateException("LOCALDATA_AUTH_KEY 환경변수가 설정되지 않았습니다");
         }
+        RestaurantImportService.WRITING.lock();
+        try {
+            return refreshLocked(daysBack);
+        } finally {
+            RestaurantImportService.WRITING.unlock();
+        }
+    }
+
+    private Result refreshLocked(int daysBack) {
         // 예전에 폐업으로 표시만 해 둔 가게. 맨 끝에 지운다 — 그 자리에 다시 연 가게가 이번 변경분에 있으면
         // 먼저 들어와 있어야 후기를 남길지 가릴 수 있다. 아래 키에서는 빼서, 다시 연 가게가 "이미 있다"로 걸러지지 않게 한다.
         List<Restaurant> marked = repository.findAllByStatus(Restaurant.Status.CLOSED);
@@ -178,50 +189,64 @@ public class RestaurantRefresh implements ApplicationRunner {
         LocalDate to = LocalDate.now(KST);
         LocalDate from = to.minusDays(daysBack);
         int fetched = 0, added = 0, removed = 0, reviewsRemoved = 0;
-        for (String localCode : localCodes) {
-            List<LocalDataClient.Row> rows = client.fetchChangedSince(localCode.trim(), from, to);
-            fetched += rows.size();
+        // 이번에 새로 넣은 가게의 상호+주소 — 같은 가게가 두 인허가(일반음식점과 제과점 …)에 다 있어도 한 번만 넣는다
+        Set<String> adding = new HashSet<>();
+        for (LocalDataClient.Service service : LocalDataClient.Service.values()) {
+            boolean cafeOnly = service != LocalDataClient.Service.GENERAL;
+            try {
+                for (String localCode : localCodes) {
+                    List<LocalDataClient.Row> rows = client.fetchChangedSince(service, localCode.trim(), from, to);
+                    fetched += rows.size();
 
-            // 1) 폐업: 관리번호가 같은 가게를 지운다. 관리번호가 없는 가게만 상호+주소로 맞춘다 —
-            //    같은 자리에 같은 이름으로 새로 연 가게(관리번호가 다르다)를 옛 가게의 폐업으로 지우지 않게.
-            Set<Long> remove = new HashSet<>();
-            for (LocalDataClient.Row row : rows) {
-                if (!row.isClosed()) continue;
-                Long id = row.mgtNo() == null ? null : idByMgtNo.get(row.mgtNo());
-                if (id == null) {
-                    Long byName = idByNameAddr.get(RestaurantImportService.key(row));
-                    if (byName != null && unlinked.contains(byName)) id = byName;
+                    // 1) 폐업: 관리번호가 같은 가게를 지운다. 관리번호가 없는 가게만 상호+주소로 맞춘다 —
+                    //    같은 자리에 같은 이름으로 새로 연 가게(관리번호가 다르다)를 옛 가게의 폐업으로 지우지 않게.
+                    Set<Long> remove = new HashSet<>();
+                    for (LocalDataClient.Row row : rows) {
+                        if (!row.isClosed()) continue;
+                        Long id = row.mgtNo() == null ? null : idByMgtNo.get(row.mgtNo());
+                        if (id == null) {
+                            Long byName = idByNameAddr.get(RestaurantImportService.key(row));
+                            if (byName != null && unlinked.contains(byName)) id = byName;
+                        }
+                        if (id != null) remove.add(id);
+                    }
+
+                    // 2) 새로 연 가게: 관리번호도, 상호+주소도 처음 보는 영업중 행만 넣는다.
+                    //    상호+주소가 같은 가게가 이번에 지워지는 것이면(같은 자리에 다시 연 가게) 새로 넣는다.
+                    //    휴게음식점·제과점에서는 카페만 넣는다 (편의점·패스트푸드는 받지 않는다)
+                    List<Restaurant> add = new ArrayList<>();
+                    for (LocalDataClient.Row row : rows) {
+                        if (!row.isOpen()) continue;
+                        if (row.mgtNo() != null && idByMgtNo.containsKey(row.mgtNo())) continue;
+                        String key = RestaurantImportService.key(row);
+                        Long sameNameAddr = idByNameAddr.get(key);
+                        if (sameNameAddr != null && !remove.contains(sameNameAddr)) continue;
+                        if (adding.contains(key)) continue;
+                        Restaurant restaurant = cafeOnly ? RestaurantImportService.toCafe(service, row) : RestaurantImportService.toRestaurant(row);
+                        if (restaurant == null) continue;
+                        adding.add(key);
+                        add.add(restaurant);
+                    }
+
+                    List<Long> ids = new ArrayList<>(remove);
+                    List<Place> closed = repository.findAllById(ids).stream().map(Place::of).toList();
+                    deleteRestaurants(ids);
+                    for (int i = 0; i < add.size(); i += BATCH_SIZE) {
+                        repository.saveAll(add.subList(i, Math.min(add.size(), i + BATCH_SIZE)));
+                    }
+                    // 새 가게를 넣은 다음에 본다 — 같은 자리에 다시 연 가게의 후기는 남긴다
+                    int reviewsGone = deleteReviewsOf(closed);
+                    removed += ids.size();
+                    added += add.size();
+                    reviewsRemoved += reviewsGone;
+                    log.info("LOCALDATA {} {} 변경분 {}건: 추가 {}곳, 삭제 {}곳, 후기 삭제 {}개", service.label(), localCode, rows.size(), add.size(), ids.size(), reviewsGone);
                 }
-                if (id != null) remove.add(id);
+            } catch (RuntimeException e) {
+                // 일반음식점을 못 받으면 최신화 실패 (나중에 다시 한다). 카페 쪽은 건너뛰고 끝까지 간다 —
+                // 변경분을 매번 한 달 치씩 다시 보므로 다음 주에 따라잡는다
+                if (!cafeOnly) throw e;
+                log.warn("{} 변경분을 못 받아 이번 최신화에서 건너뜀 (공공데이터포털 활용신청 여부 확인): {}", service.label(), e.getMessage());
             }
-
-            // 2) 새로 연 가게: 관리번호도, 상호+주소도 처음 보는 영업중 행만 넣는다.
-            //    상호+주소가 같은 가게가 이번에 지워지는 것이면(같은 자리에 다시 연 가게) 새로 넣는다.
-            List<Restaurant> add = new ArrayList<>();
-            Set<String> adding = new HashSet<>();
-            for (LocalDataClient.Row row : rows) {
-                if (!row.isOpen()) continue;
-                if (row.mgtNo() != null && idByMgtNo.containsKey(row.mgtNo())) continue;
-                String key = RestaurantImportService.key(row);
-                Long sameNameAddr = idByNameAddr.get(key);
-                if (sameNameAddr != null && !remove.contains(sameNameAddr)) continue;
-                if (!adding.add(key)) continue;
-                Restaurant restaurant = RestaurantImportService.toRestaurant(row);
-                if (restaurant != null) add.add(restaurant);
-            }
-
-            List<Long> ids = new ArrayList<>(remove);
-            List<Place> closed = repository.findAllById(ids).stream().map(Place::of).toList();
-            deleteRestaurants(ids);
-            for (int i = 0; i < add.size(); i += BATCH_SIZE) {
-                repository.saveAll(add.subList(i, Math.min(add.size(), i + BATCH_SIZE)));
-            }
-            // 새 가게를 넣은 다음에 본다 — 같은 자리에 다시 연 가게의 후기는 남긴다
-            int reviewsGone = deleteReviewsOf(closed);
-            removed += ids.size();
-            added += add.size();
-            reviewsRemoved += reviewsGone;
-            log.info("LOCALDATA {} 변경분 {}건: 추가 {}곳, 삭제 {}곳, 후기 삭제 {}개", localCode, rows.size(), add.size(), ids.size(), reviewsGone);
         }
 
         deleteRestaurants(new ArrayList<>(markedIds));
