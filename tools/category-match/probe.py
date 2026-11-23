@@ -14,3 +14,4 @@ for z, cu in [(15, None), (15, 'JAPANESE'), (15, 'JAPANESE,CAFE')]:
     cells = get(f'/summary?minLat=37.50&maxLat=37.56&minLng=126.90&maxLng=126.96&zoom={z}' + (f'&cuisine={cu}' if cu else ''))
     print('요약', z, cu, '→ 셀', len(cells), '· 가게', sum(x['count'] for x in cells))
 print('검색 "타마 여의도":', [(r['name'], r.get('cuisine'), r.get('address')) for r in get('?q=%ED%83%80%EB%A7%88%20%EC%97%AC%EC%9D%98%EB%8F%84')][:5])
+# probe 1795398570
