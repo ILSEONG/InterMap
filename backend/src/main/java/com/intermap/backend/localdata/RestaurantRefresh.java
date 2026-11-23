@@ -245,7 +245,7 @@ public class RestaurantRefresh implements ApplicationRunner {
                 // 일반음식점을 못 받으면 최신화 실패 (나중에 다시 한다). 카페 쪽은 건너뛰고 끝까지 간다 —
                 // 변경분을 매번 한 달 치씩 다시 보므로 다음 주에 따라잡는다
                 if (!cafeOnly) throw e;
-                log.warn("{} 변경분을 못 받아 이번 최신화에서 건너뜀 (공공데이터포털 활용신청 여부 확인): {}", service.label(), e.getMessage());
+                log.warn("{} 변경분을 못 받아 이번 최신화에서 건너뜀 (공공데이터포털 활용신청 여부 확인): {}", service.label(), LocalDataClient.safe(e.getMessage()));
             }
         }
 

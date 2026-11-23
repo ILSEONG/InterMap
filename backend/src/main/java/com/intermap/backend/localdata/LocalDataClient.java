@@ -161,6 +161,11 @@ public class LocalDataClient {
         return all;
     }
 
+    /** 오류 글에서 인증키를 가린다 — 연결 오류는 요청 주소를 통째로 적어서, 그대로 로그에 남기면 키가 같이 남는다 */
+    public static String safe(String message) {
+        return message == null ? null : message.replaceAll("(?i)serviceKey=[^&\\s\"]+", "serviceKey=***");
+    }
+
     private Envelope fetchWithRetry(URI uri) {
         RuntimeException last = null;
         for (int attempt = 1; attempt <= 3; attempt++) {
@@ -168,7 +173,7 @@ public class LocalDataClient {
                 return restClient.get().uri(uri).retrieve().body(Envelope.class);
             } catch (RuntimeException e) {
                 last = e;
-                log.warn("LOCALDATA 요청 실패 ({}차): {}", attempt, e.getMessage());
+                log.warn("LOCALDATA 요청 실패 ({}차): {}", attempt, safe(e.getMessage()));
                 try {
                     Thread.sleep(1000L * attempt);
                 } catch (InterruptedException ie) {

@@ -14,8 +14,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -90,7 +92,7 @@ public class CafeImport implements ApplicationRunner {
             try {
                 runPending();
             } catch (RuntimeException e) {
-                log.warn("카페 받아 오기 실패 — 다음 번에 이어서 해요: {}", e.toString());
+                log.warn("카페 받아 오기 실패 — 다음 번에 이어서 해요: {}", LocalDataClient.safe(e.toString()));
             }
         }, "cafe-import");
         worker.setDaemon(true);
@@ -133,7 +135,7 @@ public class CafeImport implements ApplicationRunner {
                     rows = client.fetchAllOpen(p.service(), p.localCode());
                 } catch (RuntimeException e) {
                     log.warn("카페 받아 오기를 멈춤 — {} {} 를 못 받았어요 (공공데이터포털에서 이 API를 활용신청했는지 확인). 남은 {}개는 다음에 이어서: {}",
-                            p.service().label(), p.localCode(), pending.size() - pending.indexOf(p), e.getMessage());
+                            p.service().label(), p.localCode(), pending.size() - pending.indexOf(p), LocalDataClient.safe(e.getMessage()));
                     break;
                 }
                 if (knownMgtNos == null) {
@@ -145,11 +147,14 @@ public class CafeImport implements ApplicationRunner {
                         knownNameAddrs.add(RestaurantImportService.key((String) r[1], (String) r[2]));
                     }
                 }
-                int here = insert(p.service(), rows, knownMgtNos, knownNameAddrs);
+                Map<String, Integer> leftOut = new HashMap<>();
+                int here = insert(p.service(), rows, knownMgtNos, knownNameAddrs, leftOut);
                 state.put("cafe-import", p.key(), "done", REMEMBER);
                 fetched += rows.size();
                 added += here;
-                log.info("카페 받아 오기 {} {}: 영업중 {}건 가운데 새 카페 {}곳", p.service().label(), p.localCode(), rows.size(), here);
+                // 넣지 않은 행이 어떤 업태였는지도 남긴다 — 카페인데 빠지는 업태가 있으면 규칙(rules.json)을 손본다
+                log.info("카페 받아 오기 {} {}: 영업중 {}건 가운데 새 카페 {}곳. 카페가 아니라서 넣지 않은 업태: {}",
+                        p.service().label(), p.localCode(), rows.size(), here, top(leftOut, 8));
             }
         } finally {
             RestaurantImportService.WRITING.unlock();
@@ -160,8 +165,18 @@ public class CafeImport implements ApplicationRunner {
         return new Result(fetched, added);
     }
 
+    // 많은 것부터 n개 — "편의점 812, 일반조리판매 640"
+    private static String top(Map<String, Integer> counts, int n) {
+        if (counts.isEmpty()) return "없음";
+        return counts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(n).map(e -> e.getKey() + " " + e.getValue()).collect(java.util.stream.Collectors.joining(", "));
+    }
+
     // 처음 보는 카페만 넣는다. 넣은 것은 known에 더해, 같은 가게가 두 인허가에 다 있어도 한 번만 넣는다
-    private int insert(LocalDataClient.Service service, List<LocalDataClient.Row> rows, Set<String> knownMgtNos, Set<String> knownNameAddrs) {
+    // leftOut: 카페가 아니라서(또는 좌표가 없어서) 넣지 않은 행의 업태별 수
+    private int insert(LocalDataClient.Service service, List<LocalDataClient.Row> rows, Set<String> knownMgtNos, Set<String> knownNameAddrs,
+                       Map<String, Integer> leftOut) {
         List<Restaurant> batch = new ArrayList<>();
         int added = 0;
         for (LocalDataClient.Row row : rows) {
@@ -170,7 +185,10 @@ public class CafeImport implements ApplicationRunner {
             String key = RestaurantImportService.key(row);
             if (knownNameAddrs.contains(key)) continue;
             Restaurant cafe = RestaurantImportService.toCafe(service, row);
-            if (cafe == null) continue;
+            if (cafe == null) {
+                leftOut.merge(row.category() == null || row.category().isBlank() ? "(업태 없음)" : row.category().trim(), 1, Integer::sum);
+                continue;
+            }
             if (row.mgtNo() != null) knownMgtNos.add(row.mgtNo());
             knownNameAddrs.add(key);
             batch.add(cafe);
