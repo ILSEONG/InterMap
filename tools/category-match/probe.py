@@ -1,41 +1,31 @@
-"""공공데이터포털의 휴게음식점·제과점 인허가 API 명세(요청 주소·항목)를 본다. 인증키 없이 공개 문서만 읽는다."""
-import json, re, urllib.request, urllib.error
+"""세 인허가 API(일반음식점·휴게음식점·제과점)의 명세가 같은 모양인지 본다. 인증키 없이 공개 문서만 읽는다."""
+import json, re, urllib.request
 UA = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36'}
-def fetch(url, n=60):
-    try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=n) as r:
-            return r.status, r.read().decode('utf-8', 'replace')
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode('utf-8', 'replace')
-    except Exception as e:
-        return 0, repr(e)
-for pk in ['15154916', '15154921', '15155252']:
-    code, html = fetch(f'https://www.data.go.kr/data/{pk}/openapi.do')
-    print('==', pk, code, len(html))
-    print('  주소:', sorted(set(re.findall(r'apis\.data\.go\.kr/[A-Za-z0-9_/\-]+', html)))[:10])
-    for m in sorted(set(re.findall(r'(?:swaggerUrl|swaggerJson|oasUrl|apiDocs?Url|var\s+swagger\w*)\s*[=:]\s*[^\n;]{0,300}', html)))[:6]:
-        print('  스웨거:', m[:400])
-    i = html.find('swaggerJson')
-    if i >= 0:
-        j = html.find('`', i)
-        k = html.find('`', j + 1)
-        spec = html[j + 1:k] if 0 < j < k else ''
-        print('  명세 길이', len(spec))
-        try:
-            d = json.loads(spec)
-            print('  host', d.get('host'), 'basePath', d.get('basePath'), 'servers', d.get('servers'))
-            for path, ops in d.get('paths', {}).items():
-                for verb, op in ops.items():
-                    print('  경로', verb, path, '|', op.get('summary'))
-                    print('    요청:', [(p.get('name'), (p.get('description') or '')[:40]) for p in op.get('parameters', [])])
-            defs = d.get('definitions') or d.get('components', {}).get('schemas', {})
-            for name, sch in defs.items():
-                props = sch.get('properties', {})
-                if len(props) > 5:
-                    print('  응답', name, [(k, (v.get('description') or '')[:24]) for k, v in props.items()])
-        except Exception as e:
-            print('  명세 해석 실패', repr(e), spec[:300])
-# 인증키 없이 불러 보면 주소가 맞는지는 알 수 있다 (없는 서비스면 다른 오류)
-for path in ['general_restaurants', 'rest_cafes', 'rest_restaurants', 'bakeries', 'no_such_service_zz']:
-    code, body = fetch(f'https://apis.data.go.kr/1741000/{path}/info?pageNo=1&numOfRows=1&returnType=json', 30)
-    print('호출', path, code, body[:160].replace('\n', ' '))
+def spec(pk):
+    with urllib.request.urlopen(urllib.request.Request(f'https://www.data.go.kr/data/{pk}/openapi.do', headers=UA), timeout=60) as r:
+        html = r.read().decode('utf-8', 'replace')
+    i = html.find('swaggerJson'); j = html.find('`', i); k = html.find('`', j + 1)
+    return json.loads(html[j + 1:k])
+def names(o, out):
+    if isinstance(o, dict):
+        if 'name' in o and 'in' in o: out['req'].add(o['name'])
+        for k, v in o.items():
+            if k == 'properties' and isinstance(v, dict):
+                for p, d in v.items(): out['res'][p] = (d.get('description') or '')[:30] if isinstance(d, dict) else ''
+            names(v, out)
+    elif isinstance(o, list):
+        for v in o: names(v, out)
+base = None
+for pk, label in [('15154916', '일반음식점'), ('15154921', '휴게음식점'), ('15155252', '제과점영업')]:
+    d = spec(pk); out = {'req': set(), 'res': {}}; names(d, out)
+    print('==', label, d.get('host'), list(d.get('paths', {}).keys()))
+    if base is None:
+        base = out
+        print('  요청 변수:', sorted(out['req']))
+        print('  응답 항목:', out['res'])
+    else:
+        print('  요청 변수 차이:', sorted(out['req'] ^ base['req']))
+        print('  응답 항목 차이:', sorted(set(out['res']) ^ set(base['res'])))
+        need = ['MNG_NO', 'BPLC_NM', 'ROAD_NM_ADDR', 'LOTNO_ADDR', 'BZSTAT_SE_NM', 'CRD_INFO_X', 'CRD_INFO_Y', 'SALS_STTS_CD', 'CLSBIZ_YMD']
+        print('  우리가 쓰는 항목이 다 있나:', {n: n in out['res'] for n in need})
+        print('  조건 변수:', [r for r in sorted(out['req']) if 'OPN_ATMY_GRP_CD' in r or 'DAT_UPDT_PNT' in r or 'SALS_STTS_CD' in r])
