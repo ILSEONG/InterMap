@@ -1805,7 +1805,6 @@ export default function App() {
         }
         asOwner={isAdmin(session)}
         groups={groups}
-        night={cafeMode}
         onClose={() => setSelectedId(null)}
         myUserId={session?.id}
         onAddReview={addReview}

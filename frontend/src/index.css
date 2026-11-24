@@ -1,6 +1,8 @@
 /* 글씨체는 프리텐다드 하나 (한글·영문·숫자 모두). 굵기를 자유롭게 쓰는 가변 글꼴이고,
    글자 묶음별로 잘게 나뉜 파일이라 웹에서는 화면에 나온 글자의 파일만 받아 온다 */
 @import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+/* 가게 이름에 쓰는 명조 — 고운바탕 굵은 것 하나만 (woff2만) */
+@import './fonts/gowun-batang-700.css';
 
 /*
   리퀴드 글래스 테마 토큰.

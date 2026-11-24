@@ -201,13 +201,14 @@
 /* ───────── 상세 화면: 이름·평균 ───────── */
 
 /* 스토리 뷰어도 같은 제목 클래스를 쓴다 (안에 찜 별 버튼이 붙음) */
+/* 가게 이름은 맛집·카페 화면 모두 명조(고운바탕 굵은 것)로 쓴다 */
 .restaurant-sheet__name {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: 'Gowun Batang', var(--font-display);
   font-size: 25px;
   line-height: 1.25;
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
   display: flex;
   align-items: center;

@@ -9,9 +9,6 @@
   - 지도 자체는 네이버 지도의 밝은 그림을 CSS 필터로 뒤집어 어둡게 한다 (MapCanvas.css의 .map-canvas--night).
 */
 
-/* 가게 이름에 쓰는 명조 (굵은 것 하나만, woff2만) */
-@import './fonts/gowun-batang-700.css';
-
 .app--night {
   --map-bg: #1b1816;
 }
@@ -293,12 +290,7 @@ html.platform-android .app--night :is(.app__chrome, .bottom-dock, .map-canvas, .
   box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 236, 210, 0.08);
 }
 
-.app--night .restaurant-sheet__name {
-  font-family: 'Gowun Batang', var(--font-display);
-  letter-spacing: -0.01em;
-}
-
-/* "이웃 N명이 불을 켰어요"의 N명 */
+/* "이웃 N명이 다녀왔어요"의 N명 */
 .app--night .restaurant-sheet__visitors-main b {
   color: var(--lamp);
 }
