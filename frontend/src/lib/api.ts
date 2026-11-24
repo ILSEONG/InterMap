@@ -795,6 +795,8 @@ export interface PollSummary {
   mine: boolean
   voterCount: number
   leader: string | null
+  // 카페 투표인지 — 맛집 화면은 아닌 것만, 카페 화면은 카페 투표만 보여 준다. 가르지 않는 예전 서버는 안 준다 (전부 맛집 쪽)
+  cafe?: boolean
 }
 
 export const POLL_MIN_OPTIONS = 2
@@ -827,8 +829,9 @@ export function pollLink(token: string): string {
   return `${WEB_BASE_URL.replace(/\/$/, '')}/?poll=${encodeURIComponent(token)}`
 }
 
-export function createPoll(title: string, hours: number, options: PollCandidate[]): Promise<PollView> {
-  return postJson<PollView>('/api/polls', { title, hours, options })
+// cafe: 카페 화면에서 만든 투표인지 — "어디 갈래?" 목록이 맛집 투표와 카페 투표를 따로 보여 준다
+export function createPoll(title: string, hours: number, options: PollCandidate[], cafe: boolean): Promise<PollView> {
+  return postJson<PollView>('/api/polls', { title, hours, options, cafe })
 }
 
 export async function fetchPoll(token: string): Promise<PollView> {

@@ -1838,6 +1838,7 @@ export default function App() {
           onSocialChange={applySocial}
           onSessionChange={handleAuthed}
           myReviews={myModeReviews}
+          cafe={cafeMode}
           onOpenReview={openMyReview}
           onBlocksChange={refreshContent}
           onDeleteAccount={handleDeleteAccount}
@@ -2058,6 +2059,7 @@ export default function App() {
           candidates={pollCart}
           onCandidatesChange={setPollCart}
           favorites={favoriteCandidates}
+          cafe={cafeMode}
           onCreated={handlePollCreated}
           onClose={() => setComposerOpen(false)}
         />

@@ -4,6 +4,7 @@ import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AuthController;
 import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.moderation.Blocks;
+import com.intermap.backend.restaurant.Cuisine;
 import com.intermap.backend.review.Review;
 import com.intermap.backend.review.ReviewAudience;
 import com.intermap.backend.review.ReviewRepository;
@@ -51,7 +52,11 @@ public class PollController {
     }
 
     // hours: 마감까지 남길 시간 (1~168, 없으면 24)
-    public record CreateRequest(String title, Integer hours, List<OptionRequest> options) {
+    // cafe: 카페 화면에서 만든 투표면 true, 맛집 화면이면 false. 안 오면(예전 앱) 후보 가게를 보고 가른다
+    public record CreateRequest(String title, Integer hours, List<OptionRequest> options, Boolean cafe) {
+        public CreateRequest(String title, Integer hours, List<OptionRequest> options) {
+            this(title, hours, options, null);
+        }
     }
 
     // voterKey/name은 비회원만 쓴다 (로그인했으면 계정과 닉네임으로 고른다). optionIds가 비면 내 선택을 지운다.
@@ -76,8 +81,9 @@ public class PollController {
     }
 
     // 마이페이지 "투표" 목록 한 줄. leader: 지금(또는 마감 때) 가장 많이 골린 가게 이름, 아무도 안 골랐으면 null
+    // cafe: 카페 투표인지 — 앱의 맛집 화면은 false인 것만, 카페 화면은 true인 것만 보여 준다
     public record Summary(String token, String title, Instant createdAt, Instant closesAt, boolean closed, boolean mine,
-                          int voterCount, String leader) {
+                          int voterCount, String leader, boolean cafe) {
     }
 
     static final int MIN_OPTIONS = 2;
@@ -149,7 +155,7 @@ public class PollController {
             return error(HttpStatus.TOO_MANY_REQUESTS, "오늘은 더 만들 수 없어요. 내일 다시 해주세요.");
         }
 
-        Poll poll = polls.save(new Poll(newToken(), user, title, Instant.now().plus(Duration.ofHours(hours))));
+        Poll poll = polls.save(new Poll(newToken(), user, title, Instant.now().plus(Duration.ofHours(hours)), request.cafe()));
         int position = 0;
         for (OptionRequest o : unique.values()) {
             options.save(new PollOption(poll, position++, o.name(), o.category(), o.address(), o.note().isEmpty() ? null : o.note()));
@@ -268,12 +274,22 @@ public class PollController {
                             .filter(o -> o.getId().equals(top.get(0))).findFirst().map(PollOption::getRestaurantName).orElse(null);
                     return new Summary(p.getToken(), p.getTitle(), p.getCreatedAt(), p.getClosesAt(), p.isClosed(now),
                             p.getCreator().getId().equals(user.getId()),
-                            (int) pv.stream().map(PollVote::getVoterKey).distinct().count(), leader);
+                            (int) pv.stream().map(PollVote::getVoterKey).distinct().count(), leader, isCafe(p, po));
                 })
                 .sorted(Comparator.comparing(Summary::closed).thenComparing(Summary::createdAt, Comparator.reverseOrder()))
                 .limit(30)
                 .toList();
         return ResponseEntity.ok(list);
+    }
+
+    // 카페 투표인지. 만들 때 적어 둔 것이 있으면 그대로, 없으면(예전 투표) 후보의 절반 넘게가 카페일 때 —
+    // 후보에는 가게 이름과 분류만 남아 있어 그 둘로 본다 (Cuisine)
+    static boolean isCafe(Poll poll, List<PollOption> opts) {
+        if (poll.getCafe() != null) return poll.getCafe();
+        long cafes = opts.stream()
+                .filter(o -> "CAFE".equals(Cuisine.of(o.getRestaurantName(), null, o.getRestaurantCategory())))
+                .count();
+        return cafes * 2 > opts.size();
     }
 
     private View view(Poll poll, String voterKey, AppUser viewer) {

@@ -12,6 +12,8 @@ interface PollComposerProps {
   onCandidatesChange: (next: PollCandidate[]) => void
   // 찜한 가게 — 후보로 바로 더할 수 있게 보여준다
   favorites: PollCandidate[]
+  // 카페 화면에서 만드는 투표인지 (후보는 App이 이미 지금 화면의 것만 준다)
+  cafe?: boolean
   onCreated: (poll: PollView) => void
   onClose: () => void
 }
@@ -32,7 +34,7 @@ function CloseIcon() {
 
 // "어디 갈래?" 투표 만들기 — 담아 둔 후보에 한마디를 붙이고 마감을 골라 만든다.
 // 만들면 App이 투표 화면(PollSheet)을 열어 친구에게 보내기를 이어서 한다.
-export default function PollComposer({ candidates, onCandidatesChange, favorites, onCreated, onClose }: PollComposerProps) {
+export default function PollComposer({ candidates, onCandidatesChange, favorites, cafe = false, onCreated, onClose }: PollComposerProps) {
   const [title, setTitle] = useState('')
   const [hours, setHours] = useState(24)
   const [busy, setBusy] = useState(false)
@@ -58,7 +60,7 @@ export default function PollComposer({ candidates, onCandidatesChange, favorites
     setBusy(true)
     setError(null)
     try {
-      const poll = await createPoll(title.trim(), hours, candidates.map((c) => ({ ...c, note: c.note?.trim() || undefined })))
+      const poll = await createPoll(title.trim(), hours, candidates.map((c) => ({ ...c, note: c.note?.trim() || undefined })), cafe)
       onCreated(poll)
     } catch (e) {
       setError((e as Error).message)

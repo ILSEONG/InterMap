@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -155,6 +156,7 @@ class PollTest {
         var theirs = (List<PollController.Summary>) controller.mine(bearer(other)).getBody();
         assertEquals(1, theirs.size());
         assertFalse(theirs.get(0).mine());
+        assertFalse(mine.get(0).cafe(), "맛집 후보로 만든 예전 방식(화면을 안 적은) 투표는 맛집 투표");
 
         assertEquals(HttpStatus.FORBIDDEN, controller.delete(bearer(other), poll.token()).getStatusCode());
         assertEquals(HttpStatus.NO_CONTENT, controller.delete(bearer(me), poll.token()).getStatusCode());
@@ -207,5 +209,26 @@ class PollTest {
         var guest = (PollController.View) controller.get(null, poll.token(), GUEST).getBody();
         assertNull(guest.options().get(0).rating(), "비회원에게는 평점을 보이지 않는다");
         assertEquals(0, guest.options().get(0).reviewCount());
+    }
+
+    // "어디 갈래?" 목록은 맛집 투표와 카페 투표를 따로 보여 준다 — 만든 화면을 적어 두고, 안 적힌 예전 투표는 후보를 보고 가른다
+    @Test
+    void tellsCafePollsFromFoodPolls() {
+        AppUser me = user("me");
+        var cafes = List.of(new PollController.OptionRequest("Star Coffee 망원점", "커피숍", "서울 마포구 망원로 1", null),
+                new PollController.OptionRequest("모모 베이커리", "제과점", "서울 마포구 망원로 2", null));
+        var made = (PollController.View) controller.create(bearer(me),
+                new PollController.CreateRequest("카페 어디?", 24, cafes, true)).getBody();
+        var food = (PollController.View) controller.create(bearer(me),
+                new PollController.CreateRequest("저녁 어디?", 24, List.of(place("가"), place("나나")), false)).getBody();
+        // 예전 앱은 화면을 안 적는다 — 후보가 카페면 카페 투표
+        var old = (PollController.View) controller.create(bearer(me),
+                new PollController.CreateRequest("옛날 앱", 24, cafes)).getBody();
+
+        @SuppressWarnings("unchecked")
+        var mine = (List<PollController.Summary>) controller.mine(bearer(me)).getBody();
+        Map<String, Boolean> cafe = new java.util.HashMap<>();
+        for (PollController.Summary s : mine) cafe.put(s.token(), s.cafe());
+        assertEquals(Map.of(made.token(), true, food.token(), false, old.token(), true), cafe);
     }
 }
