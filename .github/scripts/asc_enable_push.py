@@ -28,7 +28,8 @@ def main() -> int:
         if bundle is None:
             print(f"::warning::앱 ID {identifier} 를 찾지 못했습니다 — 푸시 기능을 켜지 못했어요")
             return 0
-        have = call("GET", "/bundleIds/" + bundle["id"] + "/bundleIdCapabilities?limit=200", jwt)["data"]
+        # (이 목록은 limit을 받지 않는다 — 붙이면 400)
+        have = call("GET", "/bundleIds/" + bundle["id"] + "/bundleIdCapabilities", jwt)["data"]
         if any(c["attributes"].get("capabilityType") == CAPABILITY for c in have):
             print("앱 ID에 Push Notifications가 이미 켜져 있습니다")
             return 0
