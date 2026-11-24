@@ -23,11 +23,6 @@
   cursor: pointer;
 }
 
-.board__close {
-  background: none;
-  color: var(--ink);
-}
-
 .board__tools {
   flex: none;
   display: flex;

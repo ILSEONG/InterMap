@@ -70,8 +70,8 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(118, 118, 128, 0.12);
-  color: var(--ink-2);
+  background: none;
+  color: var(--ink);
   display: flex;
   align-items: center;
   justify-content: center;
