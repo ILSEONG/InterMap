@@ -40,6 +40,8 @@ class CafeImportTest {
     private final List<String> calls = new ArrayList<>();
     // 이 (종류:구)를 부르면 실패한다
     private String failing;
+    // 0보다 크면 failing을 이만큼만 실패시키고 그 뒤로는 받아진다 (잠깐 늦는 API 흉내)
+    private int failTimes;
 
     private CafeImport cafeImport() {
         LocalDataClient client = new LocalDataClient("test-key") {
@@ -47,7 +49,12 @@ class CafeImportTest {
             public List<Row> fetchAllOpen(Service service, String localCode) {
                 String key = service.path() + ":" + localCode;
                 calls.add(key);
-                if (key.equals(failing)) throw new IllegalStateException("활용신청 전");
+                if (key.equals(failing)) {
+                    if (failTimes == 0) throw new IllegalStateException("활용신청 전");
+                    if (failTimes-- > 1) throw new IllegalStateException("시간 초과");
+                    failing = null;
+                    throw new IllegalStateException("시간 초과");
+                }
                 return List.copyOf(open.getOrDefault(key, List.of()));
             }
         };
@@ -153,5 +160,36 @@ class CafeImportTest {
         assertTrue(has("모모B", 22) && has("성심당A", 23));
         assertEquals(List.of("rest_cafes:" + guB, "bakeries:" + guA, "bakeries:" + guB), calls, "이미 받은 구는 다시 부르지 않는다");
         assertEquals(0, cafeImport().pendingCount());
+    }
+
+    // API가 잠깐 늦어 멈춰도 다음 예약 시각까지 기다리지 않는다 — 쉬었다가 남은 구부터 다시 받아 끝까지 간다
+    @Test
+    void keepsGoingAfterAShortOutage() throws Exception {
+        rows(LocalDataClient.Service.REST_CAFE, guA, row("RC-A-" + tag, name("모모A"), addr(31), "커피숍", X, Y));
+        rows(LocalDataClient.Service.REST_CAFE, guB, row("RC-B-" + tag, name("모모B"), addr(32), "커피숍", X, Y));
+        rows(LocalDataClient.Service.BAKERY, guB, row("BK-B-" + tag, name("성심당B"), addr(33), "", X, Y));
+        failing = "rest_cafes:" + guB;
+        failTimes = 2;
+
+        CafeImport cafes = cafeImport();
+        cafes.runUntilDone(5, java.time.Duration.ZERO);
+
+        assertEquals(0, cafes.pendingCount(), "두 번 늦은 뒤 세 번째에 받아서 끝까지 간다");
+        assertTrue(has("모모A", 31) && has("모모B", 32) && has("성심당B", 33));
+        assertEquals(List.of("rest_cafes:" + guA, "rest_cafes:" + guB, "rest_cafes:" + guB, "rest_cafes:" + guB,
+                "bakeries:" + guA, "bakeries:" + guB), calls, "받은 구는 다시 부르지 않고, 못 받은 구만 다시 부른다");
+
+    }
+
+    // 계속 안 되면 정해진 횟수만 해 보고 그만둔다 (다음 예약 시각에 맡긴다)
+    @Test
+    void givesUpAfterAFewRounds() throws Exception {
+        failing = "rest_cafes:" + guA;
+
+        CafeImport cafes = cafeImport();
+        cafes.runUntilDone(3, java.time.Duration.ZERO);
+
+        assertEquals(List.of("rest_cafes:" + guA, "rest_cafes:" + guA, "rest_cafes:" + guA), calls);
+        assertEquals(4, cafes.pendingCount());
     }
 }
