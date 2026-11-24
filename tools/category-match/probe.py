@@ -9,7 +9,7 @@ def total(**extra):
             return sum(c['count'] for c in json.loads(r.read().decode()))
     except Exception as e:
         return f'실패: {type(e).__name__} {getattr(e, "code", "")}'
-for i in range(4):
+for i in range(1):
     row = {
         '전체': total(),
         '카페': total(cuisine='CAFE'),
@@ -19,4 +19,4 @@ for i in range(4):
         '종류 DESSERT': total(cafeKind='DESSERT'),
     }
     print(time.strftime('%H:%M:%S', time.gmtime()), 'UTC', json.dumps(row, ensure_ascii=False), flush=True)
-    if i < 3: time.sleep(240)
+    pass
