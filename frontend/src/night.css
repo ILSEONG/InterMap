@@ -170,7 +170,8 @@ html.platform-android .app--night :is(.app__chrome, .bottom-dock, .map-canvas, .
 .app--night .map-pin--dot {
   width: 12px;
   height: 12px;
-  background: #7a6e62;
+  /* 푸른 회색 — 따뜻한 밤 지도 위에서 눈에 띄되, 호박색 불빛(이웃이 다녀온 곳)과는 확실히 다른 색 */
+  background: #9db4c6;
   border: 1.5px solid var(--night-ground);
 }
 
