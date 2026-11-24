@@ -28,8 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * - (인허가 종류, 구) 하나를 다 받을 때마다 끝났다고 적어 둔다. 도중에 멈춰도(서버 재시작, API 오류) 남은 것만 이어서 받는다.
  * - 이 두 API는 공공데이터포털에서 따로 활용신청을 해야 불린다. 신청 전이면 첫 호출에서 멈추고, 다음 번에 다시 해 본다
  *   (서버가 켜지고 3분 뒤, 그리고 하루 네 번). 다 받고 나면 더는 부르지 않는다.
- * - 공공데이터포털은 응답이 자주 늦는다 (시간 초과). 한 번 멈췄다고 다음 예약 시각까지 몇 시간을 기다리지 않고,
- *   잠깐 쉬었다가 남은 구부터 몇 번 더 이어서 받는다.
+ * - 공공데이터포털은 응답이 자주 늦는다 (시간 초과). 멈추면 사람이 서버를 다시 켜 줄 때까지 기다리지 않고 스스로 다시 시작한다:
+ *   처음 한 시간은 5분마다, 그 뒤로는 30분마다 남은 구부터 이어서 받는다. 다 받을 때까지 그만두지 않는다.
  * - 다 받은 뒤의 새 카페·폐업은 주간 최신화(RestaurantRefresh)가 맡는다.
  * - 이미 있는 가게(같은 관리번호, 또는 같은 상호+주소 — 일반음식점으로 등록한 카페)는 다시 넣지 않는다.
  */
@@ -43,9 +43,10 @@ public class CafeImport implements ApplicationRunner {
     private static final Duration REMEMBER = Duration.ofDays(3650);
     // 서버가 켜진 뒤 이만큼 지나서 시작한다 — 배포 직후의 상태 확인, 업종 채우기(90초 뒤)와 겹치지 않게
     private static final Duration START_DELAY = Duration.ofMinutes(3);
-    // 멈췄을 때 쉬는 시간과 한 번에 다시 해 보는 횟수 — 1시간쯤 해 보고 안 되면 다음 예약 시각에 맡긴다
+    // 멈췄을 때 쉬는 시간과 그 간격으로 다시 해 보는 횟수 — 1시간쯤은 5분마다, 그래도 남으면 30분마다 다 받을 때까지
     private static final Duration PAUSE = Duration.ofMinutes(5);
     private static final int ROUNDS = 12;
+    private static final Duration LONG_PAUSE = Duration.ofMinutes(30);
 
     public record Result(int fetched, int added) {
     }
@@ -94,6 +95,11 @@ public class CafeImport implements ApplicationRunner {
             try {
                 Thread.sleep(delay.toMillis());
                 runUntilDone(ROUNDS, PAUSE);
+                // 한 시간을 해 봐도 남았으면 (포털이 오래 죽었거나 아직 활용신청 전) 천천히, 다 받을 때까지 계속한다
+                while (pendingCount() > 0) {
+                    Thread.sleep(LONG_PAUSE.toMillis());
+                    runUntilDone(1, Duration.ZERO);
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
@@ -107,7 +113,7 @@ public class CafeImport implements ApplicationRunner {
 
     /**
      * 남은 구가 없어질 때까지 받는다. API가 늦어 멈추면 pause만큼 쉬고 남은 구부터 다시 — 많아야 rounds번.
-     * 그래도 남으면 그만두고 다음 예약 시각에 맡긴다.
+     * 그래도 남으면 돌아간다 (부른 쪽이 더 긴 간격으로 이어 간다).
      */
     void runUntilDone(int rounds, Duration pause) throws InterruptedException {
         for (int round = 1; round <= rounds; round++) {
@@ -119,7 +125,7 @@ public class CafeImport implements ApplicationRunner {
             int left = pendingCount();
             if (left == 0) return;
             if (round == rounds) {
-                log.warn("카페 받아 오기: 남은 구 {}개 — 여러 번 해 봐도 못 받아서 다음 예약 시각에 다시 해요", left);
+                log.warn("카페 받아 오기: 남은 구 {}개 — 아직 못 받았어요. {}분 뒤에 다시 해요", left, LONG_PAUSE.toMinutes());
                 return;
             }
             log.info("카페 받아 오기: 남은 구 {}개 — {}분 쉬고 이어서 받아요 ({}/{})", left, pause.toMinutes(), round, rounds);
