@@ -445,17 +445,21 @@
 
 /* 맨 아래 줄 — 댓글 N(펼치면 아래로 목록) · 신고 깃발 */
 .review-card__foot {
+  position: relative;
   margin-top: 10px;
   display: flex;
   align-items: flex-start;
   gap: 8px;
 }
 
+/* 신고 버튼은 첫 줄 오른쪽 끝에 띄워 둔다 (자리를 차지하지 않는다) — 자리를 차지하면 남의 후기에서만
+   댓글 칸이 그만큼 좁아져, 내 후기의 댓글 칸과 너비가 달라 보인다 */
 .review-card__foot .review-card__report {
-  margin-left: auto;
+  position: absolute;
+  top: 0;
+  right: -10px;
   width: 44px;
   height: 36px;
-  margin-right: -10px;
   border-radius: 18px;
 }
 
