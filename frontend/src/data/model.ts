@@ -61,6 +61,8 @@ export interface Comment {
   authorAvatar?: string | null
   text: string
   parentId?: number | null // 있으면 해당 댓글의 대댓글
+  // 비공개 댓글 — 쓴 사람과 후기를 쓴 사람만 본다 (서버가 그 둘에게만 내려 준다)
+  secret?: boolean
 }
 
 export interface Restaurant {

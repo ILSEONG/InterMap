@@ -35,14 +35,17 @@ public interface ReviewCommentRepository extends JpaRepository<ReviewComment, Lo
     @Query("select c from ReviewComment c where c.review.author = :owner and c.author <> :owner and c.createdAt >= :from")
     List<ReviewComment> findOnReviewsOfSince(AppUser owner, Instant from);
 
-    // 알림 — 남이 내 댓글에 단 답글
+    // 알림 — 남이 내 댓글에 단 답글. 내가 볼 수 없는 비공개 답글은 뺀다 (ReviewComment.visibleTo와 같은 규칙:
+    // 비공개 답글은 내가 그 후기를 썼거나, 내 원댓글이 비공개일 때만 보인다)
     @EntityGraph(attributePaths = {"author", "review"})
     @Query("select c from ReviewComment c where c.author <> :owner and c.createdAt >= :from"
-            + " and c.parentId in (select m.id from ReviewComment m where m.author = :owner)")
+            + " and c.parentId in (select m.id from ReviewComment m where m.author = :owner)"
+            + " and (c.secret is null or c.secret = false or c.review.author = :owner"
+            + "      or c.parentId in (select s.id from ReviewComment s where s.author = :owner and s.secret = true))")
     List<ReviewComment> findRepliesToSince(AppUser owner, Instant from);
 
-    // 월간 결산 — 그 기간에 남이 내 후기에 단 댓글 (작성자까지 한 번에)
-    @EntityGraph(attributePaths = "author")
+    // 월간 결산 — 그 기간에 남이 내 후기에 단 댓글 (작성자·후기까지 한 번에 — 어느 후기의 댓글인지로 맛집/카페 결산을 가른다)
+    @EntityGraph(attributePaths = {"author", "review"})
     @Query("select c from ReviewComment c where c.review.author = :owner and c.author <> :owner and c.createdAt >= :from and c.createdAt < :to")
     List<ReviewComment> findOnReviewsOf(AppUser owner, Instant from, Instant to);
 }

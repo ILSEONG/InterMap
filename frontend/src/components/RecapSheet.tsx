@@ -15,6 +15,8 @@ import SheetGrip from './SheetGrip'
 interface RecapSheetProps {
   // 처음 보여 줄 달 ("2026-10"). 없으면 이번 달
   month?: string
+  // 카페 화면에서 열었으면 카페 후기만 센 결산 (맛집 화면은 카페를 뺀 결산)
+  cafe?: boolean
   onClose: () => void
 }
 
@@ -41,10 +43,12 @@ const toCard = (b: Blobs): Card => ({ ...b, frontUrl: URL.createObjectURL(b.fron
 // 그린 카드 기억 키 — 테마와 결산 내용이 같으면 같은 카드 (Blob이라 메모리에만)
 const cardKey = (r: Recap, theme: string) => `recapCard:${theme}:${JSON.stringify(r)}`
 // 결산 숫자는 기기에도 남긴다 (lib/query가 'recap' 키를 저장)
-const recapKey = (month: string) => cacheKey('recap', month)
-const knownRecap = (month: string) => readCache<Recap>(recapKey(month))
+// 맛집 결산과 카페 결산은 따로 기억한다
+const recapKeyOf = (month: string, cafe: boolean) => (cafe ? cacheKey('recap', month, 'cafe') : cacheKey('recap', month))
 
-export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetProps) {
+export default function RecapSheet({ month: initialMonth, cafe = false, onClose }: RecapSheetProps) {
+  const recapKey = (m: string) => recapKeyOf(m, cafe)
+  const knownRecap = (m: string) => readCache<Recap>(recapKey(m))
   const [month, setMonth] = useState(initialMonth ?? kstMonth())
   // 전에 본 달이면 기억해 둔 결산·카드로 바로 그린다 — 새 값은 뒤에서 받아, 내용이 달라졌을 때만 바꾼다 (lib/query)
   const [initial] = useState(() => {
@@ -94,7 +98,7 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
     if (known && known !== fetched) show(known)
     // 같은 달을 동시에 여러 번 불러도 요청은 한 번, 실패하면 두 번까지 다시 시도
     queryClient
-      .fetchQuery({ queryKey: [...recapKey(month), 'fresh'], queryFn: () => fetchRecap(month), staleTime: 0, gcTime: 0, retry: 2 })
+      .fetchQuery({ queryKey: [...recapKey(month), 'fresh'], queryFn: () => fetchRecap(month, cafe ? 'cafe' : 'food'), staleTime: 0, gcTime: 0, retry: 2 })
       .then((next) => {
         if (cancelled) return
         // 서버는 요청한 달을 돌려준다 — 화면 비교는 요청한 달 기준으로
@@ -201,7 +205,7 @@ export default function RecapSheet({ month: initialMonth, onClose }: RecapSheetP
           { blob: card.front, name: `intermap-${month}-1.png` },
           { blob: card.back, name: `intermap-${month}-2.png` },
         ],
-        `${monthLabel(month)} 맛집 결산`,
+        `${monthLabel(month)} ${recap?.scope === 'cafe' ? '카페' : '맛집'} 결산`,
       )
       if (result === 'saved') setToast('앞·뒤 이미지를 저장했어요')
     } catch (e) {

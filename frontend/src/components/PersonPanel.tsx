@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Restaurant } from '../data/model'
+import { isCafe } from '../lib/cafe'
 import { categoryName, iGa } from '../lib/taste'
 import { reviewDate } from '../lib/time'
 import Avatar from './Avatar'
@@ -100,7 +101,7 @@ export default function PersonPanel({
               <span className="person-panel__place-text">
                 <span className="person-panel__place-name">{p.restaurant.name}</span>
                 <span className="person-panel__place-sub">
-                  {categoryName(p.restaurant.category) ?? '음식점'} · {reviewDate(p.at)}
+                  {categoryName(p.restaurant.category) ?? (isCafe(p.restaurant) ? '카페' : '음식점')} · {reviewDate(p.at)}
                 </span>
               </span>
               <span className="person-panel__rating">

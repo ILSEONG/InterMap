@@ -8,8 +8,11 @@ interface ReviewCommentsProps {
   comments: Comment[]
   // 로그인 사용자 id — 내 댓글에만 삭제 버튼이 보인다
   myUserId?: number
-  // 성공하면 true — 실패하면 입력을 지우지 않는다 (네트워크 오류·하루 한도에 쓴 글이 날아가지 않게)
-  onAdd: (text: string, parentId?: number) => Promise<boolean>
+  // 이 후기를 쓴 사람 — 비공개 댓글은 쓴 사람과 이 사람만 본다. 후기를 쓴 본인에게는 비공개 칸을 안 보여 준다 (혼자만 보는 글이 된다)
+  reviewAuthorId?: number
+  // 성공하면 true — 실패하면 입력을 지우지 않는다 (네트워크 오류·하루 한도에 쓴 글이 날아가지 않게).
+  // secret이면 비공개 댓글
+  onAdd: (text: string, parentId?: number, secret?: boolean) => Promise<boolean>
   onDelete: (commentId: number) => void
   // 가게 시트 목록용 — 펼침 버튼을 말풍선 + "댓글 N"으로 짧게
   compact?: boolean
@@ -28,18 +31,33 @@ function SendIcon() {
   )
 }
 
+// 입력칸 옆 "비공개" 체크박스 — 켜고 올리면 쓴 사람과 후기를 쓴 사람만 본다.
+// forced: 비공개 댓글에 다는 답글은 늘 비공개라 켜진 채로 잠근다
+function SecretCheck({ checked, onChange, forced = false }: { checked: boolean; onChange: (next: boolean) => void; forced?: boolean }) {
+  return (
+    <label className="comment__secret" title="후기를 쓴 사람과 나만 볼 수 있어요">
+      <input type="checkbox" checked={forced || checked} disabled={forced} onChange={(e) => onChange(e.target.checked)} />
+      비공개
+    </label>
+  )
+}
+
 // 후기 카드 아래에 붙는 댓글 트레이 — 후기 단위로 접고 편다.
 // 접힌 상태에선 "댓글 N개 보기"(없으면 "댓글 달기")만 보이고, 펴면 목록과 입력이 나온다.
 // 가게 시트와 스토리 뷰어가 같이 쓴다. 스타일은 RestaurantSheet.css에 있다.
-export default function ReviewComments({ comments, myUserId, onAdd, onDelete, compact = false, inline = false, inputId }: ReviewCommentsProps) {
+export default function ReviewComments({ comments, myUserId, reviewAuthorId, onAdd, onDelete, compact = false, inline = false, inputId }: ReviewCommentsProps) {
   const [openState, setOpen] = useState(false)
   const open = inline || openState
   const [writing, setWriting] = useState(false)
   const [draft, setDraft] = useState('')
+  const [secret, setSecret] = useState(false)
+  // 후기를 쓴 본인은 비공개로 쓸 일이 없다 (볼 사람이 자기뿐이다)
+  const canHide = myUserId === undefined || myUserId !== reviewAuthorId
   const roots = comments.filter((c) => !c.parentId)
 
   function stopWriting() {
     setDraft('')
+    setSecret(false)
     setWriting(false)
   }
 
@@ -64,7 +82,7 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete, co
   async function submit() {
     if (!draft.trim() || sending) return
     setSending(true)
-    const ok = await onAdd(draft.trim())
+    const ok = await onAdd(draft.trim(), undefined, canHide && secret)
     setSending(false)
     if (ok) stopWriting()
   }
@@ -93,7 +111,8 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete, co
                 comment={comment}
                 replies={comments.filter((c) => c.parentId === comment.id)}
                 myUserId={myUserId}
-                onReply={(text) => onAdd(text, comment.id)}
+                canHide={canHide}
+                onReply={(text, hide) => onAdd(text, comment.id, hide)}
                 onDelete={onDelete}
               />
             ))}
@@ -111,6 +130,7 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete, co
             placeholder="이 후기에 댓글 남기기"
             aria-label="댓글 입력"
           />
+          {canHide && <SecretCheck checked={secret} onChange={setSecret} />}
           <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim() || sending}>
             <SendIcon />
             <span className="comment__send-label">등록</span>
@@ -142,7 +162,8 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete, co
                   comment={comment}
                   replies={comments.filter((c) => c.parentId === comment.id)}
                   myUserId={myUserId}
-                  onReply={(text) => onAdd(text, comment.id)}
+                  canHide={canHide}
+                  onReply={(text, hide) => onAdd(text, comment.id, hide)}
                   onDelete={onDelete}
                 />
               ))}
@@ -174,6 +195,7 @@ export default function ReviewComments({ comments, myUserId, onAdd, onDelete, co
                 aria-label="댓글 입력"
                 autoFocus
               />
+              {canHide && <SecretCheck checked={secret} onChange={setSecret} />}
               <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim() || sending}>
                 <SendIcon />
                 <span className="comment__send-label">등록</span>
@@ -190,16 +212,22 @@ interface CommentItemProps {
   comment: Comment
   replies: Comment[]
   myUserId?: number
-  onReply: (text: string) => Promise<boolean>
+  // 비공개 칸을 보여 줄지 (후기를 쓴 본인이면 false)
+  canHide: boolean
+  onReply: (text: string, secret?: boolean) => Promise<boolean>
   onDelete: (commentId: number) => void
 }
 
-function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentItemProps) {
+function CommentItem({ comment, replies, myUserId, canHide, onReply, onDelete }: CommentItemProps) {
   const [replying, setReplying] = useState(false)
   const [draft, setDraft] = useState('')
+  const [secret, setSecret] = useState(false)
+  // 비공개 댓글에 다는 답글은 늘 비공개 (서버도 그렇게 저장한다)
+  const forced = !!comment.secret
 
   function close() {
     setDraft('')
+    setSecret(false)
     setReplying(false)
   }
 
@@ -207,7 +235,7 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
   async function submit() {
     if (!draft.trim() || sending) return
     setSending(true)
-    const ok = await onReply(draft.trim())
+    const ok = await onReply(draft.trim(), forced || (canHide && secret))
     setSending(false)
     if (ok) close()
   }
@@ -261,6 +289,7 @@ function CommentItem({ comment, replies, myUserId, onReply, onDelete }: CommentI
               aria-label="답글 입력"
               autoFocus
             />
+            {(forced || canHide) && <SecretCheck checked={secret} onChange={setSecret} forced={forced} />}
             <button type="button" className="comment__send" onClick={submit} disabled={!draft.trim() || sending}>
               <SendIcon />
               <span className="comment__send-label">등록</span>
@@ -329,6 +358,7 @@ function CommentRow({ comment, small, children }: CommentRowProps) {
           ) : (
             <span className="comment__author">{comment.authorName}</span>
           )}{' '}
+          {comment.secret && <span className="comment__secret-mark">비공개</span>}
           <span className="comment__text">{comment.text}</span>
         </p>
         {children}

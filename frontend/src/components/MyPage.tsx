@@ -5,6 +5,7 @@ import { useDebounced } from '../lib/useDebounced'
 import { useBackLayer } from '../lib/backLayer'
 import type { ReactNode } from 'react'
 import type { AuthSession, BlockedPerson, Person, SocialData, UserItem } from '../lib/api'
+import { isCafe } from '../lib/cafe'
 import {
   changeNickname,
   followUser,
@@ -46,8 +47,10 @@ interface MyPageProps {
   onSocialChange: (next: SocialData) => void
   // 닉네임을 바꾸면 새 세션(localStorage 포함)으로 갱신
   onSessionChange: (next: AuthSession) => void
-  // 내가 쓴 후기 전부, 최신순
+  // 지금 화면(맛집/카페)에서 내가 쓴 후기, 최신순
   myReviews: Review[]
+  // 카페 화면에서 열었는지 — "어디 갈래?" 목록도 화면의 투표만 보여 준다
+  cafe?: boolean
   // 후기를 누르면 그 가게 시트를 연다
   onOpenReview: (review: Review) => void
   // 차단을 풀면 — App이 후기·댓글을 다시 받는다
@@ -151,6 +154,7 @@ export default function MyPage({
   onSocialChange,
   onSessionChange,
   myReviews,
+  cafe = false,
   onOpenReview,
   onBlocksChange,
   onDeleteAccount,
@@ -186,7 +190,9 @@ export default function MyPage({
   // 지난번 목록으로 바로 그리고(기기에도 저장) 열 때마다 새로 받는다 — 목록이 늦게 끼어들며 아래가 밀리지 않게.
   // 앱이 켜져 있으면(닫혀 있어도) 미리 받아 둔다 — 마이페이지를 처음 열 때도 목록이 이미 있다
   const [pollData, , pollsQuery] = useServerState<PollSummary[]>(['myPolls'], fetchMyPolls)
-  const polls: PollSummary[] | null = pollData ?? (pollsQuery.isError ? [] : null)
+  // 지금 화면의 투표만 — 맛집 화면에는 맛집 투표, 카페 화면에는 카페 투표
+  const allPolls: PollSummary[] | null = pollData ?? (pollsQuery.isError ? [] : null)
+  const polls = allPolls === null ? null : allPolls.filter((p) => !!p.cafe === cafe)
   // 회원 탈퇴 확인 단계
   const [leaving, setLeaving] = useState(false)
   // 내 정보 / 사람 찾기(검색·팔로잉·팔로워) / 차단한 사용자
@@ -741,7 +747,7 @@ export default function MyPage({
                             <span className="my-page__review-text">
                               <span className="my-page__review-name">{r.restaurant.name}</span>
                               <span className="my-page__review-sub">
-                                {categoryName(r.restaurant.category) ?? '음식점'} · {reviewDate(r.createdAt)}
+                                {categoryName(r.restaurant.category) ?? (isCafe(r.restaurant) ? '카페' : '음식점')} · {reviewDate(r.createdAt)}
                               </span>
                             </span>
                             <span className="my-page__review-rating">

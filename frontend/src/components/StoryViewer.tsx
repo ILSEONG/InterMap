@@ -21,7 +21,7 @@ interface StoryViewerProps {
   comments: Record<number, Comment[]>
   // 내 댓글 판별용 로그인 사용자 id
   myUserId?: number
-  onAddComment: (reviewId: number, text: string, parentId?: number) => Promise<boolean>
+  onAddComment: (reviewId: number, text: string, parentId?: number, secret?: boolean) => Promise<boolean>
   onDeleteComment: (reviewId: number, commentId: number) => void
   // 찜한 가게 키("이름|주소") 모음 + 별 버튼 토글
   favorites: Set<string>
@@ -309,7 +309,8 @@ export default function StoryViewer({
                     inputId={`story-comment-${review.id}`}
                     comments={comments[review.id] ?? []}
                     myUserId={myUserId}
-                    onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                    reviewAuthorId={review.author.id}
+                    onAdd={(text, parentId, secret) => onAddComment(review.id, text, parentId, secret)}
                     onDelete={(commentId) => onDeleteComment(review.id, commentId)}
                   />
                 </div>

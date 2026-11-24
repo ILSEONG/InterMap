@@ -19,7 +19,7 @@ export function personaOf(r: Recap): string {
   if (r.topArea && r.topArea.count >= 2 && r.topArea.count / r.places >= 0.5) return `${areaShort(r.topArea.name)} 터줏대감`
   if (r.avgRating !== null && r.avgRating >= 4.5) return '칭찬 요정'
   if (r.avgRating !== null && r.avgRating <= 3) return '깐깐한 미식가'
-  if (r.places >= 8) return '프로 맛집러'
+  if (r.places >= 8) return r.scope === 'cafe' ? '프로 카페러' : '프로 맛집러'
   return '동네 미식가'
 }
 
@@ -258,7 +258,7 @@ function cardText(r: Recap): string {
     ...r.categories.map((c) => c.name),
     ...r.areas.map((a) => a.name),
     ...r.list.map((p) => p.name),
-    '이번 달 다녀온 곳 많이 간 장르 동네 이달의 맛집 Top 3 평균 별점 단골 손님 나의 칭호 댓글 개 장',
+    '이번 달 다녀온 곳 많이 간 장르 동네 이달의 맛집 카페 Top 3 평균 별점 단골 손님 나의 칭호 댓글 개 장',
     ...rowsOf(r).flatMap((row) => [row.label, row.value, row.sub ?? '']),
   ].join('')
 }
@@ -441,7 +441,7 @@ async function drawBack(r: Recap, t: RecapTheme): Promise<Blob> {
 
   // 이달의 맛집 Top 3 — 별점 높은 순 (같으면 먼저 간 곳)
   const best = [...r.list].sort((a, b) => b.rating - a.rating).slice(0, 3)
-  rankList('이달의 맛집 Top 3', best, x, 1050, inner, '-')
+  rankList(r.scope === 'cafe' ? '이달의 카페 Top 3' : '이달의 맛집 Top 3', best, x, 1050, inner, '-')
 
   // 아래 두 숫자
   const statY = 1450

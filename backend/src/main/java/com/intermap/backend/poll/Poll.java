@@ -38,14 +38,24 @@ public class Poll {
 
     private Instant closedAt;
 
+    // 카페 화면에서 만든 투표인지 — 앱의 "어디 갈래?" 목록이 맛집 투표와 카페 투표를 따로 보여 준다.
+    // 이 칸이 생기기 전의 투표는 null (그때는 후보 가게를 보고 가른다, PollController.isCafe)
+    @Column(name = "is_cafe")
+    private Boolean cafe;
+
     protected Poll() {
     }
 
     public Poll(String token, AppUser creator, String title, Instant closesAt) {
+        this(token, creator, title, closesAt, null);
+    }
+
+    public Poll(String token, AppUser creator, String title, Instant closesAt, Boolean cafe) {
         this.token = token;
         this.creator = creator;
         this.title = title;
         this.closesAt = closesAt;
+        this.cafe = cafe;
     }
 
     public boolean isClosed(Instant now) {
@@ -68,4 +78,5 @@ public class Poll {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getClosesAt() { return closesAt; }
     public Instant getClosedAt() { return closedAt; }
+    public Boolean getCafe() { return cafe; }
 }

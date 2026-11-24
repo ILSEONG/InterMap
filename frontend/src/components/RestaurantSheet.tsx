@@ -30,7 +30,7 @@ interface RestaurantSheetProps {
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: number) => Promise<boolean>
+  onAddComment: (reviewId: number, text: string, parentId?: number, secret?: boolean) => Promise<boolean>
   onDeleteComment: (reviewId: number, commentId: number) => void
   // 이 가게를 찜했는지 + 별 버튼 토글
   favored: boolean
@@ -384,7 +384,7 @@ interface SheetBodyProps {
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
-  onAddComment: (reviewId: number, text: string, parentId?: number) => Promise<boolean>
+  onAddComment: (reviewId: number, text: string, parentId?: number, secret?: boolean) => Promise<boolean>
   onDeleteComment: (reviewId: number, commentId: number) => void
   // 이 가게를 찜했는지 + 별 버튼 토글
   favored: boolean
@@ -918,7 +918,8 @@ function SheetBody({
                       compact
                       comments={comments[review.id] ?? []}
                       myUserId={myUserId}
-                      onAdd={(text, parentId) => onAddComment(review.id, text, parentId)}
+                      reviewAuthorId={review.author.id}
+                      onAdd={(text, parentId, secret) => onAddComment(review.id, text, parentId, secret)}
                       onDelete={(commentId) => onDeleteComment(review.id, commentId)}
                     />
                   }

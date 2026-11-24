@@ -401,6 +401,8 @@ export interface UserProfile {
   blocked: boolean
   // 팔로우 전에도 보이는 후기 수 (주인장은 0)
   reviewCount: number
+  // 그 가운데 카페 후기 수 — 맛집 화면은 나머지를, 카페 화면은 이 수를 보여 준다. 나눠 세지 않는 예전 서버는 안 준다
+  cafeReviewCount?: number
   // 내가 보낸 팔로우 요청이 수락 대기 중 / 이 사람은 팔로우를 직접 수락한다
   requested?: boolean
   manualApproval?: boolean
@@ -523,6 +525,8 @@ export interface CommentRecord {
   author: { id: number; name: string; owner: boolean; avatar: string | null }
   text: string
   createdAt: string
+  // 비공개 댓글 — 쓴 사람과 후기를 쓴 사람에게만 온다. 비공개를 모르는 예전 서버는 안 준다
+  secret?: boolean
 }
 
 // 전체 댓글 (오래된 순). 후기 목록처럼 통으로 받고 프론트가 후기별로 나눈다.
@@ -532,9 +536,9 @@ export async function fetchComments(): Promise<CommentRecord[]> {
   return res.json()
 }
 
-// 로그인 필요. parentId가 있으면 그 댓글의 대댓글로 달린다.
-export function postComment(reviewId: number, text: string, parentId?: number): Promise<CommentRecord> {
-  return postJson<CommentRecord>('/api/comments', { reviewId, text, parentId })
+// 로그인 필요. parentId가 있으면 그 댓글의 대댓글로 달린다. secret이면 나와 후기를 쓴 사람만 보는 비공개 댓글
+export function postComment(reviewId: number, text: string, parentId?: number, secret?: boolean): Promise<CommentRecord> {
+  return postJson<CommentRecord>('/api/comments', { reviewId, text, parentId, secret: secret || undefined })
 }
 
 // 내 댓글 삭제. 원댓글이면 서버가 답글까지 지운다.
@@ -791,6 +795,8 @@ export interface PollSummary {
   mine: boolean
   voterCount: number
   leader: string | null
+  // 카페 투표인지 — 맛집 화면은 아닌 것만, 카페 화면은 카페 투표만 보여 준다. 가르지 않는 예전 서버는 안 준다 (전부 맛집 쪽)
+  cafe?: boolean
 }
 
 export const POLL_MIN_OPTIONS = 2
@@ -823,8 +829,9 @@ export function pollLink(token: string): string {
   return `${WEB_BASE_URL.replace(/\/$/, '')}/?poll=${encodeURIComponent(token)}`
 }
 
-export function createPoll(title: string, hours: number, options: PollCandidate[]): Promise<PollView> {
-  return postJson<PollView>('/api/polls', { title, hours, options })
+// cafe: 카페 화면에서 만든 투표인지 — "어디 갈래?" 목록이 맛집 투표와 카페 투표를 따로 보여 준다
+export function createPoll(title: string, hours: number, options: PollCandidate[], cafe: boolean): Promise<PollView> {
+  return postJson<PollView>('/api/polls', { title, hours, options, cafe })
 }
 
 export async function fetchPoll(token: string): Promise<PollView> {
@@ -885,10 +892,17 @@ export interface Recap {
   // 많이 간 장르·동네 Top 3
   categories: { name: string; count: number }[]
   areas: { name: string; count: number }[]
+  // 무엇의 결산인지 — 'cafe'면 카페 후기만, 'food'면 카페를 뺀 후기만 센 것. 나눠 세지 않는 예전 서버는 안 준다 (전부 센 것)
+  scope?: 'cafe' | 'food' | null
 }
 
-export async function fetchRecap(month?: string): Promise<Recap> {
-  const res = await send(`${API_BASE}/api/me/recap${month ? `?month=${month}` : ''}`, { headers: authHeaders() })
+// scope: 맛집 화면은 'food', 카페 화면은 'cafe' — 결산도 화면마다 따로 센다
+export async function fetchRecap(month?: string, scope?: 'cafe' | 'food'): Promise<Recap> {
+  const params = new URLSearchParams()
+  if (month) params.set('month', month)
+  if (scope) params.set('scope', scope)
+  const query = params.toString()
+  const res = await send(`${API_BASE}/api/me/recap${query ? `?${query}` : ''}`, { headers: authHeaders() })
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new Error(data?.message ?? `결산을 불러오지 못했어요 (${res.status})`)
   return data

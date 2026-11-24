@@ -1001,6 +1001,43 @@ button.comment__author:active {
   margin-top: 8px;
 }
 
+/* 입력칸 옆 "비공개" 체크박스 — 켜면 쓴 사람과 후기를 쓴 사람만 보는 댓글. 위의 input 규칙(넓게 늘리는 입력칸)을 체크박스가 물려받지 않게 되돌린다 */
+.restaurant-sheet__comment-form label.comment__secret {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.restaurant-sheet__comment-form label.comment__secret input[type='checkbox'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  accent-color: var(--ink);
+}
+
+/* 비공개 댓글 앞에 붙는 표시 */
+.comment__secret-mark {
+  margin-right: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--fill);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  vertical-align: 1px;
+}
+
 /* 등록 버튼 — 기본은 "등록" 글자 알약, 시트 안에선 위 화살표 원형 버튼("등록"은 스크린리더용으로 남긴다) */
 .comment__send {
   flex: none;
