@@ -16,6 +16,9 @@ public interface PushTokenRepository extends JpaRepository<PushToken, Long> {
     @Query("select t.token from PushToken t where t.user = :user")
     List<String> tokensOf(AppUser user);
 
+    // 알림을 보낼 기기들 (토큰과 플랫폼)
+    List<PushToken> findAllByUser(AppUser user);
+
     // 로그아웃·앱 삭제(FCM이 없는 토큰이라고 알려 줌) 때 그 기기만
     @Transactional
     @Modifying(flushAutomatically = true, clearAutomatically = true)

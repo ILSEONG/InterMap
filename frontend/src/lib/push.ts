@@ -1,15 +1,20 @@
 import { Capacitor } from '@capacitor/core'
 import { registerPushToken, unregisterPushToken } from './api'
 
-// 푸시 알림 (안드로이드 앱 전용, Firebase Cloud Messaging).
-// google-services.json을 넣어 빌드한 앱에서만 켠다 — 그 파일 없이 등록을 부르면 앱이 죽는다 (Firebase가 초기화되지 않음).
-// 빌드할 때 VITE_PUSH_ENABLED=true 로 알려 준다 (.github/workflows/android-*.yml)
+// 푸시 알림 (안드로이드·아이폰 앱).
+// - 안드로이드: Firebase Cloud Messaging. google-services.json을 넣어 빌드한 앱에서만 켠다 — 그 파일 없이 등록을 부르면
+//   앱이 죽는다 (Firebase가 초기화되지 않음).
+// - 아이폰: Apple 푸시(APNs)를 그대로 쓴다 (Firebase 없음). 푸시 권한(aps-environment)을 실어 서명한 앱에서만 켠다 —
+//   권한 없이 등록하면 실패만 하고 토큰이 오지 않는다. 앱이 받는 값은 Apple 기기 토큰이고, 서버가 Apple로 직접 보낸다.
+// 빌드할 때 VITE_PUSH_ENABLED=true 로 알려 준다 (.github/workflows/android-*.yml, ios-testflight.yml)
 const ENABLED = import.meta.env.VITE_PUSH_ENABLED === 'true'
 const TOKEN_KEY = 'intermap.pushToken'
 // 서버 PushService.CHANNEL, AndroidManifest의 default_notification_channel_id와 같은 이름
 const CHANNEL = 'intermap'
 
-export const pushAvailable = () => ENABLED && Capacitor.getPlatform() === 'android'
+// 이 기기의 플랫폼 — 서버가 어느 쪽(FCM / Apple)으로 보낼지 가르는 값
+const platform = () => Capacitor.getPlatform()
+export const pushAvailable = () => ENABLED && (platform() === 'android' || platform() === 'ios')
 
 interface PushHandlers {
   // 알림을 눌러 앱에 들어왔다
@@ -30,7 +35,7 @@ export async function startPush(handlers: PushHandlers): Promise<() => void> {
       } catch {
         // 저장 못 해도 등록은 한다 (로그아웃 때 해제를 못 할 뿐 — 다음 로그인이 토큰을 옮겨 간다)
       }
-      void registerPushToken(value).catch(() => {})
+      void registerPushToken(value, platform() === 'ios' ? 'ios' : 'android').catch(() => {})
     }),
     PushNotifications.addListener('registrationError', (e) => console.warn('푸시 등록 실패', e)),
     PushNotifications.addListener('pushNotificationReceived', () => handlers.onReceive()),
@@ -38,13 +43,16 @@ export async function startPush(handlers: PushHandlers): Promise<() => void> {
   ])
   const stop = () => listeners.forEach((l) => void l.remove())
   try {
-    await PushNotifications.createChannel({
-      id: CHANNEL,
-      name: '알림',
-      description: '댓글, 답글, 팔로우 알림',
-      importance: 4,
-      visibility: 1,
-    })
+    // 알림 채널은 안드로이드에만 있다 (아이폰에서 부르면 "없는 기능" 오류가 나 아래 등록까지 못 간다)
+    if (platform() === 'android') {
+      await PushNotifications.createChannel({
+        id: CHANNEL,
+        name: '알림',
+        description: '댓글, 답글, 팔로우 알림',
+        importance: 4,
+        visibility: 1,
+      })
+    }
     let permission = await PushNotifications.checkPermissions()
     if (permission.receive === 'prompt' || permission.receive === 'prompt-with-rationale') {
       permission = await PushNotifications.requestPermissions()
