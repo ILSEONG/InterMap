@@ -701,7 +701,7 @@ export default function AuthModal({ mode, social, onClose, onAuthed, onOpenPolic
             <div className="auth-modal__hero">
               {/* 손 흔드는 거북이가 맞아 준다 — 지도 화면 구석에 사는 그 거북이. 카페 화면에서 열었으면 토끼 */}
               {character === 'rabbit' ? (
-                <img className="auth-modal__mascot auth-modal__mascot--rabbit" src={rabbitWave} alt="" width={129} height={139} />
+                <img className="auth-modal__mascot auth-modal__mascot--rabbit" src={rabbitWave} alt="" width={177} height={213} />
               ) : (
                 <img className="auth-modal__mascot" src={turtleWave} alt="" width={122} height={120} />
               )}

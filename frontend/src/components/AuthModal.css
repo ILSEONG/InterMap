@@ -135,9 +135,9 @@ html.ios-typing .auth-modal__hero {
   image-rendering: pixelated;
 }
 
-/* 토끼는 귀와 꼬리만큼 그림이 넓다 — 거북이와 같은 배율이 되게 */
+/* 토끼는 거북이보다 좁고 키가 크다 — 지도에서와 같은 비율로 */
 .auth-modal__mascot--rabbit {
-  width: 97px;
+  width: 82px;
 }
 
 .auth-modal__brand {
@@ -646,7 +646,7 @@ html.ios-typing .auth-modal__form > .auth-modal__submit:disabled {
     width: 72px;
   }
   .auth-modal__mascot--rabbit {
-    width: 76px;
+    width: 64px;
   }
   .auth-modal__input {
     height: 50px;
