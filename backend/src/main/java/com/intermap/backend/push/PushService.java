@@ -29,8 +29,9 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-// 푸시 알림 발송 (Firebase Cloud Messaging HTTP v1). 서비스 계정 키(FCM_SERVICE_ACCOUNT)가 없으면 아무것도 보내지 않는다.
-// 알림은 요청을 처리하는 스레드가 아니라 뒤에서 따로 보낸다 — FCM이 느리거나 죽어도 댓글·팔로우는 그대로 끝난다.
+// 푸시 알림 발송. 안드로이드 기기는 Firebase Cloud Messaging(HTTP v1)으로, 아이폰 기기는 Apple 서버로 직접(ApnsSender) 보낸다.
+// 서비스 계정 키(FCM_SERVICE_ACCOUNT)가 없으면 안드로이드로, Apple 키(APNS_KEY)가 없으면 아이폰으로 보내지 않는다.
+// 알림은 요청을 처리하는 스레드가 아니라 뒤에서 따로 보낸다 — FCM·Apple이 느리거나 죽어도 댓글·팔로우는 그대로 끝난다.
 @Service
 public class PushService {
 
@@ -39,6 +40,8 @@ public class PushService {
     // 앱이 만들어 두는 알림 채널 (frontend lib/push.ts와 같은 이름)
     static final String CHANNEL = "intermap";
     static final int MAX_BODY = 120;
+    // 아이폰 기기의 플랫폼 값 (앱 lib/push.ts가 등록할 때 보낸다)
+    static final String IOS = "ios";
 
     private final PushTokenRepository tokens;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -51,6 +54,7 @@ public class PushService {
 
     private final boolean configured;
     private final ExternalCalls calls;
+    private final ApnsSender apns;
     private String projectId;
     private String clientEmail;
     private String tokenUri;
@@ -61,8 +65,9 @@ public class PushService {
     private Instant accessTokenExpiry = Instant.EPOCH;
 
     public PushService(PushTokenRepository tokens, @Value("${fcm.service-account:}") String serviceAccount,
-                       ExternalCalls calls) {
+                       ExternalCalls calls, ApnsSender apns) {
         this.calls = calls;
+        this.apns = apns;
         this.tokens = tokens;
         this.configured = load(serviceAccount);
     }
@@ -99,13 +104,20 @@ public class PushService {
     // to의 모든 기기로 알림을 보낸다. data는 앱이 알림을 눌렀을 때 받는 값 (문자열만).
     // 진행 중인 트랜잭션이 있으면 커밋된 뒤에 보낸다 — 저장이 취소됐는데 알림만 가는 일이 없게.
     public void send(AppUser to, String title, String body, Map<String, String> data) {
-        if (!configured || to == null) return;
-        List<String> targets = tokens.tokensOf(to);
+        if ((!configured && !apns.isConfigured()) || to == null) return;
+        // 기기마다 [토큰, 플랫폼] — 아이폰('ios')은 Apple로, 나머지는 FCM으로. 그쪽 키가 없는 기기는 건너뛴다
+        List<String[]> targets = tokens.findAllByUser(to).stream()
+                .map(t -> new String[]{t.getToken(), t.getPlatform()})
+                .filter(t -> IOS.equals(t[1]) ? apns.isConfigured() : configured)
+                .toList();
         if (targets.isEmpty()) return;
         String text = body == null ? "" : body.strip();
         String shortBody = text.length() > MAX_BODY ? text.substring(0, MAX_BODY - 1) + "…" : text;
         Runnable task = () -> {
-            for (String target : targets) deliver(target, title, shortBody, data);
+            for (String[] target : targets) {
+                if (IOS.equals(target[1])) deliverToIphone(target[0], title, shortBody, data);
+                else deliver(target[0], title, shortBody, data);
+            }
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -116,6 +128,20 @@ public class PushService {
             });
         } else {
             sender.submit(task);
+        }
+    }
+
+    private void deliverToIphone(String target, String title, String body, Map<String, String> data) {
+        ApnsSender.Result result = apns.send(target, title, body, data);
+        switch (result.outcome()) {
+            case SENT -> calls.ok(ExternalCalls.PUSH);
+            // 앱을 지웠거나 토큰이 바뀐 기기 — 더 보내지 않게 지운다 (발송 장애가 아니라 실패로 세지 않는다)
+            case GONE -> tokens.deleteByTokenValue(target);
+            case FAILED -> {
+                // Apple이 알려 준 이유(BadCertificate, InvalidProviderToken …)만 남긴다 — 기기 토큰·키는 없다
+                log.warn("아이폰 푸시 발송 실패: {}", result.detail());
+                calls.fail(ExternalCalls.PUSH, "APNs " + result.detail());
+            }
         }
     }
 

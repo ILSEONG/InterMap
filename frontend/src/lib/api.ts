@@ -482,8 +482,9 @@ export function markNoticesSeen(): Promise<NoticeData> {
 }
 
 // 푸시 알림을 받을 기기(FCM 토큰) 등록 — 로그인한 채 앱이 켜질 때마다 (lib/push.ts)
-export function registerPushToken(token: string): Promise<{ ok: boolean }> {
-  return postJson<{ ok: boolean }>('/api/me/push-token', { token, platform: 'android' })
+// platform: 서버가 이 기기로 보낼 때 FCM(android)으로 보낼지 Apple(ios)로 보낼지 가른다
+export function registerPushToken(token: string, platform: 'android' | 'ios' = 'android'): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>('/api/me/push-token', { token, platform })
 }
 
 // 로그아웃할 때 이 기기만 해제. 세션 없이도 된다 (토큰 값이 그 기기라는 증거)
