@@ -295,7 +295,8 @@ html.platform-android .app--night :is(.app__chrome, .bottom-dock, .map-canvas, .
   color: var(--lamp);
 }
 
-.app--night .restaurant-sheet__icon-btn,
+/* 닫기·뒤로(--plain)는 낮 화면처럼 바탕 없이 아이콘만 — 닫기 버튼은 어디서나 같은 모양이다 */
+.app--night .restaurant-sheet__icon-btn:not(.restaurant-sheet__icon-btn--plain),
 .app--night .review-card__edit {
   background: var(--fill-strong);
 }
