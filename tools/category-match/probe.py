@@ -1,4 +1,4 @@
-"""카페 받아 오기가 얼마나 진행됐는지 본다 — 운영 서버의 공개 요약 API만 읽는다 (쓰지 않는다, 천천히). 다시 확인."""
+"""카페 받아 오기가 얼마나 진행됐는지 본다 — 운영 서버의 공개 요약 API만 읽는다 (쓰지 않는다, 천천히). 다시 확인 (완료 여부)."""
 import json, time, urllib.request, urllib.parse
 BASE = 'https://intermap-be.onrender.com/api/restaurants/summary'
 SEOUL = dict(minLat=37.41, maxLat=37.72, minLng=126.76, maxLng=127.19, zoom=9)
