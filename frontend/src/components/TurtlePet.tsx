@@ -70,8 +70,16 @@ export default function TurtlePet({ userId, nickname, hidden, character = 'turtl
     return () => window.clearTimeout(timer)
   }, [userId])
 
+  // 밖에서 건넨 안내. 밖에서 거두면(카페 안내인데 맛집 화면으로 돌아갔을 때) 아직 떠 있는 그 말풍선도 내린다
+  const shownHint = useRef<PetLine | null>(null)
   useEffect(() => {
-    if (!hint) return
+    if (!hint) {
+      const gone = shownHint.current
+      shownHint.current = null
+      if (gone) setLine((now) => (now === gone ? null : now))
+      return
+    }
+    shownHint.current = hint
     setLine(hint)
     setMood(hint.mood)
   }, [hint])

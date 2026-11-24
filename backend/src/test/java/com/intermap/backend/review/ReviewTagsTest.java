@@ -56,6 +56,14 @@ class ReviewTagsTest {
         assertEquals(List.of(), ReviewTags.read(null));
     }
 
+    // 몇 명이 가기 좋은지(규모)도 같은 꼬리표에 실린다 — 카페의 좋은 점 뒤에, 정해진 순서로
+    @Test
+    void keepsPartySizesAlongsideCafeTags() {
+        assertEquals("MOOD,SOLO,LARGE", ReviewTags.store(List.of("LARGE", "SOLO", "MOOD")));
+        assertEquals("SMALL", ReviewTags.store(List.of("SMALL")));
+        assertEquals(List.of("WORK", "SOLO", "SMALL"), ReviewTags.read("WORK,SOLO,SMALL"));
+    }
+
     private ReviewController.Item item(ResponseEntity<?> response) {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         return (ReviewController.Item) response.getBody();

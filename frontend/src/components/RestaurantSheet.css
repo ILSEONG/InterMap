@@ -25,10 +25,15 @@
   transition: visibility 0s linear 300ms;
 }
 
+/* 열려 있어도 시트 바깥은 손길을 그대로 통과시킨다 — 시트를 연 채로 뒤의 지도를 옮기고 다른 핀을 누를 수 있게.
+   (지도의 빈 곳을 톡 누르면 App이 시트를 닫는다. 시트 자신은 아래에서 다시 손길을 받는다) */
 .restaurant-sheet-overlay--open {
   visibility: visible;
-  pointer-events: auto;
   transition-delay: 0s;
+}
+
+.restaurant-sheet-overlay--open .restaurant-sheet {
+  pointer-events: auto;
 }
 
 .restaurant-sheet {
