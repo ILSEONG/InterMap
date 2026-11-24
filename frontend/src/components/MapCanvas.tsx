@@ -646,6 +646,13 @@ export default function MapCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetOpen, dockHeight, mapReady, panToVisible])
 
+  // 맛집 ↔ 카페로 화면이 바뀌면 골라 둔 핀(이름표)과 한 자리 가게 목록을 지운다 — 다른 화면의 가게가 남아 있지 않게.
+  // 바로 아래 focus보다 먼저 돈다: 후기·스토리에서 다른 화면의 가게로 넘어올 때는 지운 뒤에 그 가게가 다시 잡힌다
+  useEffect(() => {
+    infoWindowRef.current?.close()
+    setFocusedId(undefined)
+  }, [night])
+
   useEffect(() => {
     if (!mapReady || !focus) return
     focusRestaurant(restaurantsRef.current.find((r) => r.id === focus.id) ?? focus, !!focus.sheet)

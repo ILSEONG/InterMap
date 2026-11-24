@@ -13,8 +13,10 @@ import SheetGrip from './SheetGrip'
 
 interface FollowingBoardProps {
   people: Person[]
-  // 앱이 받은 후기 전체 (팔로우한 사람 + 나). 사람마다 최근 후기·개수·입맛 꼬리표를 여기서 뽑는다
+  // 지금 화면(맛집/카페)의 후기 (팔로우한 사람 + 나). 사람마다 최근 후기·개수·입맛 꼬리표를 여기서 뽑는다
   reviews: Review[]
+  // 카페 화면에서 열었는지 — reviews는 App이 이미 지금 화면의 것만 준다. 새 후기를 본 때만 화면마다 따로 남긴다
+  cafe?: boolean
   onShowOnMap: (userId: number) => void
   onOpenProfile: (userId: number) => void
   // 24시간 안에 후기를 올려 스토리가 있는 이웃 — 새 후기 빨간 테두리일 때 누르면 프로필 대신 스토리
@@ -47,6 +49,7 @@ interface Row {
 export default function FollowingBoard({
   people,
   reviews,
+  cafe = false,
   onShowOnMap,
   onOpenProfile,
   storyIds,
@@ -57,10 +60,10 @@ export default function FollowingBoard({
 }: FollowingBoardProps) {
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
-  const [seenAt] = useState(readBoardSeen)
+  const [seenAt] = useState(() => readBoardSeen(cafe))
 
   // 열었으면 지금까지의 후기는 본 것으로 — 다음에 열 때부터 그 뒤 후기만 새 후기
-  useEffect(markBoardSeen, [])
+  useEffect(() => markBoardSeen(cafe), [cafe])
 
   useEffect(() => {
     if (hidden) return

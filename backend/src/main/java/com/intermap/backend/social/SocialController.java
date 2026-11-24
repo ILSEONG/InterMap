@@ -8,6 +8,8 @@ import com.intermap.backend.auth.DailyLimits;
 import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.push.PushService;
+import com.intermap.backend.review.Review;
+import com.intermap.backend.review.ReviewKinds;
 import com.intermap.backend.review.ReviewRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -62,9 +64,10 @@ public class SocialController {
     // 여기선 프론트가 모르는 것(사진, 후기·팔로잉·팔로워 수, 관계)만 준다. blocked = 내가 이 사람을 차단했는지
     // reviewCount: 팔로우 전에도 보여준다 (주인장 후기는 가게 시트 전용이라 0)
     // requested = 내가 보낸 팔로우 요청이 수락 대기 중, manualApproval = 이 사람은 팔로우를 직접 수락한다
+    // cafeReviewCount: reviewCount 가운데 카페 후기 수 — 앱의 맛집 화면은 나머지를, 카페 화면은 이 수를 보여 준다
     public record Profile(Long id, String nickname, String alias, String avatar, boolean following, boolean followsMe,
                           long followingCount, long followerCount, boolean blocked, long reviewCount,
-                          boolean requested, boolean manualApproval) {
+                          boolean requested, boolean manualApproval, long cafeReviewCount) {
     }
 
     // 하루 팔로우 수 — 모든 사용자를 한꺼번에 팔로우하는 도배 방지
@@ -80,10 +83,12 @@ public class SocialController {
     private final Blocks blocks;
     private final DailyLimits limits;
     private final ReviewRepository reviews;
+    private final ReviewKinds kinds;
 
     public SocialController(FollowRepository follows, UserAliasRepository aliases, AppUserRepository users, AuthController auth,
                             UserAvatarRepository avatars, Blocks blocks, DailyLimits limits, ReviewRepository reviews,
-                            FollowRequestRepository requests, PushService push) {
+                            FollowRequestRepository requests, PushService push, ReviewKinds kinds) {
+        this.kinds = kinds;
         this.limits = limits;
         this.push = push;
         this.requests = requests;
@@ -296,14 +301,18 @@ public class SocialController {
         boolean following = follows.findByFollowerAndFollowee(me, target).isPresent();
         boolean followsMe = follows.findByFollowerAndFollowee(target, me).isPresent();
         String alias = aliases.findByOwnerAndTarget(me, target).map(UserAlias::getAlias).orElse(null);
+        // 주인장 후기는 가게 시트 전용이라 세지 않는다
+        boolean owner = AdminSeeder.ADMIN_EMAIL.equals(target.getEmail());
+        List<Review> theirs = owner ? List.of() : reviews.findAllByAuthor(target);
         return ResponseEntity.ok(new Profile(target.getId(), target.getNickname(), alias, avatars.urlOf(target.getId()),
                 following, followsMe,
                 following ? follows.countByFollower(target) : -1,
                 following ? follows.countByFollowee(target) : -1,
                 blocks.blockedBy(me, target),
-                AdminSeeder.ADMIN_EMAIL.equals(target.getEmail()) ? 0 : reviews.countByAuthor(target),
+                theirs.size(),
                 requests.findByRequesterAndTarget(me, target).isPresent(),
-                target.isManualFollowApproval()));
+                target.isManualFollowApproval(),
+                kinds.cafeIds(theirs).size()));
     }
 
     // 다른 사람의 팔로잉·팔로워 목록. 프로필의 수와 같은 기준 — 내가 팔로우 중인 사람만 볼 수 있다.

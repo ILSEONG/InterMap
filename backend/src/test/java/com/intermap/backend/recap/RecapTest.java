@@ -103,6 +103,43 @@ class RecapTest {
         assertEquals(HttpStatus.UNAUTHORIZED, controller.recap(null, null).getStatusCode());
     }
 
+    // 맛집 결산과 카페 결산은 따로 센다 — 후기도, 그 후기에 받은 댓글도, 넘겨 볼 달도
+    @Test
+    void countsCafesApartFromFood() {
+        AppUser me = user("me");
+        AppUser fan = user("fan");
+        String suffix = UUID.randomUUID().toString().substring(0, 6);
+        Review ramen = review(me, "라멘C" + suffix, "일식>라멘", "서울특별시 마포구 포은로 5", 4.0, LocalDateTime.of(2026, 11, 3, 12, 0));
+        Review coffee = review(me, "Star Coffee " + suffix, "커피숍", "서울특별시 마포구 포은로 6", 5.0, LocalDateTime.of(2026, 11, 4, 15, 0));
+        review(me, "Star Coffee 옛날" + suffix, "커피숍", "서울특별시 마포구 포은로 7", 3.0, LocalDateTime.of(2026, 8, 4, 15, 0));
+        comments.saveAndFlush(new ReviewComment(ramen, fan, null, "라멘 좋죠"));
+        comments.saveAndFlush(new ReviewComment(coffee, fan, null, "커피 맛있어요?"));
+        comments.saveAndFlush(new ReviewComment(coffee, fan, null, "저도 갈래요"));
+        jdbc.update("update review_comment set created_at = ? where review_id in (?, ?)",
+                Timestamp.valueOf(LocalDateTime.of(2026, 11, 5, 12, 0)), ramen.getId(), coffee.getId());
+        em.flush();
+        em.clear();
+
+        var cafe = (RecapController.Recap) controller.recap(bearer(me), "2026-11", "cafe").getBody();
+        assertEquals("cafe", cafe.scope());
+        assertEquals(1, cafe.places());
+        assertEquals("Star Coffee " + suffix, cafe.best().name());
+        assertEquals(2, cafe.commentsReceived(), "카페 후기에 받은 댓글만");
+        assertEquals(List.of("2026-11", "2026-08"), cafe.months());
+
+        var food = (RecapController.Recap) controller.recap(bearer(me), "2026-11", "food").getBody();
+        assertEquals("food", food.scope());
+        assertEquals(1, food.places());
+        assertEquals("라멘C" + suffix, food.best().name());
+        assertEquals(1, food.commentsReceived());
+        assertEquals(List.of("2026-11"), food.months());
+
+        var all = (RecapController.Recap) controller.recap(bearer(me), "2026-11").getBody();
+        assertNull(all.scope());
+        assertEquals(2, all.places(), "나누라고 하지 않으면 전부 센다");
+        assertEquals(3, all.commentsReceived());
+    }
+
     @Test
     void namesCategoryAndArea() {
         assertEquals("한식", RecapController.categoryOf("음식점>한식"));

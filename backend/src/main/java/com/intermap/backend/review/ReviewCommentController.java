@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,16 +32,20 @@ import java.util.function.Predicate;
 @CrossOrigin(originPatterns = {"http://localhost:5173", "http://localhost:5174", "https://intermap.app:8443", "capacitor://intermap.app", "httpsapp://intermap.app:8443", "https://*.vercel.app"})
 public class ReviewCommentController {
 
-    public record CreateRequest(Long reviewId, String text, Long parentId) {
+    // secret = 비공개 댓글 (쓴 사람과 후기를 쓴 사람만 본다). 안 오면(예전 앱) 공개
+    public record CreateRequest(Long reviewId, String text, Long parentId, Boolean secret) {
+        public CreateRequest(Long reviewId, String text, Long parentId) {
+            this(reviewId, text, parentId, null);
+        }
     }
 
     public record Item(Long id, Long reviewId, Long parentId, ReviewController.Author author, String text,
-                       Instant createdAt) {
+                       Instant createdAt, boolean secret) {
         static Item from(ReviewComment c, String avatar) {
             AppUser a = c.getAuthor();
             return new Item(c.getId(), c.getReview().getId(), c.getParentId(),
                     new ReviewController.Author(a.getId(), a.getNickname(), AdminSeeder.ADMIN_EMAIL.equals(a.getEmail()), avatar),
-                    c.getText(), c.getCreatedAt());
+                    c.getText(), c.getCreatedAt(), c.isSecret());
         }
     }
 
@@ -76,6 +81,7 @@ public class ReviewCommentController {
 
     // 볼 수 있는 후기(ReviewAudience)에 달린 댓글을 전부 내려준다 — 프론트가 후기별로 나눈다.
     // 로그인했으면 차단 관계인 사람의 댓글과 내가 신고한 댓글은 뺀다.
+    // 비공개 댓글은 볼 수 있는 사람(ReviewComment.visibleTo)에게만 내려간다.
     // ponytail: 댓글이 수천 건 넘으면 reviewId 파라미터로 잘라 받도록 바꿀 것
     @GetMapping("/api/comments")
     public List<Item> list(@RequestHeader(value = "Authorization", required = false) String authorization) {
@@ -85,9 +91,14 @@ public class ReviewCommentController {
         Set<Long> reported = viewer == null ? Set.of()
                 : Set.copyOf(reports.targetIdsReportedBy(viewer, Report.TargetType.COMMENT));
         Map<Long, String> avatarUrls = avatars.urlsByUserId();
-        return repository.findAllByOrderByCreatedAtAsc().stream()
+        List<ReviewComment> all = repository.findAllByOrderByCreatedAtAsc();
+        // 비공개 답글은 원댓글이 누구 것인지에 따라 보이는 사람이 달라진다
+        Map<Long, ReviewComment> byId = new HashMap<>();
+        for (ReviewComment c : all) byId.put(c.getId(), c);
+        return all.stream()
                 .filter(c -> visible.test(c.getReview().getAuthor()))
                 .filter(c -> !hiddenAuthors.contains(c.getAuthor().getId()) && !reported.contains(c.getId()))
+                .filter(c -> c.visibleTo(viewer, c.getParentId() == null ? null : byId.get(c.getParentId())))
                 .map(c -> Item.from(c, avatarUrls.get(c.getAuthor().getId())))
                 .toList();
     }
@@ -129,12 +140,15 @@ public class ReviewCommentController {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(new AuthController.ErrorResponse("오늘은 댓글을 더 달 수 없어요. 내일 다시 해주세요."));
         }
-        ReviewComment saved = repository.save(new ReviewComment(review, user, request.parentId(), text));
-        // 푸시 알림 — 답글이면 원댓글 쓴 사람에게, 그 밖엔 후기 쓴 사람에게 (같은 사람이면 답글로 한 번만, 내가 나에게는 안 보낸다)
+        // 비공개 댓글에 다는 답글은 늘 비공개 — 둘이 주고받던 말이 답글로 밖에 드러나지 않게
+        boolean secret = Boolean.TRUE.equals(request.secret()) || (parent != null && parent.isSecret());
+        ReviewComment saved = repository.save(new ReviewComment(review, user, request.parentId(), text, secret));
+        // 푸시 알림 — 답글이면 원댓글 쓴 사람에게, 그 밖엔 후기 쓴 사람에게 (같은 사람이면 답글로 한 번만, 내가 나에게는 안 보낸다).
+        // 비공개 답글은 볼 수 있는 사람에게만 알린다 (공개 댓글에 단 비공개 답글은 그 댓글을 쓴 사람에게 안 보인다)
         AppUser parentAuthor = parent == null ? null : parent.getAuthor();
         AppUser reviewAuthor = review.getAuthor();
         Map<String, String> data = Map.of("type", parent == null ? "COMMENT" : "REPLY", "reviewId", String.valueOf(review.getId()));
-        if (parentAuthor != null && !parentAuthor.getId().equals(user.getId())) {
+        if (parentAuthor != null && !parentAuthor.getId().equals(user.getId()) && saved.visibleTo(parentAuthor, parent)) {
             push.send(parentAuthor, user.getNickname() + "님이 내 댓글에 답글을 남겼어요", text, data);
         }
         if (!reviewAuthor.getId().equals(user.getId())

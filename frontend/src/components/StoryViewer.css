@@ -389,6 +389,21 @@
   font-weight: 700;
 }
 
+/* 어두운 화면 위의 "비공개" 체크박스·표시 */
+.story-viewer .restaurant-sheet__comment-form label.comment__secret {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.story-viewer .restaurant-sheet__comment-form label.comment__secret input[type='checkbox'] {
+  accent-color: #fff;
+  background: none;
+}
+
+.story-viewer .comment__secret-mark {
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .story-viewer .comment__send-icon {
   display: none;
 }

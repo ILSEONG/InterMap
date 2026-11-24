@@ -5,6 +5,7 @@ import { useDebounced } from '../lib/useDebounced'
 import { useBackLayer } from '../lib/backLayer'
 import type { ReactNode } from 'react'
 import type { AuthSession, BlockedPerson, Person, SocialData, UserItem } from '../lib/api'
+import { isCafe } from '../lib/cafe'
 import {
   changeNickname,
   followUser,
@@ -741,7 +742,7 @@ export default function MyPage({
                             <span className="my-page__review-text">
                               <span className="my-page__review-name">{r.restaurant.name}</span>
                               <span className="my-page__review-sub">
-                                {categoryName(r.restaurant.category) ?? '음식점'} · {reviewDate(r.createdAt)}
+                                {categoryName(r.restaurant.category) ?? (isCafe(r.restaurant) ? '카페' : '음식점')} · {reviewDate(r.createdAt)}
                               </span>
                             </span>
                             <span className="my-page__review-rating">

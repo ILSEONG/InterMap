@@ -8,6 +8,7 @@ import com.intermap.backend.restaurant.RestaurantRepository;
 import com.intermap.backend.review.Review;
 import com.intermap.backend.review.ReviewComment;
 import com.intermap.backend.review.ReviewCommentRepository;
+import com.intermap.backend.review.ReviewKinds;
 import com.intermap.backend.review.ReviewPhotoRepository;
 import com.intermap.backend.review.ReviewRepository;
 import com.intermap.backend.social.Follow;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 // 월간 결산 — "11월의 나: 9곳, 최애는 라멘, 제일 많이 간 동네는 망원동".
 // 다녀온 곳 = 그 달(KST)에 후기를 남긴 가게. 카드 문구·칭호는 프론트가 이 숫자로 만든다 (RecapSheet).
@@ -51,9 +53,11 @@ public class RecapController {
 
     // months: 후기가 있는 달 (최근 달부터) — 달을 넘겨 볼 때 쓴다
     // fans: 내 후기에 댓글 단 사람 (많이 단 순, 최대 3명), fanTotal: 댓글 단 사람 수 — 카드 앞면의 친구 동그라미
+    // scope: 무엇을 센 결산인지 — "cafe"(카페 후기만) / "food"(카페를 뺀 후기만) / null(전부)
     public record Recap(String month, int places, int photos, Double avgRating, Stat topCategory, Stat topArea,
                         Place best, int commentsReceived, Fan topFan, int newFollowing, List<Place> list,
-                        List<String> months, List<Fan> fans, int fanTotal, List<Stat> categories, List<Stat> areas) {
+                        List<String> months, List<Fan> fans, int fanTotal, List<Stat> categories, List<Stat> areas,
+                        String scope) {
     }
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -71,10 +75,12 @@ public class RecapController {
     private final FollowRepository follows;
     private final RestaurantRepository restaurants;
     private final Blocks blocks;
+    private final ReviewKinds kinds;
 
     public RecapController(AuthController auth, ReviewRepository reviews, ReviewPhotoRepository photos,
                            ReviewCommentRepository comments, FollowRepository follows, RestaurantRepository restaurants,
-                           Blocks blocks) {
+                           Blocks blocks, ReviewKinds kinds) {
+        this.kinds = kinds;
         this.auth = auth;
         this.reviews = reviews;
         this.photos = photos;
@@ -84,10 +90,16 @@ public class RecapController {
         this.blocks = blocks;
     }
 
-    // month = "2026-11". 없으면 이번 달 (KST)
+    public ResponseEntity<?> recap(String authorization, String month) {
+        return recap(authorization, month, null);
+    }
+
+    // month = "2026-11". 없으면 이번 달 (KST).
+    // scope = "cafe"면 카페 후기만, "food"면 카페를 뺀 후기만 센다 — 앱의 카페 화면과 맛집 화면이 결산도 따로 본다. 없으면 전부
     @GetMapping("/api/me/recap")
     public ResponseEntity<?> recap(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                   @RequestParam(value = "month", required = false) String month) {
+                                   @RequestParam(value = "month", required = false) String month,
+                                   @RequestParam(value = "scope", required = false) String scope) {
         AppUser me = auth.currentUser(authorization);
         if (me == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthController.ErrorResponse("다시 로그인해주세요."));
@@ -101,7 +113,15 @@ public class RecapController {
         Instant from = ym.atDay(1).atStartOfDay(KST).toInstant();
         Instant to = ym.plusMonths(1).atDay(1).atStartOfDay(KST).toInstant();
 
-        List<Review> all = reviews.findAllByAuthorOrderByCreatedAtAsc(me);
+        boolean cafeOnly = "cafe".equals(scope);
+        boolean foodOnly = "food".equals(scope);
+        List<Review> mine = reviews.findAllByAuthorOrderByCreatedAtAsc(me);
+        Set<Long> cafeIds = cafeOnly || foodOnly ? kinds.cafeIds(mine) : Set.of();
+        List<Review> all = cafeOnly || foodOnly
+                ? mine.stream().filter(r -> cafeIds.contains(r.getId()) == cafeOnly).toList()
+                : mine;
+        // 받은 댓글도 이 결산에 든 후기의 것만 센다
+        Set<Long> counted = all.stream().map(Review::getId).collect(Collectors.toSet());
         Set<String> months = new LinkedHashSet<>();
         for (int i = all.size() - 1; i >= 0; i--) months.add(YearMonth.from(all.get(i).getCreatedAt().atZone(KST)).toString());
         List<Review> inMonth = all.stream()
@@ -128,7 +148,7 @@ public class RecapController {
         int received = 0;
         for (ReviewComment c : comments.findOnReviewsOf(me, from, to)) {
             Long id = c.getAuthor().getId();
-            if (hidden.contains(id)) continue;
+            if (hidden.contains(id) || !counted.contains(c.getReview().getId())) continue;
             received++;
             fanCounts.merge(id, 1, Integer::sum);
             fanNames.put(id, c.getAuthor().getNickname());
@@ -154,7 +174,7 @@ public class RecapController {
         return ResponseEntity.ok(new Recap(ym.toString(), inMonth.size(), photoCount, avg, top(categoryCounts),
                 top(areaCounts), best == null ? null : new Place(best.getRestaurantName(), categoryOf(best.getRestaurantCategory()), best.getRating()),
                 received, fan, newFollowing, list, List.copyOf(months), fans.stream().limit(3).toList(), fans.size(),
-                top3(categoryCounts), top3(areaCounts)));
+                top3(categoryCounts), top3(areaCounts), cafeOnly ? "cafe" : foodOnly ? "food" : null));
     }
 
     // 많은 순 세 개 — 같으면 그 달에 먼저 나온 것 (안정 정렬). 카드 뒷면의 Top 3 목록

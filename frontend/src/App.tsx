@@ -98,7 +98,7 @@ const NO_COMMENTS: Record<number, Comment[]> = {}
 async function fetchGroupedComments(): Promise<Record<number, Comment[]>> {
   const grouped: Record<number, Comment[]> = {}
   for (const c of await fetchComments()) {
-    ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, authorAvatar: c.author.avatar, text: c.text, parentId: c.parentId })
+    ;(grouped[c.reviewId] ??= []).push({ id: c.id, authorId: c.author.id, authorName: c.author.name, authorAvatar: c.author.avatar, text: c.text, parentId: c.parentId, secret: !!c.secret })
   }
   return grouped
 }
@@ -356,21 +356,23 @@ export default function App() {
 
   // "어디 갈래?" 투표 — 가게 시트에서 담아 둔 후보 (앱을 껐다 켜도 남게 저장), 만들기 시트, 열어 본 투표.
   // 친구가 보낸 링크(?poll=)로 들어오면 그 투표를 바로 연다
-  const [pollCart, setPollCart] = useState<PollCandidate[]>(() => {
+  // 맛집 화면에서 담은 후보와 카페 화면에서 담은 후보는 따로 둔다 (예전에 한 줄로 저장해 둔 것은 맛집 쪽으로 읽는다)
+  const [pollCarts, setPollCarts] = useState<Record<PlaceMode, PollCandidate[]>>(() => {
+    const list = (value: unknown): PollCandidate[] => (Array.isArray(value) ? value.slice(0, POLL_MAX_OPTIONS) : [])
     try {
       const saved = JSON.parse(localStorage.getItem('intermap.pollCart') ?? '[]')
-      return Array.isArray(saved) ? saved.slice(0, POLL_MAX_OPTIONS) : []
+      return Array.isArray(saved) ? { food: list(saved), cafe: [] } : { food: list(saved?.food), cafe: list(saved?.cafe) }
     } catch {
-      return []
+      return { food: [], cafe: [] }
     }
   })
   useEffect(() => {
     try {
-      localStorage.setItem('intermap.pollCart', JSON.stringify(pollCart))
+      localStorage.setItem('intermap.pollCart', JSON.stringify(pollCarts))
     } catch {
       // 저장 못 해도 이번 실행 동안은 남는다
     }
-  }, [pollCart])
+  }, [pollCarts])
   const [composerOpen, setComposerOpen] = useState(false)
   const [openPoll, setOpenPoll] = useState<string | null>(() => new URLSearchParams(window.location.search).get('poll'))
   // 투표를 만들거나 지우면 올려서 마이페이지 목록을 다시 받는다
@@ -389,11 +391,12 @@ export default function App() {
 
   // 월간 결산 — 열려 있으면 보고 있는 달. 지난달 결산 동그라미는 한 번 열면 다시 안 띄운다
   const [recapMonth, setRecapMonth] = useState<string | null>(null)
-  const [recapSeen, setRecapSeen] = useState<string | null>(() => {
+  // 맛집 결산과 카페 결산은 따로 본 것으로 친다
+  const [recapSeens, setRecapSeens] = useState<Record<PlaceMode, string | null>>(() => {
     try {
-      return localStorage.getItem('intermap.recapSeen')
+      return { food: localStorage.getItem('intermap.recapSeen'), cafe: localStorage.getItem('intermap.recapSeen.cafe') }
     } catch {
-      return null
+      return { food: null, cafe: null }
     }
   })
   // 차단·운영자 삭제처럼 서버 쪽 목록이 바뀌었을 때 — 후기·댓글·팔로우를 다시 받는다 (받은 게 있으면 그대로 두고 뒤에서)
@@ -434,6 +437,12 @@ export default function App() {
   // 이 가게(또는 후기에 적힌 가게)가 지금 화면의 것인지 — 카페는 카페 화면에만, 나머지는 맛집 화면에만 나온다.
   // 업종을 안 주는 서버면 카페인지 알 수 없어 전부 맛집 화면에 나온다 (그때는 전환도 없다)
   const inThisMode = useCallback((place: { cuisine?: string | null }) => isCafe(place) === cafeMode, [cafeMode])
+  // 지금 화면의 투표 후보
+  const pollCart = pollCarts[cafeMode ? 'cafe' : 'food']
+  const setPollCart = useCallback(
+    (list: PollCandidate[]) => setPollCarts((prev) => ({ ...prev, [cafeMode ? 'cafe' : 'food']: list })),
+    [cafeMode],
+  )
   // 지금 화면(맛집/카페)과 거기 걸린 필터에 이 가게가 드는지 — 지도 핀·찜 핀·검색 목록이 같이 쓴다.
   // 꼬리표는 이웃 후기에 달린 것이라, 꼬리표를 고르면 그 꼬리표가 달린 후기가 있는 카페만 남는다
   const passesKind = useCallback(
@@ -523,9 +532,10 @@ export default function App() {
   const boardHasNew = useMemo(() => {
     if (!social || boardOpen) return false
     const ids = new Set(social.following.map((p) => p.id))
-    const seenAt = readBoardSeen()
-    return rawReviews.some((rv) => ids.has(rv.author.id) && Date.parse(rv.createdAt) > seenAt)
-  }, [social, rawReviews, boardOpen])
+    // 맛집 화면은 맛집 후기만, 카페 화면은 카페 후기만 센다 — 본 때도 화면마다 따로 남는다
+    const seenAt = readBoardSeen(cafeMode)
+    return rawReviews.some((rv) => ids.has(rv.author.id) && inThisMode(rv.restaurant) && Date.parse(rv.createdAt) > seenAt)
+  }, [social, rawReviews, boardOpen, cafeMode, inThisMode])
   // 언팔로우·로그아웃으로 목록에서 빠지면 선택도 자동 해제
   const selectedPerson = followingPeople?.find((p) => p.id === personId) ?? null
   // 사람을 고르면 그 사람 후기 가게만 핀으로. 칩 ✕로 해제.
@@ -598,6 +608,13 @@ export default function App() {
     }
     return merged
   }, [restaurants, reviews])
+  // 지금 화면의 후기·가게만 — 팔로잉 현황, 프로필, 내 후기 목록처럼 지도 밖의 목록도 맛집과 카페를 섞지 않는다
+  const modeReviews = useMemo(() => reviews.filter((rv) => inThisMode(rv.restaurant)), [reviews, inThisMode])
+  const modeRestaurants = useMemo(() => reviewedRestaurants.filter(inThisMode), [reviewedRestaurants, inThisMode])
+  const myModeReviews = useMemo(
+    () => (session ? rawReviews.filter((rv) => rv.author.id === session.id && inThisMode(rv.restaurant)) : []),
+    [rawReviews, session, inThisMode],
+  )
   // 스토리: 최근 24시간 안에 후기를 남긴 사람마다 하나. reviews가 최신순이라 최근 작성자가 앞에 온다.
   // 맛집 화면에는 맛집 후기만, 카페 화면에는 카페 후기만 — 한 사람이 둘 다 썼으면 화면마다 따로 스토리가 선다
   const stories = useMemo(() => {
@@ -1036,10 +1053,12 @@ export default function App() {
     // 캐릭터는 로그인한 사람에게만 있으니, 둘러보는 중에는 안내를 아껴 둔다
     if (mode === 'cafe' && hasPet && takeNightCafeHint()) setPetHint({ ...NIGHT_CAFE_HINT })
   }, [hasPet])
-  // 맨 위 전환을 눌렀을 때. 열어 둔 가게 시트는 닫는다 (다른 화면의 가게다)
+  // 맨 위 전환을 눌렀을 때. 열어 둔 가게 시트는 닫는다 (다른 화면의 가게다).
+  // 지도에서 골라 둔 핀(이름표)·한 자리 가게 목록도 지운다 — MapCanvas가 화면이 바뀔 때 스스로 지우고, 여기서는 옮길 곳을 비운다
   const changePlaceMode = useCallback((mode: PlaceMode) => {
     enterPlaceMode(mode)
     setSelectedId(null)
+    setFocusTarget(null)
   }, [enterPlaceMode])
 
   // 고른 친구의 별점 TOP 5 (칩 아래 카드). 핀 필터와 무관하게 전체 목록에서 뽑는다.
@@ -1361,18 +1380,23 @@ export default function App() {
   }
 
   // 후기별 댓글 등록 — 서버에 저장하고 돌아온 걸 상태에 붙인다
-  async function addComment(reviewId: number, text: string, parentId?: number): Promise<boolean> {
+  async function addComment(reviewId: number, text: string, parentId?: number, secret?: boolean): Promise<boolean> {
     if (!session) {
       setAuthMode('start')
       return false
     }
     try {
-      const saved = await postComment(reviewId, text, parentId)
+      const saved = await postComment(reviewId, text, parentId, secret)
+      // 비공개를 모르는 예전 서버는 그냥 공개 댓글로 받는다 — 비공개로 쓴 글이 모두에게 보이면 안 되니 바로 지우고 알린다
+      if (secret && !saved.secret) {
+        await deleteComment(saved.id).catch(() => {})
+        throw new Error('지금은 비공개 댓글을 남길 수 없어요. 잠시 뒤에 다시 해 주세요.')
+      }
       setReviewComments((prev) => ({
         ...prev,
         [reviewId]: [
           ...(prev[reviewId] ?? []),
-          { id: saved.id, authorId: saved.author.id, authorName: saved.author.name, authorAvatar: saved.author.avatar, text: saved.text, parentId: saved.parentId },
+          { id: saved.id, authorId: saved.author.id, authorName: saved.author.name, authorAvatar: saved.author.avatar, text: saved.text, parentId: saved.parentId, secret: !!saved.secret },
         ],
       }))
       return true
@@ -1436,9 +1460,9 @@ export default function App() {
       following: !!following,
       followsMe: !!follower,
       // 팔로우 중이면 후기를 다 받아 와 있다 — 아니면 서버가 셀 때까지 모른다
-      reviewCount: following ? reviews.filter((rv) => rv.author.id === profileUserId && !rv.author.owner).length : -1,
+      reviewCount: following ? modeReviews.filter((rv) => rv.author.id === profileUserId && !rv.author.owner).length : -1,
     }
-  }, [social, profileUserId, profileName, reviews])
+  }, [social, profileUserId, profileName, modeReviews])
 
   // 신고 접수 — 그 글을 바로 화면에서 뺀다 (서버도 다음 목록부터 나에게 안 준다)
   const handleReported = useCallback((target: ReportTarget) => {
@@ -1486,7 +1510,7 @@ export default function App() {
         setPollCart([...pollCart, place])
       }
     },
-    [pollCart],
+    [pollCart, setPollCart],
   )
   const openComposer = useCallback(() => {
     if (!session) {
@@ -1507,40 +1531,41 @@ export default function App() {
     setCreatedPoll(poll)
     setOpenPoll(poll.token)
     setPollVersion((v) => v + 1)
-  }, [])
+  }, [setPollCart])
   // 찜한 가게 — 투표 만들기에서 후보로 바로 더할 수 있게
+  // 지금 화면의 것만 — 카페 투표에 맛집이, 맛집 투표에 카페가 끼지 않게
   const favoriteCandidates = useMemo(
-    () => favRestaurants.map((r) => ({ name: r.name, category: r.category, address: r.address })),
-    [favRestaurants],
+    () => favRestaurants.filter(inThisMode).map((r) => ({ name: r.name, category: r.category, address: r.address })),
+    [favRestaurants, inThisMode],
   )
 
   // 월간 결산 열기. 지난달 동그라미로 열었으면 "봤음"으로 남긴다
   const openRecap = useCallback((month: string) => {
     setRecapMonth(month)
     if (month === prevMonth(kstMonth())) {
-      setRecapSeen(month)
+      setRecapSeens((prev) => ({ ...prev, [cafeMode ? 'cafe' : 'food']: month }))
       try {
-        localStorage.setItem('intermap.recapSeen', month)
+        localStorage.setItem(cafeMode ? 'intermap.recapSeen.cafe' : 'intermap.recapSeen', month)
       } catch {
         // 못 남기면 이번 주 동안 다시 보일 뿐
       }
     }
-  }, [])
+  }, [cafeMode])
   // 마이페이지에서 열 땐 이번 달에 후기가 있으면 이번 달, 없으면 가장 최근에 후기를 남긴 달
   const openRecapFromMyPage = useCallback(() => {
     const now = kstMonth()
-    const mine = rawReviews.filter((rv) => rv.author.id === session?.id)
+    const mine = myModeReviews
     openRecap(mine.some((rv) => kstMonth(rv.createdAt) === now) || mine.length === 0 ? now : kstMonth(mine[0].createdAt))
-  }, [rawReviews, session?.id, openRecap])
+  }, [myModeReviews, openRecap])
   // 달이 바뀐 첫 주엔 스토리 줄 맨 앞에 "지난달 결산" — 지난달에 후기를 남겼을 때만
   const recapChip = useMemo(() => {
     if (!session) return null
     const last = prevMonth(kstMonth())
     const day = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', day: '2-digit' }).format(new Date()))
-    if (day > 7 || recapSeen === last) return null
-    const had = rawReviews.some((rv) => rv.author.id === session.id && kstMonth(rv.createdAt) === last)
+    if (day > 7 || recapSeens[cafeMode ? 'cafe' : 'food'] === last) return null
+    const had = myModeReviews.some((rv) => kstMonth(rv.createdAt) === last)
     return had ? { label: `${monthLabel(last)} 결산`, onOpen: () => openRecap(last) } : null
-  }, [session, rawReviews, recapSeen, openRecap])
+  }, [session, myModeReviews, recapSeens, cafeMode, openRecap])
 
   // 회원 탈퇴 — 서버에서 지운 뒤 로그아웃 상태로
   const handleDeleteAccount = useCallback(async () => {
@@ -1590,8 +1615,7 @@ export default function App() {
     authMode ||
     myPageOpen ||
     selectedId ||
-    personId !== null ||
-    searching
+    personId !== null
   )
   const historyGuard = useRef(false)
   const ignoreNextPop = useRef(false)
@@ -1813,7 +1837,7 @@ export default function App() {
           social={social}
           onSocialChange={applySocial}
           onSessionChange={handleAuthed}
-          myReviews={rawReviews.filter((rv) => rv.author.id === session.id)}
+          myReviews={myModeReviews}
           onOpenReview={openMyReview}
           onBlocksChange={refreshContent}
           onDeleteAccount={handleDeleteAccount}
@@ -1856,10 +1880,11 @@ export default function App() {
           userId={profileUserId}
           fallbackName={profileName}
           known={profileKnown}
-          restaurants={reviewedRestaurants}
+          restaurants={modeRestaurants}
+          cafe={cafeMode}
           myUserId={session.id}
           myName={session.nickname}
-          reviews={reviews}
+          reviews={modeReviews}
           list={profileTop?.list ?? null}
           onListChange={setProfileList}
           onSocialChange={applySocial}
@@ -1883,7 +1908,8 @@ export default function App() {
       {session && social && boardOpen && (
         <FollowingBoard
           people={social.following}
-          reviews={reviews}
+          reviews={modeReviews}
+          cafe={cafeMode}
           onShowOnMap={(id) => {
             setBoardOpen(false)
             // 이 사람 핀이 가려지지 않게 찜 모드·검색어는 풀고, 가장 최근에 간 곳으로 지도를 옮긴다
@@ -2051,7 +2077,7 @@ export default function App() {
           onClose={() => setOpenPoll(null)}
         />
       )}
-      {recapMonth && session && <RecapSheet month={recapMonth} onClose={() => setRecapMonth(null)} />}
+      {recapMonth && session && <RecapSheet month={recapMonth} cafe={cafeMode} onClose={() => setRecapMonth(null)} />}
       {policyPage && <PolicyViewer page={policyPage} onClose={() => setPolicyPage(null)} />}
       <ConnectionNotice />
     </div>

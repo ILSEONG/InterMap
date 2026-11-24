@@ -28,6 +28,8 @@ interface ProfileSheetProps {
   known?: Pick<UserProfile, 'nickname' | 'alias' | 'avatar' | 'following' | 'followsMe' | 'reviewCount'>
   // 후기가 붙은 가게 목록 — 팔로우한 사람의 별점 TOP 5를 여기서 뽑는다
   restaurants: Restaurant[]
+  // 카페 화면에서 열었는지 — restaurants·reviews는 App이 이미 지금 화면의 것만 준다. 후기 수와 빈 분류 이름만 여기서 가른다
+  cafe?: boolean
   // 팔로잉·팔로워 목록에서 나 자신을 "나"로 표시하는 데 쓴다
   myUserId?: number
   // 궁합 카드에 들어갈 내 이름
@@ -51,6 +53,7 @@ export default function ProfileSheet({
   fallbackName,
   known,
   restaurants,
+  cafe = false,
   myUserId,
   myName,
   reviews,
@@ -150,7 +153,10 @@ export default function ProfileSheet({
 
   const name = profile ? (profile.alias ?? profile.nickname) : fallbackName
   // 서버가 센다 — 팔로우 전엔 후기 내용이 안 오지만 개수는 보여준다 (주인장 후기는 가게 시트 전용이라 0)
-  const reviewCount = profile?.reviewCount ?? 0
+  // 맛집 화면에서는 카페 후기를 뺀 수, 카페 화면에서는 카페 후기 수 (나눠 세지 않는 예전 서버면 전체)
+  const allCount = profile?.reviewCount ?? 0
+  const cafeCount = profile?.cafeReviewCount
+  const reviewCount = cafeCount == null || allCount < 0 ? allCount : cafe ? cafeCount : Math.max(0, allCount - cafeCount)
   const picks = profile?.following ? topPicksOf(restaurants, userId) : []
   // 별칭은 팔로우 관계(어느 쪽이든)인 사람에게만 붙일 수 있다 — 서버 규칙과 같다.
   // 마이페이지 팔로잉·팔로워 목록은 두 칸이라 좁아서, 사람을 눌러 여기로 와서 이름을 바꾼다.
@@ -427,7 +433,7 @@ export default function ProfileSheet({
                                   <span className="profile-sheet__place-text">
                                     <span className="profile-sheet__place-name">{v.name}</span>
                                     <span className="profile-sheet__place-sub">
-                                      {v.category ?? '음식점'}
+                                      {v.category ?? (cafe ? '카페' : '음식점')}
                                       {v.area && ` · ${v.area}`} · {reviewDate(v.at)}
                                     </span>
                                   </span>
