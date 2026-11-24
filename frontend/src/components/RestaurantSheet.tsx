@@ -5,6 +5,7 @@ import { sheetDefaultHeight } from '../lib/sheetGeometry'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
 import { photoUrl } from '../lib/api'
 import { CAFE_TAGS, countCafeTags, isCafe, toggleCode } from '../lib/cafe'
+import { partyOf, partySizes } from '../lib/party'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import Avatar from './Avatar'
@@ -303,7 +304,8 @@ export default function RestaurantSheet({
   }
 
   return (
-    <div className={`restaurant-sheet-overlay${open ? ' restaurant-sheet-overlay--open' : ''}`} onClick={onClose}>
+    // 바깥은 손길을 받지 않는다 (CSS) — 시트를 연 채로 뒤의 지도를 옮길 수 있다. 지도의 빈 곳을 누르면 App이 닫는다
+    <div className={`restaurant-sheet-overlay${open ? ' restaurant-sheet-overlay--open' : ''}`}>
       <div
         ref={sheetRef}
         className={`restaurant-sheet${dragging ? ' restaurant-sheet--dragging' : ''}`}
@@ -442,6 +444,8 @@ function SheetBody({
   const [draftPhotos, setDraftPhotos] = useState<File[]>([])
   // 카페 후기의 꼬리표 (lib/cafe의 CAFE_TAGS) — 카페일 때만 고른다
   const [draftTags, setDraftTags] = useState<string[]>([])
+  // 몇 명이 가기 좋은 곳인지 (lib/party) — 맛집·카페 후기 모두 고른다. 필터의 "규모"가 이것으로 거른다
+  const [draftParty, setDraftParty] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   // 수정 중인 내 후기. 같은 폼을 재사용 — 기존 사진은 keepPhotoIds로, 새 사진은 draftPhotos로
   const [editing, setEditing] = useState<Review | null>(null)
@@ -469,6 +473,7 @@ function SheetBody({
 
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
   const cafe = isCafe(restaurant)
+  const sizes = partySizes(cafe)
   // 이웃이 후기에 고른 꼬리표를 모은 것 ("작업·공부 2"). 후기가 하나뿐이면 그 후기 카드에 이미 보이니 따로 모으지 않는다
   const cafeTags = cafe && restaurant.reviews.length > 1 ? countCafeTags(restaurant.reviews) : []
   const myGroups = groups.filter((g) => restaurant.groupIds.includes(g.id))
@@ -484,6 +489,7 @@ function SheetBody({
     setDraftMenus([])
     setDraftPhotos([])
     setDraftTags([])
+    setDraftParty([])
     setEditing(null)
     setKeepPhotoIds([])
   }
@@ -512,7 +518,8 @@ function SheetBody({
     setDraftMenu('')
     setDraftMenus(review.menu ? review.menu.split(',').map((m) => m.trim()).filter(Boolean) : [])
     setDraftPhotos([])
-    setDraftTags(review.tags ?? [])
+    setDraftTags((review.tags ?? []).filter((t) => CAFE_TAGS.some(([code]) => code === t)))
+    setDraftParty(partyOf(review.tags))
     setKeepPhotoIds(review.photoIds)
   }
 
@@ -570,8 +577,8 @@ function SheetBody({
       const pending = draftMenu.trim()
       const menus = pending && !draftMenus.includes(pending) ? [...draftMenus, pending] : draftMenus
       const menu = menus.join(', ').slice(0, 100)
-      // 꼬리표는 카페 후기에만 단다
-      const tags = cafe ? draftTags : []
+      // 좋은 점 꼬리표는 카페 후기에만 달고, 규모는 맛집·카페 모두 단다 (같은 tags에 실린다)
+      const tags = [...(cafe ? draftTags : []), ...draftParty]
       if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), menu, keepPhotoIds, draftPhotos, tags)
       else await onAddReview(restaurant.id, draftRating, draftReview.trim(), menu, draftPhotos, tags)
       resetForm()
@@ -681,6 +688,29 @@ function SheetBody({
                 </div>
               </>
             )}
+
+            <div className="review-form__label-row">
+              <span className="review-form__label" id={`${ids}-party`}>
+                몇 명이 가기 좋아요?
+              </span>
+              <span className="review-form__hint">여러 개 고를 수 있어요</span>
+            </div>
+            <div className="review-form__tags" role="group" aria-labelledby={`${ids}-party`}>
+              {sizes.map(([code, label]) => {
+                const on = draftParty.includes(code)
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    aria-pressed={on}
+                    className={`review-form__tag${on ? ' review-form__tag--on' : ''}`}
+                    onClick={() => setDraftParty(toggleCode(sizes, draftParty, code))}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
 
             <div className="review-form__label-row">
               <label className="review-form__label" htmlFor={`${ids}-menu`}>

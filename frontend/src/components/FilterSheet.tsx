@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CUISINES, toggleCuisine } from '../lib/cuisine'
 import { CAFE_KINDS, CAFE_TAGS, toggleCode } from '../lib/cafe'
+import { partySizes } from '../lib/party'
 import CuisineIcon from './CuisineIcon'
 import SheetGrip from './SheetGrip'
 import type { ReviewFilter } from './TopBar'
@@ -22,14 +23,19 @@ interface FilterSheetProps {
   // 카페 화면: 이웃이 후기에 고른 꼬리표로 거르기. 꼬리표가 달린 후기가 아직 하나도 없으면 숨긴다
   showTags: boolean
   tags: string[]
+  // 모임 규모 (lib/party) — 이웃이 후기에 "몇 명이 가기 좋은지" 고른 것으로 거른다. 맛집·카페 화면 모두.
+  // 로그인 전에는 이웃 후기가 없으니 숨긴다
+  showSizes: boolean
+  sizes: string[]
   // "적용하기"를 눌렀을 때만 부른다 — 그냥 닫으면 고르던 것은 버린다
-  onApply: (reviewFilter: ReviewFilter, kinds: string[], tags: string[]) => void
+  onApply: (reviewFilter: ReviewFilter, kinds: string[], tags: string[], sizes: string[]) => void
   onClose: () => void
 }
 
 // 상단 "필터" 칩으로 여는 시트 — 어떤 가게를 볼지(후기 유무)와 업종을 한곳에서 고른다.
 // 업종은 "모든 가게"든 "후기 있는 곳"이든 그 안에서 한 번 더 거른다.
-// 카페 화면에서는 같은 자리에 카페의 종류가 오고, 그 아래 이웃이 후기에 좋다고 고른 점("작업·공부" …)이 붙는다.
+// 그 아래 "규모"는 이웃이 후기에 고른 인원(혼밥 / 2~5인 / 6인 이상)으로 거른다.
+// 카페 화면에서는 같은 자리에 카페의 종류가 오고, 맨 아래 이웃이 후기에 좋다고 고른 점("작업·공부" …)이 붙는다.
 export default function FilterSheet({
   cafe,
   reviewFilter,
@@ -39,12 +45,15 @@ export default function FilterSheet({
   kinds,
   showTags,
   tags,
+  showSizes,
+  sizes,
   onApply,
   onClose,
 }: FilterSheetProps) {
   const [review, setReview] = useState(reviewFilter)
   const [picked, setPicked] = useState(kinds)
   const [pickedTags, setPickedTags] = useState(tags)
+  const [pickedSizes, setPickedSizes] = useState(sizes)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -52,7 +61,9 @@ export default function FilterSheet({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const untouched = picked.length === 0 && pickedTags.length === 0 && (!showReviewFilter || review === defaultReviewFilter)
+  const untouched =
+    picked.length === 0 && pickedTags.length === 0 && pickedSizes.length === 0 && (!showReviewFilter || review === defaultReviewFilter)
+  const sizeOptions = partySizes(cafe)
   const place = cafe ? '카페' : '가게'
   const options = cafe ? CAFE_KINDS : CUISINES
   const toggle = (code: string) => setPicked(cafe ? toggleCode(CAFE_KINDS, picked, code) : toggleCuisine(picked, code))
@@ -71,6 +82,7 @@ export default function FilterSheet({
             onClick={() => {
               setPicked([])
               setPickedTags([])
+              setPickedSizes([])
               if (showReviewFilter) setReview(defaultReviewFilter)
             }}
             disabled={untouched}
@@ -123,6 +135,28 @@ export default function FilterSheet({
             </section>
           )}
 
+          {showSizes && (
+            <section className="filter-sheet__section">
+              <h3 className="filter-sheet__label">규모</h3>
+              <div className="filter-sheet__chips">
+                {sizeOptions.map(([code, label]) => {
+                  const on = pickedSizes.includes(code)
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      aria-pressed={on}
+                      className={`filter-sheet__chip${on ? ' filter-sheet__chip--on' : ''}`}
+                      onClick={() => setPickedSizes(toggleCode(sizeOptions, pickedSizes, code))}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
           {cafe && showTags && (
             <section className="filter-sheet__section">
               <h3 className="filter-sheet__label">이웃이 좋다고 한 점</h3>
@@ -145,7 +179,7 @@ export default function FilterSheet({
             </section>
           )}
 
-          <button type="button" className="modal-sheet__btn filter-sheet__apply" onClick={() => onApply(review, picked, pickedTags)}>
+          <button type="button" className="modal-sheet__btn filter-sheet__apply" onClick={() => onApply(review, picked, pickedTags, pickedSizes)}>
             적용하기
           </button>
         </div>

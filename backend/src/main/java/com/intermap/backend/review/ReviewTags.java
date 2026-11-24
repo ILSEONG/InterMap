@@ -4,12 +4,14 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * 카페 후기에 고르는 꼬리표 — 어떤 때 가기 좋은 곳인지 (작업·공부 / 수다 / 디저트 / 커피 맛 / 분위기).
- * 코드는 앱(lib/cafe.ts)과 같다. 후기에는 고른 코드를 쉼표로 이어 적는다 ("WORK,MOOD").
+ * 후기에 고르는 꼬리표. 후기에는 고른 코드를 쉼표로 이어 적는다 ("WORK,MOOD,SOLO").
+ * - 카페 후기: 어떤 때 가기 좋은 곳인지 (작업·공부 / 수다 / 디저트 / 커피 맛 / 분위기). 코드는 앱(lib/cafe.ts)과 같다.
+ * - 맛집·카페 후기 모두: 몇 명이 가기 좋은 곳인지 (혼자 / 2~5인 / 6인 이상). 코드는 앱(lib/party.ts)과 같다 —
+ *   앱의 필터 "규모"가 이것으로 거른다.
  */
 final class ReviewTags {
 
-    static final List<String> CODES = List.of("WORK", "TALK", "SWEETS", "TASTE", "MOOD");
+    static final List<String> CODES = List.of("WORK", "TALK", "SWEETS", "TASTE", "MOOD", "SOLO", "SMALL", "LARGE");
 
     private ReviewTags() {
     }

@@ -194,6 +194,18 @@
   position: relative;
 }
 
+/* 칩 줄은 가로로 꽉 차는 상자다 — 칩 오른쪽 빈 곳 밑의 핀이 눌리도록 줄은 손길을 넘기고 칩만 받는다
+   (위의 .topbar > * 보다 무겁게 적어야 이긴다) */
+.topbar > .topbar__chips-wrap,
+.topbar > .topbar__chips,
+.topbar__chips-wrap > .topbar__chips {
+  pointer-events: none;
+}
+
+.topbar__chips > * {
+  pointer-events: auto;
+}
+
 .topbar__chip {
   position: relative;
   flex: 0 0 auto;
