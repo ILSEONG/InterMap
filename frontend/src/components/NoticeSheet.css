@@ -48,11 +48,6 @@
   z-index: 44;
 }
 
-.notice__close {
-  background: none;
-  color: var(--ink);
-}
-
 .notice__body {
   padding: 0 8px 16px;
 }
