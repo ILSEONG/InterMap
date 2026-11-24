@@ -20,3 +20,4 @@ for i in range(1):
     }
     print(time.strftime('%H:%M:%S', time.gmtime()), 'UTC', json.dumps(row, ensure_ascii=False), flush=True)
     pass
+# 확인 05:52
