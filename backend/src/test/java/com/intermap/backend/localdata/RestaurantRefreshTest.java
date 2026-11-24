@@ -52,13 +52,24 @@ class RestaurantRefreshTest {
 
     private final String tag = UUID.randomUUID().toString().substring(0, 8);
     private final List<LocalDataClient.Row> changed = new ArrayList<>();
+    // 휴게음식점·제과점영업의 마포구 변경분
+    private final List<LocalDataClient.Row> restCafeChanged = new ArrayList<>();
+    private final List<LocalDataClient.Row> bakeryChanged = new ArrayList<>();
+    // 켜면 휴게음식점·제과점 API가 불리지 않는다 (활용신청 전)
+    private boolean cafeApisDown;
 
     // 마포구 변경분으로 changed를 돌려주는 가짜 인허가 API
     private RestaurantRefresh refresh() {
         LocalDataClient client = new LocalDataClient("test-key") {
             @Override
-            public List<Row> fetchChangedSince(String localCode, LocalDate from, LocalDate to) {
-                return MAPO.equals(localCode) ? List.copyOf(changed) : List.of();
+            public List<Row> fetchChangedSince(Service service, String localCode, LocalDate from, LocalDate to) {
+                if (service != Service.GENERAL && cafeApisDown) throw new IllegalStateException("활용신청 전");
+                if (!MAPO.equals(localCode)) return List.of();
+                return List.copyOf(switch (service) {
+                    case GENERAL -> changed;
+                    case REST_CAFE -> restCafeChanged;
+                    case BAKERY -> bakeryChanged;
+                });
             }
         };
         return new RestaurantRefresh(client, repository, geocode, state, reviews, cleanup, tx, MAPO + ",3140000");
@@ -255,5 +266,78 @@ class RestaurantRefreshTest {
         // 목요일이지만 22시 전이면 지난주 것
         assertEquals(previous, RestaurantRefresh.latestSlot(ZonedDateTime.of(2026, 11, 19, 21, 59, 0, 0, KST)));
         assertEquals(previous, RestaurantRefresh.latestSlot(ZonedDateTime.of(2026, 11, 17, 0, 40, 0, 0, KST)));
+    }
+
+    private static LocalDataClient.Row cafeRow(String mgtNo, String name, String roadAddr, String category, String state) {
+        return new LocalDataClient.Row(mgtNo, name, roadAddr, LOT, category, X, Y, state, null);
+    }
+
+    // 휴게음식점·제과점영업에서는 카페만 넣는다
+    @Test
+    void newCafesComeFromTheOtherTwoLicenses() {
+        restCafeChanged.add(cafeRow("MGT-RC1-" + tag, name("모모"), addr(31), "커피숍", "01"));
+        restCafeChanged.add(cafeRow("MGT-RC2-" + tag, name("메가엠지씨커피 시험점"), addr(32), "기타 휴게음식점", "01"));
+        restCafeChanged.add(cafeRow("MGT-RC3-" + tag, name("씨유 시험점"), addr(33), "편의점", "01"));
+        restCafeChanged.add(cafeRow("MGT-RC4-" + tag, name("씨유 카페점"), addr(34), "편의점", "01"));
+        restCafeChanged.add(cafeRow("MGT-RC5-" + tag, name("맘스터치 시험점"), addr(35), "패스트푸드", "01"));
+        restCafeChanged.add(cafeRow("MGT-RC6-" + tag, name("홈즈 보드게임카페"), addr(36), "기타 휴게음식점", "01"));
+        bakeryChanged.add(cafeRow("MGT-BK1-" + tag, name("성심당"), addr(37), "", "01"));
+
+        RestaurantRefresh.Result result = refresh().refresh(31);
+
+        assertEquals(3, result.added(), "커피숍, 이름이 커피인 가게, 빵집");
+        Restaurant coffee = repository.findFirstByNameAndRoadAddress(name("모모"), addr(31)).orElseThrow();
+        assertEquals("CAFE", coffee.getCuisine());
+        assertEquals("COFFEE", coffee.getCafeKind());
+        assertEquals("MGT-RC1-" + tag, coffee.getLocalDataMgtNo());
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("메가엠지씨커피 시험점"), addr(32)).isPresent());
+        Restaurant bakery = repository.findFirstByNameAndRoadAddress(name("성심당"), addr(37)).orElseThrow();
+        assertEquals("제과점", bakery.getCategory());
+        assertEquals("BAKERY", bakery.getCafeKind());
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("홈즈 보드게임카페"), addr(36)).isEmpty(), "보드게임카페는 넣지 않는다");
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("씨유 시험점"), addr(33)).isEmpty(), "편의점은 넣지 않는다");
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("씨유 카페점"), addr(34)).isEmpty(), "이름에 카페가 있어도 편의점은 넣지 않는다");
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("맘스터치 시험점"), addr(35)).isEmpty(), "패스트푸드는 넣지 않는다");
+
+        assertEquals(0, refresh().refresh(31).added(), "다시 돌려도 또 들어가지 않는다");
+    }
+
+    @Test
+    void aCafeListedUnderTwoLicensesIsAddedOnce() {
+        Restaurant already = existing(name("이미있는 카페"), addr(41), "MGT-G-" + tag);
+        restCafeChanged.add(cafeRow("MGT-RC7-" + tag, name("이미있는 카페"), addr(41), "커피숍", "01"));
+        restCafeChanged.add(cafeRow("MGT-RC8-" + tag, name("두번나오는 베이커리"), addr(42), "커피숍", "01"));
+        bakeryChanged.add(cafeRow("MGT-BK2-" + tag, name("두번나오는 베이커리"), addr(42), "", "01"));
+
+        assertEquals(1, refresh().refresh(31).added(), "이미 있는 카페는 건너뛰고, 두 인허가에 다 나온 가게는 한 번만");
+        assertTrue(exists(already));
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("두번나오는 베이커리"), addr(42)).isPresent());
+    }
+
+    @Test
+    void closedCafeIsDeleted() {
+        Restaurant cafe = existing(name("문닫은 카페"), addr(43), "MGT-RC9-" + tag);
+        restCafeChanged.add(cafeRow("MGT-RC9-" + tag, name("문닫은 카페"), addr(43), "커피숍", "03"));
+
+        RestaurantRefresh.Result result = refresh().refresh(31);
+
+        assertFalse(exists(cafe));
+        assertEquals(1, result.removed());
+    }
+
+    // 휴게음식점·제과점 API를 못 불러도(활용신청 전) 일반음식점 최신화는 끝까지 한다
+    @Test
+    void restaurantsStillRefreshWhenTheCafeApisCannotBeCalled() {
+        cafeApisDown = true;
+        Restaurant closed = existing(name("문닫은집"), addr(44), "MGT-D-" + tag);
+        changed.add(row("MGT-D-" + tag, name("문닫은집"), addr(44), "03", X, Y));
+        changed.add(row("MGT-E-" + tag, name("새로연집"), addr(45), "01", X, Y));
+        restCafeChanged.add(cafeRow("MGT-RC10-" + tag, name("못받는 카페"), addr(46), "커피숍", "01"));
+
+        RestaurantRefresh.Result result = refresh().refresh(31);
+
+        assertFalse(exists(closed));
+        assertEquals(1, result.added());
+        assertTrue(repository.findFirstByNameAndRoadAddress(name("못받는 카페"), addr(46)).isEmpty());
     }
 }

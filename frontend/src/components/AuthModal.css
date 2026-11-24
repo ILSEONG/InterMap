@@ -135,6 +135,11 @@ html.ios-typing .auth-modal__hero {
   image-rendering: pixelated;
 }
 
+/* 토끼는 거북이보다 좁고 키가 크다 — 지도에서와 같은 비율로 */
+.auth-modal__mascot--rabbit {
+  width: 82px;
+}
+
 .auth-modal__brand {
   margin: 10px 0 0;
   font-family: var(--font-display);
@@ -639,6 +644,9 @@ html.ios-typing .auth-modal__form > .auth-modal__submit:disabled {
   }
   .auth-modal__mascot {
     width: 72px;
+  }
+  .auth-modal__mascot--rabbit {
+    width: 64px;
   }
   .auth-modal__input {
     height: 50px;

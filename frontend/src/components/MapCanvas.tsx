@@ -21,6 +21,8 @@ interface MapCanvasProps {
   pinsWhenFar?: boolean
   // 찜 모드: 모든 핀을 초록 별 모양으로 그린다
   starPins?: boolean
+  // 밤의 카페(카페 화면) — 지도를 어둡게 하고, 이웃이 다녀온 가게의 핀에 불빛을 단다. 색은 night.css가 바꾼다
+  night?: boolean
   onPick: (restaurant: Restaurant) => void
   // 지도만 이 가게로 옮긴다 (검색 결과 선택 등). 상세는 열지 않는다.
   // 같은 가게를 연달아 골라도 다시 이동해야 하므로 id 문자열이 아니라 매번 새 객체로 받는다.
@@ -90,6 +92,9 @@ const STAR_PIN_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" style="dis
 // 후기 있는 가게 알약 앞 작은 별 (빨강) — 그 옆에 이웃 평균 별점
 const RATING_STAR_SVG = `<svg class="map-pin__star" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="${STAR_PATH}" style="fill:var(--pin-color)"/></svg>`
 
+// 밤의 카페에서 불빛을 다는 핀 수의 상한 — 넘으면 불빛 없이 핀만 그린다
+const GLOW_MAX_PINS = 40
+
 // 묶음 뱃지 안의 작은 별
 const BADGE_STAR_SVG = `<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true"><path d="${STAR_PATH}" fill="currentColor"/></svg>`
 
@@ -102,7 +107,8 @@ function reviewedIn(pin: Pin): number {
 // 여러 곳 = 흰 원에 개수 (서버 요약 셀도 같은 모양). 그 안에 이웃 후기가 있는 가게가 섞여 있으면 오른쪽 위에 "★ 몇 곳" 뱃지,
 // 전부 후기 있는 가게면 숫자가 같으니 별만. 후기 있는 가게 = 흰 알약 "★ 평균 별점",
 // 후기 없는 가게 = 작은 점, 찜 = 별. 고른 가게는 진한 알약에 ★ 이름 + 평균 별점으로 펼친다.
-function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false) {
+// glow: 밤의 카페에서 이웃 후기가 있는 핀 뒤에 불빛(번지는 원)을 깐다
+function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false, glow = false) {
   const count = pin.count ?? pin.items.length
   // 요약 셀은 items가 비어 있고 count만 있다
   const cell = pin.items.length === 0
@@ -144,8 +150,12 @@ function pinIcon(pin: Pin, groups: FriendGroup[], focused: boolean, star = false
       : reviewed === count
         ? `이 자리 ${count}곳, 모두 이웃 후기 있음`
         : `이 자리 ${count}곳, 이웃 후기 ${reviewed}곳`
+  // 불빛은 누를 수 없는 별도 요소로 버튼 뒤에 둔다 (버튼 안에 넣으면 버튼 바탕 위로 번진다)
+  const lit = glow && !star && (reviewCount > 0 || reviewed > 0)
+  const halo = lit ? `<span class="map-pin-glow${variant === 'cluster' ? ' map-pin-glow--small' : ''}" aria-hidden="true"></span>` : ''
+  // map-pin--lit: 이웃 후기가 있는 가게 하나 — 밤의 카페가 고른 핀의 색을 가를 때 본다 (night.css)
   return {
-    content: `<button type="button" class="map-pin map-pin--${variant}${size}${focused ? ' map-pin--focused' : ''}" style="--pin-color:${color}" aria-label="${title}">${body}</button>`,
+    content: `${halo}<button type="button" class="map-pin map-pin--${variant}${size}${focused ? ' map-pin--focused' : ''}${reviewCount > 0 ? ' map-pin--lit' : ''}" style="--pin-color:${color}" aria-label="${title}">${body}</button>`,
     anchor: new window.naver.maps.Point(0, 0),
   }
 }
@@ -175,6 +185,7 @@ export default function MapCanvas({
   cells = [],
   pinsWhenFar = false,
   starPins = false,
+  night = false,
   onPick,
   focus,
   visibleArea,
@@ -188,6 +199,8 @@ export default function MapCanvas({
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<naver.maps.Map | null>(null)
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map())
+  // 지금 핀에 불빛을 달고 있는지 (밤의 카페) — 고른 핀만 다시 그릴 때도 같은 모양을 쓰려고 적어 둔다
+  const glowRef = useRef(false)
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null)
   // 목록에서 방금 고른 가게. 지도를 옮긴 뒤 어느 핀이었는지 표시해준다.
   // GL 지도는 줌 숫자가 이미지 지도와 한 단계 다를 수 있다 (타일 크기 차이). 군집·요약 셀 계산은 전부
@@ -522,23 +535,27 @@ export default function MapCanvas({
       }
     })
 
+    // 밤의 카페: 불 켜진 핀이 화면에 많으면 불빛이 서로 뭉개지고 그릴 것도 늘어난다 — 적을 때만 불빛을 단다
+    const glow = night && visiblePins.reduce((n, p) => n + (reviewedIn(p) > 0 ? 1 : 0), 0) <= GLOW_MAX_PINS
+    glowRef.current = glow
+
     visiblePins.forEach((pin) => {
       const existing = markers.get(pin.key)
-      // 색·후기수(묶음이면 후기 있는 가게 수)·찜 모드 여부를 키에 담는다 — 셋 중 하나만 바뀌어도 같은 자리 핀의 아이콘이 갈린다
-      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}|${pin.items.length === 1 ? pin.items[0].reviews.length : `r${reviewedIn(pin)}`}${starPins ? '|star' : ''}`
+      // 색·후기수(묶음이면 후기 있는 가게 수)·찜 모드 여부·불빛 여부를 키에 담는다 — 하나만 바뀌어도 같은 자리 핀의 아이콘이 갈린다
+      const iconKey = `${pin.items.length > 0 ? pinColor(pin.items, groups) : 'var(--gc-none)'}|${pin.items.length === 1 ? pin.items[0].reviews.length : `r${reviewedIn(pin)}`}${starPins ? '|star' : ''}${glow ? '|glow' : ''}`
       const focused = pin.items.some((r) => r.id === focusedRef.current)
       if (existing) {
         // 같은 묶음이라도 후기가 새로 달리면 색이 바뀐다 — 아이콘만 갈아끼운다
         if (existing.get('pinColor') !== iconKey) {
           existing.set('pinColor', iconKey)
-          existing.setIcon(pinIcon(pin, groups, focused, starPins))
+          existing.setIcon(pinIcon(pin, groups, focused, starPins, glow))
         }
         return
       }
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(pin.lat, pin.lng),
         map: mapRef.current!,
-        icon: pinIcon(pin, groups, focused, starPins),
+        icon: pinIcon(pin, groups, focused, starPins, glow),
         zIndex: focused ? FOCUSED_Z : 0,
       })
       marker.set('pinColor', iconKey)
@@ -586,7 +603,7 @@ export default function MapCanvas({
       })
       markers.set(pin.key, marker)
     })
-  }, [visiblePins, groups, mapReady, onPick, openPinList, panToVisible, starPins])
+  }, [visiblePins, groups, mapReady, onPick, openPinList, panToVisible, starPins, night])
 
   // 강조 표시는 바뀐 핀만 다시 그린다 (전체 재생성 방지).
   useEffect(() => {
@@ -600,7 +617,7 @@ export default function MapCanvas({
       const marker = pin && markersRef.current.get(pin.key)
       if (!pin || !marker) continue
       const focused = pin.items.some((r) => r.id === focusedId)
-      marker.setIcon(pinIcon(pin, groups, focused, starPins))
+      marker.setIcon(pinIcon(pin, groups, focused, starPins, glowRef.current))
       // 펼친 이름 알약이 이웃 핀 밑에 깔리지 않게
       marker.setZIndex(focused ? FOCUSED_Z : 0)
     }
@@ -635,7 +652,7 @@ export default function MapCanvas({
   }, [focus, mapReady, focusRestaurant])
 
   return (
-    <div className={`map-canvas${glActive ? ' map-canvas--gl' : ''}`}>
+    <div className={`map-canvas${glActive ? ' map-canvas--gl' : ''}${night ? ' map-canvas--night' : ''}`}>
       <div ref={mapDivRef} className="map-canvas__surface" />
       <button
         type="button"

@@ -106,7 +106,7 @@ class CuisineBackfillTest {
         backfill.fill(SbizPlacesTest.places(sbiz("가나다", "일식 회/초밥", 1)));
 
         double d = 0.0005;
-        Map<Long, String> listed = controller.list(lat - d, lat + d, lng - d, lng + d, null).getBody().stream()
+        Map<Long, String> listed = controller.list(lat - d, lat + d, lng - d, lng + d, null, null, null).getBody().stream()
                 .collect(Collectors.toMap(RestaurantController.ListItem::id, i -> String.valueOf(i.cuisine())));
         assertEquals(Map.of(sushi.getId(), "JAPANESE", plain.getId(), "KOREAN", noodle.getId(), "NOODLE"), listed);
 
@@ -140,7 +140,73 @@ class CuisineBackfillTest {
     // 내 가게들이 있는 자리의 요약 셀 건수 합
     private int counted(String cuisine) {
         double d = 0.0005;
-        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, cuisine).getBody().stream()
+        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, cuisine, null, null).getBody().stream()
+                .mapToInt(RestaurantController.Cell::count).sum();
+    }
+
+    // 고른 업종만 빼고 센 건수 합 (맛집 화면)
+    private int countedExcept(String exceptCuisine) {
+        double d = 0.0005;
+        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, null, null, exceptCuisine).getBody().stream()
+                .mapToInt(RestaurantController.Cell::count).sum();
+    }
+
+    // 카페는 카페·베이커리·디저트로 한 번 더 갈린다 — 목록·요약·후기에 실린다
+    @Test
+    void cafesGetAKindAndTheSummaryCanCountByKind() {
+        Restaurant coffee = place("모모", "커피숍", 1);
+        Restaurant bakery = place("모모제빵소", "기타", 2);
+        Restaurant dessert = place("가나다", "기타", 3);
+        Restaurant boardGames = place("모모 보드게임카페", "까페", 4);
+        Restaurant korean = place("라마바", "한식", 5);
+        assertEquals("COFFEE", coffee.getCafeKind(), "새 가게는 이름과 인허가 업종만으로 먼저 정해진다");
+        assertEquals("BAKERY", bakery.getCafeKind());
+        assertNull(dessert.getCafeKind(), "아직 카페인 줄 모른다");
+        assertNull(boardGames.getCuisine(), "보드게임카페는 카페로 치지 않는다");
+        assertNull(korean.getCafeKind(), "카페가 아니면 종류도 없다");
+
+        backfill.fill(SbizPlacesTest.places(sbiz("가나다", "아이스크림/빙수", 3), sbiz("모모 보드게임카페", "카페", 4)));
+        assertEquals("CAFE", reload(dessert).getCuisine());
+        assertEquals("DESSERT", reload(dessert).getCafeKind(), "상가 소분류로 카페가 되면 종류도 같이 채운다");
+        assertNull(reload(boardGames).getCuisine(), "상가 소분류가 카페라고 해도 마찬가지");
+        assertNull(reload(boardGames).getCafeKind());
+
+        double d = 0.0005;
+        Map<Long, String> kinds = controller.list(lat - d, lat + d, lng - d, lng + d, null, null, null).getBody().stream()
+                .collect(Collectors.toMap(RestaurantController.ListItem::id, i -> String.valueOf(i.cafeKind())));
+        assertEquals(Map.of(coffee.getId(), "COFFEE", bakery.getId(), "BAKERY", dessert.getId(), "DESSERT",
+                boardGames.getId(), "null", korean.getId(), "null"), kinds);
+
+        assertEquals(3, counted("CAFE"));
+        assertEquals(1, countedKind("BAKERY"));
+        assertEquals(2, countedKind("BAKERY, DESSERT"));
+        assertEquals(3, countedKind("COFFEE,BAKERY,DESSERT"));
+        assertEquals(1, countedKind("COFFEE,없는종류"), "모르는 코드는 버린다");
+        assertEquals(0, countedKind("없는종류"), "아는 코드가 하나도 없으면 아무것도 세지 않는다");
+        // 맛집 화면: 카페만 빼고 센다 — 업종을 모르는 보드게임카페와 한식집이 남는다
+        assertEquals(5, counted(null));
+        assertEquals(2, countedExcept("CAFE"));
+        assertEquals(1, countedExcept("CAFE, KOREAN"));
+        assertEquals(2, countedExcept("CAFE,없는업종"), "모르는 코드는 버린다");
+        assertEquals(5, countedExcept("없는업종"), "아는 코드가 하나도 없으면 빼는 것 없이 전부 센다");
+
+        AppUser me = users.save(new AppUser("cafekind" + tag + "@test.local", null, "카페" + tag, null));
+        String token = UUID.randomUUID().toString();
+        me.issueToken(token);
+        users.save(me);
+        Review atBakery = review(me, bakery.getName(), "기타", bakery.getRoadAddress());
+        Review unlisted = review(me, "목록에없는 케이크" + tag, "기타", "서울특별시 강남구 없는길 " + tag);
+        Review atKorean = review(me, korean.getName(), "한식", korean.getRoadAddress());
+        Map<Long, ReviewController.Item> seen = reviewController.list("Bearer " + token).stream()
+                .collect(Collectors.toMap(ReviewController.Item::id, i -> i));
+        assertEquals("BAKERY", seen.get(atBakery.getId()).restaurant().cafeKind(), "가게에 채워 둔 종류");
+        assertEquals("DESSERT", seen.get(unlisted.getId()).restaurant().cafeKind(), "목록에 없는 가게는 후기에 적힌 이름으로");
+        assertNull(seen.get(atKorean.getId()).restaurant().cafeKind());
+    }
+
+    private int countedKind(String cafeKind) {
+        double d = 0.0005;
+        return controller.summary(lat - d, lat + d, lng - d, lng + d, 17, null, cafeKind, null).getBody().stream()
                 .mapToInt(RestaurantController.Cell::count).sum();
     }
 

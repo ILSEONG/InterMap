@@ -43,6 +43,13 @@ public class RestaurantImportService {
 
     private static final int BATCH_SIZE = 500;
 
+    // 가게를 넣고 지우는 작업(백필·주간 최신화·카페 받아 오기)은 한 번에 하나만 — 저마다 "이미 있는 가게" 목록을 읽어 두고 일하므로
+    // 둘이 같이 돌면 같은 가게를 두 번 넣는다
+    public static final java.util.concurrent.locks.ReentrantLock WRITING = new java.util.concurrent.locks.ReentrantLock();
+
+    // 카페로 치지 않는 휴게음식점 업태 — 이름에 '카페'가 들어가도 넣지 않는다
+    private static final Set<String> NOT_CAFE_CATEGORIES = Set.of("편의점", "키즈카페");
+
     private final LocalDataClient client;
     private final RestaurantRepository repository;
 
@@ -56,8 +63,16 @@ public class RestaurantImportService {
             throw new IllegalStateException("LOCALDATA_AUTH_KEY 환경변수가 설정되지 않았습니다");
         }
 
-        List<LocalDataClient.Row> rows = client.fetchAllOpen(localCode);
+        List<LocalDataClient.Row> rows = client.fetchAllOpen(LocalDataClient.Service.GENERAL, localCode);
+        WRITING.lock();
+        try {
+            return importRows(localCode, rows);
+        } finally {
+            WRITING.unlock();
+        }
+    }
 
+    private Result importRows(String localCode, List<LocalDataClient.Row> rows) {
         // 기존 가게는 키(관리번호, 상호|주소 → id)만 올린다. 엔티티 전체는 서울 규모에서 메모리를 넘긴다.
         Set<String> knownMgtNos = new HashSet<>();
         Map<String, Long> idByNameAddr = new HashMap<>();
@@ -138,18 +153,28 @@ public class RestaurantImportService {
 
     /** 인허가 행으로 영업중 가게를 만든다. 좌표가 없거나 한국 밖이면 null */
     static Restaurant toRestaurant(LocalDataClient.Row row) {
+        return toRestaurant(row, blankToNull(row.category()) != null ? row.category() : "음식점");
+    }
+
+    private static Restaurant toRestaurant(LocalDataClient.Row row, String category) {
         double[] latLng = toLatLng(row.crdX(), row.crdY());
         if (latLng == null) return null;
-        Restaurant restaurant = new Restaurant(
-            row.bplcNm(),
-            blankToNull(row.category()) != null ? row.category() : "음식점",
-            row.rdnWhlAddr(),
-            row.lotnoAddr(),
-            latLng[0],
-            latLng[1]
-        );
+        Restaurant restaurant = new Restaurant(row.bplcNm(), category, row.rdnWhlAddr(), row.lotnoAddr(), latLng[0], latLng[1]);
         restaurant.markStatus(Restaurant.Status.OPEN, row.mgtNo());
         return restaurant;
+    }
+
+    /**
+     * 휴게음식점·제과점 인허가 행으로 카페를 만든다. 카페(카페·베이커리·디저트)가 아니면 null — 휴게음식점에는
+     * 편의점·패스트푸드·분식집도 섞여 있어서, 업종 규칙(Cuisine)이 카페라고 한 곳만 받는다. 좌표가 없어도 null.
+     */
+    static Restaurant toCafe(LocalDataClient.Service service, LocalDataClient.Row row) {
+        // 제과점영업은 업태가 따로 없다 — 전부 빵집이다
+        String category = service == LocalDataClient.Service.BAKERY ? "제과점"
+                : blankToNull(row.category()) != null ? row.category().trim() : "휴게음식점";
+        if (NOT_CAFE_CATEGORIES.contains(category)) return null;
+        Restaurant restaurant = toRestaurant(row, category);
+        return restaurant != null && "CAFE".equals(restaurant.getCuisine()) ? restaurant : null;
     }
 
     private static String blankToNull(String s) {

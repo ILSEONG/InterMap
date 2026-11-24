@@ -1,7 +1,28 @@
 import type { ReactNode } from 'react'
 
-// 업종 그림 (선 그림, 24×24) — 코드는 lib/cuisine의 업종 코드
+// 업종 그림 (선 그림, 24×24) — 코드는 lib/cuisine의 업종 코드, 그리고 카페 화면의 종류(lib/cafe의 CAFE_KINDS)
 const SHAPES: Record<string, ReactNode> = {
+  // 카페 종류 — 김 나는 잔
+  COFFEE: (
+    <>
+      <path d="M5 9h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z" />
+      <path d="M17 10h1a3 3 0 0 1 0 6h-1M8 5v1M11 4v2M14 5v1" />
+    </>
+  ),
+  // 카페 종류 — 바게트
+  BAKERY: (
+    <>
+      <path d="M5.3 18.7a2.9 2.9 0 0 1 0-4.1L14.6 5.3a2.9 2.9 0 0 1 4.1 4.1L9.4 18.7a2.9 2.9 0 0 1-4.1 0z" />
+      <path d="M9.6 12.4l2 2M12.4 9.6l2 2M15.2 6.8l1.6 1.6" />
+    </>
+  ),
+  // 카페 종류 — 조각 케이크
+  DESSERT: (
+    <>
+      <path d="M3.5 19.5v-6L18 7.5a2.5 2.5 0 0 1 2.5 2.5v9.5z" />
+      <path d="M3.5 15.5h17M15 5.2a1.3 1.3 0 1 1 2.2 1" />
+    </>
+  ),
   // 밥그릇과 김
   KOREAN: (
     <>
@@ -78,13 +99,6 @@ const SHAPES: Record<string, ReactNode> = {
     <>
       <path d="M12 21 4 6c5-3 11-3 16 0z" />
       <path d="M10 10v.5M14 11v.5M12 15v.5" />
-    </>
-  ),
-  // 커피잔
-  CAFE: (
-    <>
-      <path d="M5 9h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z" />
-      <path d="M17 10h1a3 3 0 0 1 0 6h-1M8 5v1M11 4v2M14 5v1" />
     </>
   ),
   // 맥주잔

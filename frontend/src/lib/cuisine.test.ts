@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import { CUISINES, matchesCuisine, toggleCuisine } from './cuisine.ts'
 
-assert.equal(CUISINES.length, 14)
-assert.equal(new Set(CUISINES.map(([code]) => code)).size, 14)
+assert.equal(CUISINES.length, 13)
+assert.equal(new Set(CUISINES.map(([code]) => code)).size, 13)
+assert.equal(CUISINES.some(([code]) => code === 'CAFE'), false, '카페는 카페 화면에 따로 있다')
 
 // 켜고 끄기 — 고른 순서와 상관없이 화면 순서로 정리된다
 assert.deepEqual(toggleCuisine([], 'JAPANESE'), ['JAPANESE'])

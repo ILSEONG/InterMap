@@ -128,7 +128,7 @@ public class GeocodeBackfill implements ApplicationRunner {
                 return Arrays.stream(localCodesCsv.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
             }
 
-            public List<LocalDataClient.Row> openRows(String localCode) { return localData.fetchAllOpen(localCode); }
+            public List<LocalDataClient.Row> openRows(String localCode) { return localData.fetchAllOpen(LocalDataClient.Service.GENERAL, localCode); }
         }, 40, workers, new Notes() {
             public Optional<String> get(String key) { return serverState.get("geocode", key); }
 

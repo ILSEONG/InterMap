@@ -4,6 +4,7 @@ import { useBackLayer } from '../lib/backLayer'
 import { sheetDefaultHeight } from '../lib/sheetGeometry'
 import type { Comment, Restaurant, FriendGroup, Review } from '../data/model'
 import { photoUrl } from '../lib/api'
+import { CAFE_TAGS, countCafeTags, isCafe, toggleCode } from '../lib/cafe'
 import ReviewCard from './ReviewCard'
 import ReviewComments from './ReviewComments'
 import Avatar from './Avatar'
@@ -18,12 +19,14 @@ interface RestaurantSheetProps {
   // 주인장(admin)으로 로그인한 상태 — 후기 폼이 주인장 후기로 저장된다
   asOwner: boolean
   groups: FriendGroup[]
+  // 밤의 카페(카페 화면)에서 열렸는지 — 문구를 불빛에 맞춘다. 색은 night.css가 바꾼다
+  night?: boolean
   onClose: () => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
-  onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[]) => Promise<void>
+  onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[], tags: string[]) => Promise<void>
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
-  onEditReview: (reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
+  onEditReview: (reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[], tags: string[]) => Promise<void>
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
@@ -59,6 +62,7 @@ export default function RestaurantSheet({
   ownerReviews,
   asOwner,
   groups,
+  night = false,
   onClose,
   onAddReview,
   myUserId,
@@ -338,6 +342,7 @@ export default function RestaurantSheet({
               ownerReviews={ownerReviews}
               asOwner={asOwner}
               groups={groups}
+              night={night}
               onClose={onClose}
               onExpand={expand}
               onAddReview={onAddReview}
@@ -366,14 +371,16 @@ interface SheetBodyProps {
   ownerReviews: Review[]
   asOwner: boolean
   groups: FriendGroup[]
+  // 밤의 카페(카페 화면)에서 열렸는지 — 문구를 불빛에 맞춘다. 색은 night.css가 바꾼다
+  night?: boolean
   onClose: () => void
   // 후기 쓰기 화면으로 넘어갈 때 시트를 크게 펼친다
   onExpand: () => void
   // 서버 저장이 끝나면 resolve. 실패하면 reject (입력값을 지우지 않기 위해)
-  onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[]) => Promise<void>
+  onAddReview: (restaurantId: string, rating: number, text: string, menu: string, photos: File[], tags: string[]) => Promise<void>
   // 내 후기 수정. 로그인 사용자 id와 후기 작성자 id가 같을 때만 수정 버튼이 보인다
   myUserId?: number
-  onEditReview: (reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[]) => Promise<void>
+  onEditReview: (reviewId: number, rating: number, text: string, menu: string, keepPhotoIds: number[], photos: File[], tags: string[]) => Promise<void>
   onDeleteReview: (reviewId: number) => Promise<void>
   // 후기별 댓글 — 후기 id로 찾는다
   comments: Record<number, Comment[]>
@@ -419,6 +426,7 @@ function SheetBody({
   ownerReviews,
   asOwner,
   groups,
+  night = false,
   onClose,
   onExpand,
   onAddReview,
@@ -439,6 +447,8 @@ function SheetBody({
   const [draftMenu, setDraftMenu] = useState('')
   const [draftMenus, setDraftMenus] = useState<string[]>([])
   const [draftPhotos, setDraftPhotos] = useState<File[]>([])
+  // 카페 후기의 꼬리표 (lib/cafe의 CAFE_TAGS) — 카페일 때만 고른다
+  const [draftTags, setDraftTags] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   // 수정 중인 내 후기. 같은 폼을 재사용 — 기존 사진은 keepPhotoIds로, 새 사진은 draftPhotos로
   const [editing, setEditing] = useState<Review | null>(null)
@@ -465,6 +475,9 @@ function SheetBody({
   }, [view])
 
   const avgRating = restaurant.reviews.reduce((sum, r) => sum + r.rating, 0) / (restaurant.reviews.length || 1)
+  const cafe = isCafe(restaurant)
+  // 이웃이 후기에 고른 꼬리표를 모은 것 ("작업·공부 2"). 후기가 하나뿐이면 그 후기 카드에 이미 보이니 따로 모으지 않는다
+  const cafeTags = cafe && restaurant.reviews.length > 1 ? countCafeTags(restaurant.reviews) : []
   const myGroups = groups.filter((g) => restaurant.groupIds.includes(g.id))
   // 후기 카드는 나눠 그린다 (이웃 후기 → 주인장 후기 순으로 이어서 센다). 가게가 바뀌면 처음부터
   const reviewsShown = useProgressiveCount(restaurant.reviews.length + ownerReviews.length, restaurant.id, 4, 12)
@@ -477,6 +490,7 @@ function SheetBody({
     setDraftMenu('')
     setDraftMenus([])
     setDraftPhotos([])
+    setDraftTags([])
     setEditing(null)
     setKeepPhotoIds([])
   }
@@ -505,6 +519,7 @@ function SheetBody({
     setDraftMenu('')
     setDraftMenus(review.menu ? review.menu.split(',').map((m) => m.trim()).filter(Boolean) : [])
     setDraftPhotos([])
+    setDraftTags(review.tags ?? [])
     setKeepPhotoIds(review.photoIds)
   }
 
@@ -562,8 +577,10 @@ function SheetBody({
       const pending = draftMenu.trim()
       const menus = pending && !draftMenus.includes(pending) ? [...draftMenus, pending] : draftMenus
       const menu = menus.join(', ').slice(0, 100)
-      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), menu, keepPhotoIds, draftPhotos)
-      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), menu, draftPhotos)
+      // 꼬리표는 카페 후기에만 단다
+      const tags = cafe ? draftTags : []
+      if (editing) await onEditReview(editing.id, draftRating, draftReview.trim(), menu, keepPhotoIds, draftPhotos, tags)
+      else await onAddReview(restaurant.id, draftRating, draftReview.trim(), menu, draftPhotos, tags)
       resetForm()
       setView('detail')
     } catch {
@@ -645,6 +662,33 @@ function SheetBody({
               rows={4}
             />
 
+            {cafe && (
+              <>
+                <div className="review-form__label-row">
+                  <span className="review-form__label" id={`${ids}-tags`}>
+                    이런 점이 좋아요
+                  </span>
+                  <span className="review-form__hint">여러 개 고를 수 있어요</span>
+                </div>
+                <div className="review-form__tags" role="group" aria-labelledby={`${ids}-tags`}>
+                  {CAFE_TAGS.map(([code, label]) => {
+                    const on = draftTags.includes(code)
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        aria-pressed={on}
+                        className={`review-form__tag${on ? ' review-form__tag--on' : ''}`}
+                        onClick={() => setDraftTags(toggleCode(CAFE_TAGS, draftTags, code))}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
             <div className="review-form__label-row">
               <label className="review-form__label" htmlFor={`${ids}-menu`}>
                 추천 메뉴
@@ -665,7 +709,7 @@ function SheetBody({
                     addMenu()
                   }
                 }}
-                placeholder="예) 바지락칼국수"
+                placeholder={cafe ? '예) 아이스 라떼' : '예) 바지락칼국수'}
                 aria-label="추천 메뉴"
                 enterKeyHint="done"
               />
@@ -818,7 +862,7 @@ function SheetBody({
               </span>
               <span className="restaurant-sheet__visitors">
                 <span className="restaurant-sheet__visitors-main">
-                  이웃 <b>{visitors.length}명</b>이 다녀왔어요
+                  이웃 <b>{visitors.length}명</b>이 {night ? '불을 켰어요' : '다녀왔어요'}
                 </span>
                 <span className="restaurant-sheet__visitors-sub">후기 {restaurant.reviews.length}개 평균</span>
               </span>
@@ -844,6 +888,17 @@ function SheetBody({
             </span>
           )}
         </div>
+
+        {cafeTags.length > 0 && (
+          <ul className="restaurant-sheet__cafe-tags" aria-label="이웃이 좋다고 한 점">
+            {cafeTags.map((t) => (
+              <li key={t.code} className="restaurant-sheet__cafe-tag">
+                {t.label}
+                {t.count > 1 && <b>{t.count}</b>}
+              </li>
+            ))}
+          </ul>
+        )}
 
         <section className="restaurant-sheet__section">
           <h3 className="restaurant-sheet__section-title">
