@@ -1,7 +1,9 @@
-# 찍어 온 화면(v*.mp4, s*.png)에 문구를 얹어 홍보영상과 스토어 스크린샷을 만든다.
-#   python3 compose.py <찍은 폴더> <결과 폴더> [stills|video|check]
+# 찍어 온 화면(v*.mp4, s*.png)에 문구·도입부·배경음악을 얹어 홍보영상과 스토어 스크린샷을 만든다.
+#   python3 compose.py <찍은 폴더> <결과 폴더> [stills|video]
+# 영상은 음악 박자(100BPM, 1박 = 0.6초)에 맞춰 자른다 — 장면이 바뀌는 순간이 박에 떨어진다.
 import os, re, subprocess, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+import music
 
 SRC, DST = sys.argv[1], sys.argv[2]
 ONLY = sys.argv[3] if len(sys.argv) > 3 else ''
@@ -11,25 +13,30 @@ FONTS = os.path.join(FRONT, 'node_modules/pretendard/dist/public/static/')
 ICON = os.path.join(FRONT, 'public/icon-512.png')
 BG, INK, SOFT = (254, 245, 234), (28, 28, 30), (107, 107, 112)   # 배경은 앱 아이콘의 바탕색
 font = lambda w, px: ImageFont.truetype(FONTS + f'Pretendard-{w}.otf', px)
+BEAT = music.BEAT
 
-# 장면: (찍은 영상, 영상 길이(초), 문구, 스크린샷) — 영상은 capture.py가 이 길이에 맞춰 한 프레임씩 찍어 온다
+# 도입부 — 왜 이 앱인가 (두 문장, 합쳐서 8박)
+INTRO = ['누가 썼는지 모르는 후기,\n믿어도 될지 고민되죠?', '인터맵에서는\n내가 믿는 이웃의 후기만 봐요']
+INTRO_BEATS, END_BEATS = 8, 4
+# 장면: (찍은 영상, 문구, 스크린샷, 홍보영상에서의 길이(박), 앱 미리보기에서의 길이(박) — 0이면 뺀다)
 SCENES = [
-    ('v1_map', 3.2, '이웃이 다녀온 맛집을\n지도에서 한눈에 봐요', 's1_map'),
-    ('v2_sheet', 4.3, '이웃이 남긴 별점과 후기를\n바로 확인해요', 's2_sheet'),
-    ('v3_filter', 3.7, '업종과 인원에 맞는 곳만\n골라서 봐요', 's3_filter'),
-    ('v4_review', 4.4, '다녀온 곳은\n후기로 남겨요', 's7_review'),
-    ('v5_cafe', 3.9, '맛집과 카페는\n탭으로 나눠서 봐요', 's4_cafe'),
-    ('v6_poll', 3.9, '어디 갈지 고민될 땐\n투표로 같이 정해요', 's5_poll'),
-    ('v7_recap', 4.3, '한 달의 맛집 기록을\n결산 카드로 돌아봐요', 's6_recap'),
+    ('v1_map', '이웃이 다녀온 맛집을\n지도에서 한눈에 봐요', 's1_map', 5, 5),
+    ('v2_sheet', '이웃이 남긴 별점과 후기를\n바로 확인해요', 's2_sheet', 7, 6),
+    ('v3_filter', '업종과 인원에 맞는 곳만\n골라서 봐요', 's3_filter', 6, 6),
+    ('v4_review', '다녀온 곳은\n후기로 남겨요', 's7_review', 7, 0),
+    ('v5_cafe', '맛집과 카페는\n탭으로 나눠서 봐요', 's4_cafe', 6, 6),
+    ('v6_poll', '어디 갈지 고민될 땐\n투표로 같이 정해요', 's5_poll', 6, 6),
+    ('v7_recap', '한 달의 맛집 기록을\n결산 카드로 돌아봐요', 's6_recap', 7, 7),
 ]
-END_SEC = 2.2
 TAGLINE, NAME = '친구가 고른 맛집 지도', '인터맵'
+LOUDNESS = -16.0   # 배경음악 크기(LUFS)
 
-def caption(size, text, px, top):
-    """투명 바탕에 가운데 정렬 문구"""
-    im = Image.new('RGBA', size, (0, 0, 0, 0)); d = ImageDraw.Draw(im); f = font('Bold', px); y = top
-    for line in text.split('\n'):
-        w = d.textlength(line, font=f, features=['kern']); d.text(((size[0] - w) / 2, y), line, font=f, fill=INK + (255,)); y += round(px * 1.34)
+def caption(size, text, px, top=None):
+    """투명 바탕에 가운데 정렬 문구 (top이 없으면 화면 한가운데)"""
+    im = Image.new('RGBA', size, (0, 0, 0, 0)); d = ImageDraw.Draw(im); f = font('Bold', px); lines = text.split('\n'); lh = round(px * 1.36)
+    y = top if top is not None else (size[1] - lh * len(lines)) // 2 - round(px * 0.6)
+    for line in lines:
+        w = d.textlength(line, font=f, features=['kern']); d.text(((size[0] - w) / 2, y), line, font=f, fill=INK + (255,)); y += lh
     return im
 
 def rounded(size, r):
@@ -41,7 +48,7 @@ def base(size, box, r):
     x, y, w, h = box; im = Image.new('RGB', size, BG)
     sh = Image.new('RGBA', size, (0, 0, 0, 0)); k = size[0] / 1080
     ImageDraw.Draw(sh).rounded_rectangle([x, y + round(20 * k), x + w, y + h + round(20 * k)], r, fill=(60, 40, 20, 62))
-    im.paste(sh.filter(ImageFilter.GaussianBlur(34 * k)), (0, 0), sh.filter(ImageFilter.GaussianBlur(34 * k)))
+    sh = sh.filter(ImageFilter.GaussianBlur(34 * k)); im.paste(sh, (0, 0), sh)
     ImageDraw.Draw(im).rounded_rectangle([x - 2, y - 2, x + w + 1, y + h + 1], r + 2, fill=(226, 216, 203))
     return im
 
@@ -53,10 +60,10 @@ LAYOUT = {   # 크기: (문구 글자 크기, 문구 위치, 화면 상자, 모�
 def still(size, text, shot, out):
     px, top, box, r = LAYOUT[size]; im = base(size, box, r); x, y, w, h = box
     im.paste(Image.open(shot).convert('RGB').resize((w, h), Image.LANCZOS), (x, y), rounded((w, h), r))
-    im.paste(caption(size, text, px, top), (0, 0), caption(size, text, px, top)); im.save(out, optimize=True)
+    cap = caption(size, text, px, top); im.paste(cap, (0, 0), cap); im.save(out, optimize=True)
 
 def end_card(size):
-    im = Image.new('RGB', size, BG); d = ImageDraw.Draw(im); cx = size[0] // 2; n = 280; x, y = cx - n // 2, 650
+    im = Image.new('RGB', size, BG); cx = size[0] // 2; n = 280; x, y = cx - n // 2, 650
     sh = Image.new('RGBA', size, (0, 0, 0, 0)); ImageDraw.Draw(sh).rounded_rectangle([x, y + 14, x + n, y + n + 14], 64, fill=(60, 40, 20, 56))
     sh = sh.filter(ImageFilter.GaussianBlur(26)); im.paste(sh, (0, 0), sh)
     ImageDraw.Draw(im).rounded_rectangle([x - 2, y - 2, x + n + 1, y + n + 1], 66, fill=(232, 221, 207))      # 앱 아이콘 타일
@@ -68,39 +75,61 @@ def end_card(size):
 def run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode: print(r.stderr[-1500:]); sys.exit(1)
+    return r
 
 ENC = ['-r', '30', '-c:v', 'libx264', '-crf', '17', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-video_track_timescale', '15360', '-an']
 def dur(f): return float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f], capture_output=True, text=True).stdout)
+def part(name, build):
+    """한 조각을 만든다 (이미 있으면 다시 만들지 않는다)"""
+    out = os.path.join(TMP, name + '.mp4')
+    if not os.path.exists(out): build(out + '.part.mp4'); os.replace(out + '.part.mp4', out)
+    return out
+
+SIZE = (1080, 1920); BGC = '0x%02x%02x%02x' % BG
+def intro_part():
+    sec = INTRO_BEATS * BEAT; half = sec / 2; caps = []
+    for i, text in enumerate(INTRO):
+        f = os.path.join(TMP, f'intro{i}.png'); caption(SIZE, text, 70).save(f); caps.append(f)
+    # 첫 문장은 처음부터 보이고(첫 화면이 비지 않게), 절반 지점에서 둘째 문장으로 넘어간다
+    fc = (f"[1:v]loop=-1:1,fps=30,format=rgba,fade=out:st={half - 0.38:.2f}:d=0.3:alpha=1[a];[2:v]loop=-1:1,fps=30,format=rgba,fade=in:st={half:.2f}:d=0.35:alpha=1[b];"
+          f"[0:v][a]overlay=0:0[x];[x][b]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
+    return part('intro', lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', f'color=c={BGC}:s=1080x1920:r=30', '-i', caps[0], '-i', caps[1], '-filter_complex', fc, '-map', '[v]', *ENC, o]))
+
+def scene_part(i, clip, text, beats):
+    px, top, box, r = LAYOUT[SIZE]; x, y, w, h = box; sec = beats * BEAT
+    src = os.path.join(SRC, clip + '.mp4'); cap = os.path.join(TMP, f'cap{i}.png'); caption(SIZE, text, px, top).save(cap)
+    assert dur(src) >= sec - 0.05, (clip, dur(src), sec)
+    fc = (f"[0:v]loop=-1:1,fps=30[bg];[1:v]fps=30,scale={w}:{h}:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,format=rgba[c];"
+          f"[2:v]loop=-1:1,fps=30,format=gray[m];[c][m]alphamerge[p];[bg][p]overlay={x}:{y}[a];"
+          f"[3:v]loop=-1:1,fps=30,format=rgba,fade=in:st=0.05:d=0.35:alpha=1[t];[a][t]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
+    return part(f'scene{i}_{beats}', lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-i', os.path.join(TMP, 'base.png'), '-i', src, '-i', os.path.join(TMP, 'mask.png'), '-i', cap, '-filter_complex', fc, '-map', '[v]', *ENC, o]))
+
+def end_part():
+    sec = END_BEATS * BEAT; end = os.path.join(TMP, 'end.png'); end_card(SIZE).save(end)
+    fc = f"[0:v]loop=-1:1,fps=30,format=rgba,fade=in:st=0:d=0.45:alpha=1[e];[1:v][e]overlay=0:0,trim=duration={sec},format=yuv420p[v]"
+    return part('end', lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-i', end, '-f', 'lavfi', '-i', f'color=c={BGC}:s=1080x1920:r=30', '-filter_complex', fc, '-map', '[v]', *ENC, o]))
+
+def cut(name, col, out, crop=None):
+    """한 편을 만든다: 도입부 + 장면들 + 끝 화면, 그 길이에 맞춘 음악"""
+    px, top, box, r = LAYOUT[SIZE]; base(SIZE, box, r).save(os.path.join(TMP, 'base.png')); rounded(box[2:], r).save(os.path.join(TMP, 'mask.png'))
+    parts = [intro_part()] + [scene_part(i, s[0], s[1], s[col]) for i, s in enumerate(SCENES) if s[col]] + [end_part()]
+    body = sum(s[col] for s in SCENES)
+    lst = os.path.join(TMP, name + '.txt'); open(lst, 'w').write(''.join(f"file '{os.path.abspath(p)}'\n" for p in parts))
+    joined = os.path.join(TMP, name + '_joined.mp4'); run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', joined])
+    wav = os.path.join(TMP, name + '.wav'); music.make(wav, INTRO_BEATS, body, END_BEATS)
+    m = re.search(r'I:\s+(-?[0-9.]+) LUFS', run(['ffmpeg', '-hide_banner', '-i', wav, '-af', 'ebur128', '-f', 'null', '-']).stderr.split('Summary')[-1]); gain = LOUDNESS - float(m.group(1))
+    video = ['-c:v', 'copy'] if not crop else ['-vf', crop, '-r', '30', '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.0']
+    run(['ffmpeg', '-y', '-loglevel', 'error', '-i', joined, '-i', wav, '-map', '0:v', '-map', '1:a', *video, '-af', f'volume={gain:.2f}dB', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-shortest', '-movflags', '+faststart', out])
+    print(f'{os.path.basename(out)}: {dur(out):.2f}s (도입 {INTRO_BEATS}박 + 본편 {body}박 + 끝 {END_BEATS}박, 음악 {gain:+.1f}dB)'); sys.stdout.flush()
 
 def video():
-    size = (1080, 1920); px, top, box, r = LAYOUT[size]; x, y, w, h = box
-    base(size, box, r).save(os.path.join(TMP, 'base.png')); rounded((w, h), r).save(os.path.join(TMP, 'mask.png'))
-    parts = []
-    for i, (clip, sec, text, _) in enumerate(SCENES):
-        src = os.path.join(SRC, clip + '.mp4'); cap = os.path.join(TMP, f'cap{i}.png'); caption(size, text, px, top).save(cap); out = os.path.join(TMP, f'scene{i}.mp4')
-        fc = (f"[0:v]loop=-1:1,fps=30[bg];[1:v]fps=30,scale={w}:{h}:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,format=rgba[c];"
-              f"[2:v]loop=-1:1,fps=30,format=gray[m];[c][m]alphamerge[p];[bg][p]overlay={x}:{y}[a];"
-              f"[3:v]loop=-1:1,fps=30,format=rgba,fade=in:st=0.05:d=0.35:alpha=1[t];[a][t]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
-        run(['ffmpeg', '-y', '-loglevel', 'error', '-i', os.path.join(TMP, 'base.png'), '-i', src, '-i', os.path.join(TMP, 'mask.png'), '-i', cap, '-filter_complex', fc, '-map', '[v]', *ENC, out + '.part.mp4'])
-        os.replace(out + '.part.mp4', out); parts.append(out); print(f'{clip}: {dur(src):.2f}s -> {dur(out):.2f}s'); sys.stdout.flush()
-    end = os.path.join(TMP, 'end.png'); end_card(size).save(end); out = os.path.join(TMP, 'scene_end.mp4')
-    bgc = '0x%02x%02x%02x' % BG
-    run(['ffmpeg', '-y', '-loglevel', 'error', '-i', end, '-f', 'lavfi', '-i', f'color=c={bgc}:s=1080x1920:r=30', '-filter_complex',
-         f"[0:v]loop=-1:1,fps=30,format=rgba,fade=in:st=0:d=0.45:alpha=1[e];[1:v][e]overlay=0:0,trim=duration={END_SEC},format=yuv420p[v]", '-map', '[v]', *ENC, out + '.part.mp4'])
-    os.replace(out + '.part.mp4', out); parts.append(out)
-    lst = os.path.join(TMP, 'list.txt'); open(lst, 'w').write(''.join(f"file '{os.path.abspath(p)}'\n" for p in parts))
-    joined = os.path.join(TMP, 'joined.mp4'); run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', joined])
-    full = os.path.join(DST, '인터맵_홍보영상_1080x1920.mp4')
-    run(['ffmpeg', '-y', '-loglevel', 'error', '-i', joined, '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-shortest', '-movflags', '+faststart', full])
-    # App Store 앱 미리보기 규격(886x1920) — 가운데만 잘라 다시 인코딩
-    run(['ffmpeg', '-y', '-loglevel', 'error', '-i', full, '-vf', 'crop=886:1920:97:0', '-r', '30', '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.0',
-         '-c:a', 'copy', '-movflags', '+faststart', os.path.join(DST, '인터맵_앱미리보기_886x1920.mp4')])
-    print('total', f'{dur(full):.2f}s')
+    cut('full', 3, os.path.join(DST, '인터맵_홍보영상_1080x1920.mp4'))
+    # App Store 앱 미리보기 규격(886x1920, 30초 이하) — 가운데만 자르고, 후기 쓰기 장면을 뺀 짧은 편집
+    cut('preview', 4, os.path.join(DST, '인터맵_앱미리보기_886x1920.mp4'), crop='crop=886:1920:97:0')
 
 def stills():
     n = 0
-    for clip, _, text, shot in SCENES:
-        if not shot: continue
+    for clip, text, shot, _, _ in SCENES:
         n += 1
         for size, store in (((1290, 2796), '앱스토어_1290x2796'), ((1080, 1920), '플레이스토어_1080x1920')):
             d = os.path.join(DST, store); os.makedirs(d, exist_ok=True); still(size, text, os.path.join(SRC, shot + '.png'), os.path.join(d, f'{n:02d}.png'))
