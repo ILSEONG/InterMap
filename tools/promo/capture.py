@@ -252,6 +252,12 @@ def stills(p):
     pg.locator('.my-page__poll').first.click(); a.wait(1500); shot('s5_poll')
     pg.locator('.poll-sheet').get_by_role('button', name='닫기').first.click(); a.wait(700)
     pg.get_by_role('tab', name=re.compile('이 달의 결산')).click(); a.wait(500); pg.locator('.my-page__row--recap').click(); a.wait(2600); shot('s6_recap')
+    # 후기 쓰기 화면 (등록은 하지 않는다)
+    pg.locator('.recap-sheet').get_by_role('button', name='닫기').first.click(); a.wait(800); pg.locator('.my-page__close').first.click(); a.wait(900)
+    a.view(C_LAT, C_LNG, ZOOM, 1500); a.pin('온기식당').first.click(); a.wait(1300); a.sheet().get_by_role('button', name='후기 쓰기').first.click(); a.wait(900)
+    a.sheet().locator('.review-form__text').click(); pg.keyboard.type('반찬이 정갈하고 밥이 맛있어요'); a.wait(200)
+    a.sheet().locator('.review-form__tags[aria-labelledby$="-party"] .review-form__tag', has_text='혼밥').first.click(); a.wait(300)
+    pg.evaluate("document.activeElement && document.activeElement.blur()"); a.wait(400); shot('s7_review')
     print('stills errors', errors); br.close()
 
 def video(p):
