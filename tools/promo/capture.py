@@ -171,11 +171,12 @@ def open_app(p, scale):
 
 class App:
     def __init__(self, pg): self.pg = pg; self.cdp = pg.context.new_cdp_session(pg)
-    def swipe(self, x0, y0, x1, y1, ms=420, steps=18):
+    def swipe(self, x0, y0, x1, y1, ms=420, steps=18, hold=0):
         pt = lambda x, y: {'touchPoints': [{'x': round(x), 'y': round(y)}]}
         self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', **pt(x0, y0)})
         for i in range(1, steps + 1):
             self.wait(ms // steps); self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', **pt(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps)})
+        if hold: self.wait(hold)
         self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); self.wait(300)
     def wait(self, ms): self.pg.wait_for_timeout(ms)
     def tap(self, loc, after=600):
@@ -221,7 +222,9 @@ class Rec:
         if self.frames: lines.append(f"file '{os.path.abspath(os.path.join(d, f'{len(self.frames) - 1:05d}.jpg'))}'")
         open(os.path.join(d, 'list.txt'), 'w').write('\n'.join(lines) + '\n')
         dur = end - self.frames[0][0] if self.frames else 0
-        print(f'{name}: {len(self.frames)} frames, {dur:.1f}s, {len(self.frames) / max(dur, .1):.0f} fps'); sys.stdout.flush()
+        t0 = self.frames[0][0] if self.frames else end; ts = [t for t, _ in self.frames] + [end]
+        gaps = [f'{ts[i] - t0:.1f}+{ts[i + 1] - ts[i]:.1f}' for i in range(len(ts) - 1) if ts[i + 1] - ts[i] > 0.45]
+        print(f'{name}: {len(self.frames)} frames, {dur:.1f}s, still {gaps}'); sys.stdout.flush()
         out = os.path.join(OUT, name + '.mp4.part.mp4')
         r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', os.path.join(d, 'list.txt'), '-vf', 'fps=30,scale=780:1688:flags=lanczos,format=yuv420p',
                             '-c:v', 'libx264', '-crf', '14', '-preset', 'veryfast', '-movflags', '+faststart', out])
@@ -239,10 +242,10 @@ def ready(a, warm=False):
 def stills(p):
     br, pg, state, errors = open_app(p, 3); a = App(pg); shot = lambda n: (pg.wait_for_timeout(500), pg.screenshot(path=os.path.join(OUT, n + '.png')))
     ready(a); shot('s1_map')
-    a.pin('스시 담').first.click(); a.wait(1500); shot('s2_sheet'); a.sheet().get_by_role('button', name='닫기').first.click(); a.wait(700)
+    a.pin('스시 담').first.click(); a.wait(1500); shot('s2_sheet'); a.sheet().get_by_role('button', name='닫기').first.click(); a.wait(700); a.view(C_LAT, C_LNG, ZOOM, 1500)
     pg.locator('.topbar__chip--filter').click(); a.wait(700); a.chip('업종', '일식').click(); a.chip('규모', '2~5인').click(); a.wait(300); shot('s3_filter')
     pg.locator('.filter-sheet__reset').click(); pg.locator('.filter-sheet__apply').click(); a.wait(800)
-    pg.locator('.topbar__mode', has_text='카페').click(); a.wait(1500); a.close_pet(); a.wait(600); shot('s4_cafe')
+    pg.locator('.topbar__mode', has_text='카페').click(); a.wait(1500); a.close_pet(); a.view(C_LAT, C_LNG, ZOOM, 1800); shot('s4_cafe')
     a.pin('느린 오후').first.click(); a.wait(1500); shot('s4b_cafe_sheet'); a.sheet().get_by_role('button', name='닫기').first.click(); a.wait(700)
     pg.locator('.topbar__mode', has_text='맛집').click(); a.wait(1200)
     pg.locator('.topbar__me').click(); a.wait(900); pg.get_by_role('tab', name=re.compile('어디 갈래')).click(); a.wait(500)
@@ -254,7 +257,6 @@ def stills(p):
 def video(p):
     br, pg, state, errors = open_app(p, 2); a = App(pg); rec = Rec(pg)
     ready(a, warm=True); home = lambda: a.view(C_LAT, C_LNG, ZOOM, 1500)
-    a.view(C_LAT, C_LNG, ZOOM - 1, 1800)
     def scene(name, run):
         try:
             rec.start(); a.wait(250); run(); rec.stop(name)
@@ -262,8 +264,9 @@ def video(p):
             print('SCENE FAILED', name, str(e)[:300]); sys.stdout.flush(); pg.screenshot(path=os.path.join(OUT, 'fail_' + name + '.png'))
             try: rec.stop(name + '_partial')
             except Exception: pass
-    # 1. 지도 — 이웃이 다녀온 곳
-    def s1(): a.wait(350); a.view(C_LAT, C_LNG, ZOOM, 1700); (None if FAKE else a.swipe(240, 540, 180, 495)); a.wait(900)
+    # 1. 지도 — 이웃이 다녀온 곳 (조금 비켜난 자리에서 시작해 지도를 밀어 본다)
+    a.view(C_LAT - 14 / 117200, C_LNG - 26 / 93100, ZOOM, 1800)
+    def s1(): a.wait(800); (None if FAKE else a.swipe(250, 560, 198, 532, 640, 26, hold=160)); a.wait(1500)
     scene('v1_map', s1)
     home()
     # 2. 가게 시트 — 별점과 후기 (손잡이를 올려 펼친다)
@@ -296,8 +299,11 @@ def video(p):
     pg.locator('.poll-sheet').get_by_role('button', name='닫기').first.click(); a.wait(700)
     # 7. 월간 결산 카드
     pg.get_by_role('tab', name=re.compile('이 달의 결산')).click(); a.wait(500)
-    def s7(): a.tap(pg.locator('.my-page__row--recap'), 2000); a.tap(pg.locator('.recap-flip:not(.recap-flip--loading)'), 1700)
+    def s7(): a.tap(pg.locator('.my-page__row--recap'), 2000); a.tap(pg.locator('.recap-flip:not(.recap-flip--loading)'), 3200)
     scene('v7_recap', s7)
+    pg.locator('.recap-sheet').get_by_role('button', name='닫기').first.click(); a.wait(900)
+    def s7b(): a.tap(pg.locator('.my-page__row--recap'), 2200); a.tap(pg.locator('.recap-themes__swatch').nth(2), 1300); a.tap(pg.locator('.recap-themes__swatch').nth(0), 1500)
+    scene('v7b_recap', s7b)
     print('video errors', errors); br.close()
 
 with sync_playwright() as p:
