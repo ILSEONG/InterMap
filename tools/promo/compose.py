@@ -15,22 +15,23 @@ BG, INK, SOFT = (254, 245, 234), (28, 28, 30), (107, 107, 112)   # 배경은 앱
 font = lambda w, px: ImageFont.truetype(FONTS + f'Pretendard-{w}.otf', px)
 BEAT = music.BEAT
 
-# 도입부 — 왜 이 앱인가. 어두운 화면에서 "별점 믿고 갔다가 속은 경험"을 던지고, 밝은 화면으로 넘어가며 답을 준다
-HOOK = ['별점 4.9 믿고 갔는데', '알고 보니 광고였다']
-ANSWER = '이제 인터맵에서\n내가 믿는 이웃의 후기만 봐요'
-INTRO_STEPS = {'full': (4, 4, 4), 'preview': (2, 2, 4)}   # 편집별로 세 화면의 길이(박)
+# 도입부 — 왜 이 앱인가 (문구는 정해 준 그대로). 어두운 화면 셋 → 밝은 화면으로 넘어가며 답을 준다
+HOOK = ['소중한 기념일날,\n별점 4.9 믿고 갔는데', '알고 보니 광고였다....']
+ASK = '이런 경험 한번씩은 있으시죠?'
+ANSWER = '이제 인터맵에서\n내가 믿을 수 있는 이웃의 후기만 봐요'
+INTRO_STEPS = {'full': (4, 4, 4, 4), 'preview': (3, 2, 3, 4)}   # 편집별로 네 화면의 길이(박)
 END_BEATS = 4
 # 장면: (찍은 영상, 문구, 스크린샷, 홍보영상에서의 길이(박), 앱 미리보기에서의 길이(박) — 0이면 뺀다)
 SCENES = [
     ('v1_map', '이웃이 다녀온 맛집을\n지도에서 한눈에 봐요', 's1_map', 5, 5),
-    ('v2_sheet', '이웃이 남긴 별점과 후기를\n바로 확인해요', 's2_sheet', 7, 6),
-    ('v3_filter', '업종과 인원에 맞는 곳만\n골라서 봐요', 's3_filter', 6, 6),
+    ('v2_sheet', '이웃이 남긴 별점과 후기를\n바로 확인해요', 's2_sheet', 7, 7),
+    ('v3_filter', '업종과 인원에 맞는 곳만\n골라서 봐요', 's3_filter', 6, 0),
     ('v4_review', '다녀온 곳은\n후기로 남겨요', 's7_review', 7, 0),
     ('v5_cafe', '맛집과 카페는\n탭으로 나눠서 봐요', 's4_cafe', 6, 6),
     ('v6_poll', '어디 갈지 고민될 땐\n투표로 같이 정해요', 's5_poll', 6, 6),
-    ('v7_recap', '한 달의 맛집 기록을\n결산 카드로 돌아봐요', 's6_recap', 7, 7),
+    ('v7_recap', '한 달의 맛집 기록을\n결산 카드로 돌아봐요', 's6_recap', 7, 8),
 ]
-TAGLINE, NAME = '친구가 고른 맛집 지도', '인터맵'
+TAGLINE, NAME = '이웃과 함께 만드는 맛집 지도', '인터맵'
 LOUDNESS = -16.0   # 배경음악 크기(LUFS)
 
 def caption(size, text, px, top=None):
@@ -98,27 +99,31 @@ def star_row(d, cx, cy, r, color, k):
         d.polygon(pts, fill=color)
 
 def hook_card(step):
-    """어두운 도입 화면. step 0: 별점과 첫 문장 / step 1: 별이 꺼지고 둘째 문장이 나온다"""
+    """어두운 도입 화면. 0: 별점과 첫 문장 / 1: 별이 꺼지고 둘째 문장 / 2: 되묻는 문장만"""
     k = 3; im = Image.new('RGB', (SIZE[0] * k, SIZE[1] * k), DARK); d = ImageDraw.Draw(im)
-    star_row(d, SIZE[0] / 2, 742, 36, STAR if step == 0 else DIM, k)
-    im = im.resize(SIZE, Image.LANCZOS); d = ImageDraw.Draw(im)
-    for text, f, y, col in ((HOOK[0], font('Bold', 66), 842, (255, 255, 255) if step == 0 else (142, 142, 147)), (HOOK[1], font('ExtraBold', 84), 952, (255, 255, 255))):
-        if text == HOOK[1] and step == 0: continue
-        d.text(((SIZE[0] - d.textlength(text, font=f)) / 2, y), text, font=f, fill=col)
+    if step < 2: star_row(d, SIZE[0] / 2, 690, 36, STAR if step == 0 else DIM, k)
+    im = im.resize(SIZE, Image.LANCZOS); d = ImageDraw.Draw(im); white, gray = (255, 255, 255), (142, 142, 147)
+    def line(text, f, y, col): d.text(((SIZE[0] - d.textlength(text, font=f)) / 2, y), text, font=f, fill=col)
+    if step < 2:
+        for i, t in enumerate(HOOK[0].split('\n')): line(t, font('Bold', 64), 786 + i * 88, white if step == 0 else gray)
+        if step == 1: line(HOOK[1], font('ExtraBold', 82), 990, white)
+    else: line(ASK, font('Bold', 62), 900, white)
     return im
 
 def intro_part(name):
-    b1, b2, b3 = INTRO_STEPS[name]; t1, t2, sec = b1 * BEAT, (b1 + b2) * BEAT, (b1 + b2 + b3) * BEAT; f = [os.path.join(TMP, f'intro{i}.png') for i in range(3)]
-    hook_card(0).save(f[0]); hook_card(1).convert('RGBA').save(f[1])
-    ans = Image.new('RGBA', SIZE, BG + (255,)); cap = caption(SIZE, ANSWER, 70); ans.paste(cap, (0, 0), cap); ans.save(f[2])
-    fc = (f"[0:v]loop=-1:1,fps=30,format=yuv420p[a];[1:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t1 - 0.1:.2f}:d=0.22:alpha=1[b];[2:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t2 - 0.05:.2f}:d=0.1:alpha=1[c];"
-          f"[a][b]overlay=0:0[x];[x][c]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
-    return part('intro_' + name, lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-i', f[0], '-i', f[1], '-i', f[2], '-filter_complex', fc, '-map', '[v]', *ENC, o]))
+    steps = INTRO_STEPS[name]; t = [sum(steps[:i]) * BEAT for i in range(1, 5)]; f = [os.path.join(TMP, f'intro{i}.png') for i in range(4)]
+    hook_card(0).save(f[0]); hook_card(1).convert('RGBA').save(f[1]); hook_card(2).convert('RGBA').save(f[2])
+    ans = Image.new('RGBA', SIZE, BG + (255,)); cap = caption(SIZE, ANSWER, 56); ans.paste(cap, (0, 0), cap); ans.save(f[3])
+    # 어두운 화면끼리는 부드럽게, 밝은 화면으로는 박에 맞춰 딱 넘긴다
+    fc = (f"[0:v]loop=-1:1,fps=30,format=yuv420p[a];[1:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t[0] - 0.1:.2f}:d=0.22:alpha=1[b];"
+          f"[2:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t[1] - 0.1:.2f}:d=0.22:alpha=1[c];[3:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t[2] - 0.05:.2f}:d=0.1:alpha=1[d];"
+          f"[a][b]overlay=0:0[x];[x][c]overlay=0:0[y];[y][d]overlay=0:0,trim=duration={t[3]},format=yuv420p[v]")
+    return part('intro_' + name, lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-i', f[0], '-i', f[1], '-i', f[2], '-i', f[3], '-filter_complex', fc, '-map', '[v]', *ENC, o]))
 
 def scene_part(i, clip, text, beats):
     px, top, box, r = LAYOUT[SIZE]; x, y, w, h = box; sec = beats * BEAT
     src = os.path.join(SRC, clip + '.mp4'); cap = os.path.join(TMP, f'cap{i}.png'); caption(SIZE, text, px, top).save(cap)
-    assert dur(src) >= sec - 0.05, (clip, dur(src), sec)
+    assert dur(src) >= sec - 0.3, (clip, dur(src), sec)   # 조금 모자라면 마지막 화면을 잠깐 붙든다
     fc = (f"[0:v]loop=-1:1,fps=30[bg];[1:v]fps=30,scale={w}:{h}:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,format=rgba[c];"
           f"[2:v]loop=-1:1,fps=30,format=gray[m];[c][m]alphamerge[p];[bg][p]overlay={x}:{y}[a];"
           f"[3:v]loop=-1:1,fps=30,format=rgba,fade=in:st=0.05:d=0.35:alpha=1[t];[a][t]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
