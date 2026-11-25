@@ -1,0 +1,43 @@
+# 홍보영상·스토어 스크린샷용 화면을 찍는다 (실험 브랜치 전용).
+# 지금 코드로 웹 화면을 빌드해 진짜 네이버 지도 위에 띄우고, 서버 응답은 스크립트 안의 예시 데이터로 갈아 끼운다 — 운영 서버·DB에는 아무것도 보내지 않는다.
+name: Promo capture
+on:
+  push:
+    branches: [exp/promo-capture]
+    paths: ['tools/promo/**', '.github/workflows/promo-capture.yml']
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build web
+        working-directory: frontend
+        env:
+          VITE_NAVER_MAP_CLIENT_ID: ${{ secrets.VITE_NAVER_MAP_CLIENT_ID || 'yrvo8lm3er' }}
+          VITE_API_BASE_URL: https://intermap-be.onrender.com
+        run: npm ci && npm run build
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk ffmpeg
+          pip install -q playwright && python -m playwright install --with-deps chromium
+      - name: Capture
+        env:
+          BASE: https://dist-flame-two-40.vercel.app
+          DIST: frontend/dist
+          API: https://intermap-be.onrender.com
+          OUT: out
+        run: python tools/promo/capture.py
+      - name: Push results
+        if: always()
+        run: |
+          cd out && ls -la && git init -q -b promo-results
+          git add -A && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "promo capture results"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" promo-results
