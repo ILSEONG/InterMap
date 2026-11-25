@@ -25,19 +25,21 @@ ME = {'id': 4, 'token': 'demo', 'email': 'demo@example.com', 'nickname': '지우
 def person(i, name, follows_me=True): return {'id': i, 'nickname': name, 'alias': None, 'following': True, 'followsMe': follows_me, 'avatar': None}
 HANEUL, DOYUN, SEOA, MINJAE = person(7, '하늘'), person(8, '도윤'), person(9, '서아', False), person(10, '민재')
 
-def place(i, name, category, cuisine, dlat, dlng, kind=None):
+ZOOM = int(os.environ.get('ZOOM', '17' if FAKE else '16'))   # 진짜 지도는 한 단계가 더 깊다 (512px 조각)
+def place(i, name, category, cuisine, x, y, kind=None):
+    """x, y: 기본 화면(가운데 기준, CSS px)에서 핀이 놓일 자리 — 좌표로 바꿔 둔다"""
     return {'id': i, 'name': name, 'category': category, 'roadAddress': f'서울특별시 마포구 예시로 {i * 3}', 'address': f'서울특별시 마포구 예시동 {i}',
-            'lat': C_LAT + dlat, 'lng': C_LNG + dlng, 'cuisine': cuisine, 'cafeKind': kind}
+            'lat': C_LAT - y / 117200, 'lng': C_LNG + x / 93100, 'cuisine': cuisine, 'cafeKind': kind}
 PLACES = [
-    place(1, '온기식당', '한식', 'KOREAN', 0.0012, -0.0011), place(2, '스시 담', '일식', 'JAPANESE', 0.0003, 0.0006),
-    place(3, '라멘 고요', '일식', 'JAPANESE', -0.0009, -0.0004), place(4, '화로 한 점', '고기', 'MEAT', -0.0003, 0.0015),
-    place(5, '파스타 온', '양식', 'WESTERN', 0.0018, 0.0010), place(6, '마라 한 그릇', '중식', 'CHINESE', -0.0016, 0.0009),
-    place(7, '골목 분식', '분식', 'SNACK', 0.0007, -0.0019), place(8, '바다 한 접시', '회·해산물', 'SEAFOOD', -0.0021, -0.0013),
-    place(9, '든든국밥', '한식', 'SOUP', 0.0024, -0.0003), place(10, '타코 수요일', '아시안', 'ASIAN', -0.0006, -0.0021),
-    place(21, '느린 오후', '커피숍', 'CAFE', 0.0010, 0.0003, 'COFFEE'), place(22, '달 아래 커피', '커피숍', 'CAFE', -0.0005, -0.0012, 'COFFEE'),
-    place(23, '소금빵 연구소', '제과점', 'CAFE', -0.0012, 0.0012, 'BAKERY'), place(24, '겨울 디저트', '디저트', 'CAFE', 0.0019, -0.0014, 'DESSERT'),
-    place(25, '창가 자리', '커피숍', 'CAFE', -0.0019, -0.0002, 'COFFEE'), place(26, '오늘의 원두', '커피숍', 'CAFE', 0.0004, 0.0019, 'COFFEE'),
-    place(27, '모퉁이 베이커리', '제과점', 'CAFE', 0.0025, 0.0008, 'BAKERY'), place(28, '밤 산책', '커피숍', 'CAFE', -0.0025, 0.0016, 'COFFEE'),
+    place(1, '온기식당', '한식', 'KOREAN', -100, -95), place(2, '스시 담', '일식', 'JAPANESE', 55, -15),
+    place(3, '라멘 고요', '일식', 'JAPANESE', -15, 110), place(4, '화로 한 점', '고기', 'MEAT', 125, 85),
+    place(5, '파스타 온', '양식', 'WESTERN', 110, -150), place(6, '마라 한 그릇', '중식', 'CHINESE', -55, 200),
+    place(7, '골목 분식', '분식', 'SNACK', -135, 45), place(8, '바다 한 접시', '회·해산물', 'SEAFOOD', 140, 210),
+    place(9, '든든국밥', '한식', 'SOUP', 40, 285), place(10, '타코 수요일', '아시안', 'ASIAN', -140, 170),
+    place(21, '느린 오후', '커피숍', 'CAFE', 35, -45, 'COFFEE'), place(22, '달 아래 커피', '커피숍', 'CAFE', -115, 50, 'COFFEE'),
+    place(23, '소금빵 연구소', '제과점', 'CAFE', 125, 110, 'BAKERY'), place(24, '겨울 디저트', '디저트', 'CAFE', -95, -130, 'DESSERT'),
+    place(25, '창가 자리', '커피숍', 'CAFE', -40, 205, 'COFFEE'), place(26, '오늘의 원두', '커피숍', 'CAFE', 120, -140, 'COFFEE'),
+    place(27, '모퉁이 베이커리', '제과점', 'CAFE', 45, 280, 'BAKERY'), place(28, '밤 산책', '커피숍', 'CAFE', -130, -20, 'COFFEE'),
 ]
 BY = {p['name']: p for p in PLACES}
 
@@ -63,6 +65,9 @@ def new_state():
         review(523, '소금빵 연구소', DOYUN, 4.6, '갓 나온 소금빵은 꼭 드세요.', ['SWEETS', 'SMALL'], 28),
         review(524, '달 아래 커피', ME, 4.4, '늦게까지 열어서 밤에 가기 좋아요.', ['MOOD'], 80),
         review(525, '겨울 디저트', MINJAE, 4.3, '여럿이 수다 떨기 좋은 넓은 자리.', ['TALK', 'LARGE'], 100),
+        review(526, '창가 자리', HANEUL, 4.5, '창밖을 보면서 쉬기 좋아요.', ['MOOD', 'SOLO'], 110),
+        review(527, '오늘의 원두', DOYUN, 4.8, '원두를 고를 수 있어요. 드립 커피 추천.', ['TASTE'], 130),
+        review(528, '모퉁이 베이커리', MINJAE, 4.2, '크루아상이 바삭해요.', ['SWEETS'], 150),
     ], 'comments': [
         {'id': 1, 'reviewId': 501, 'parentId': None, 'author': {'id': 8, 'name': '도윤', 'owner': False, 'avatar': None}, 'text': '이번 주말에 같이 가요!', 'createdAt': iso(hours=2)},
     ], 'posts': [], 'votes': {1: ['하늘', '도윤'], 2: ['서아'], 3: []}, 'mine': []}
@@ -226,14 +231,14 @@ class Rec:
 def ready(a, warm=False):
     a.close_pet()
     if warm:   # 영상에서 처음 보이는 화면이 비어 있지 않도록, 쓸 지도 조각을 미리 한 번씩 받아 둔다
-        a.view(C_LAT - 0.0004, C_LNG, 17, 2500)
-        a.pg.locator('.topbar__mode', has_text='카페').click(); a.wait(3000); a.close_pet(); a.view(C_LAT - 0.0004, C_LNG, 16, 2000)
+        a.view(C_LAT, C_LNG, ZOOM - 1, 2500)
+        a.pg.locator('.topbar__mode', has_text='카페').click(); a.wait(3000); a.close_pet(); a.view(C_LAT, C_LNG, ZOOM - 1, 2000); a.view(C_LAT, C_LNG, ZOOM, 2000)
         a.pg.locator('.topbar__mode', has_text='맛집').click(); a.wait(1500); a.close_pet()
-    a.view(C_LAT, C_LNG, 16)
+    a.view(C_LAT, C_LNG, ZOOM, 2200)
 
 def stills(p):
     br, pg, state, errors = open_app(p, 3); a = App(pg); shot = lambda n: (pg.wait_for_timeout(500), pg.screenshot(path=os.path.join(OUT, n + '.png')))
-    ready(a); a.view(C_LAT - 0.0004, C_LNG, 17); shot('s1_map')
+    ready(a); shot('s1_map')
     a.pin('스시 담').first.click(); a.wait(1500); shot('s2_sheet'); a.sheet().get_by_role('button', name='닫기').first.click(); a.wait(700)
     pg.locator('.topbar__chip--filter').click(); a.wait(700); a.chip('업종', '일식').click(); a.chip('규모', '2~5인').click(); a.wait(300); shot('s3_filter')
     pg.locator('.filter-sheet__reset').click(); pg.locator('.filter-sheet__apply').click(); a.wait(800)
@@ -248,7 +253,8 @@ def stills(p):
 
 def video(p):
     br, pg, state, errors = open_app(p, 2); a = App(pg); rec = Rec(pg)
-    ready(a, warm=True)
+    ready(a, warm=True); home = lambda: a.view(C_LAT, C_LNG, ZOOM, 1500)
+    a.view(C_LAT, C_LNG, ZOOM - 1, 1800)
     def scene(name, run):
         try:
             rec.start(); a.wait(250); run(); rec.stop(name)
@@ -257,18 +263,19 @@ def video(p):
             try: rec.stop(name + '_partial')
             except Exception: pass
     # 1. 지도 — 이웃이 다녀온 곳
-    def s1(): a.wait(350); a.view(C_LAT - 0.0004, C_LNG, 17, 1700); a.swipe(250, 560, 170, 500); a.wait(900)
+    def s1(): a.wait(350); a.view(C_LAT, C_LNG, ZOOM, 1700); (None if FAKE else a.swipe(240, 540, 180, 495)); a.wait(900)
     scene('v1_map', s1)
+    home()
     # 2. 가게 시트 — 별점과 후기 (손잡이를 올려 펼친다)
     def s2():
         a.tap(a.pin('스시 담'), 1300); g = a.sheet().locator('.restaurant-sheet__grab').first.bounding_box()
         a.swipe(195, g['y'] + g['height'] / 2, 195, g['y'] - 330, 380); a.wait(1900)
     scene('v2_sheet', s2)
-    a.close_sheet()
+    a.close_sheet(); home()
     # 3. 필터 — 업종·규모
     def s3(): a.open_filter(); a.tap(a.chip('업종', '일식'), 400); a.tap(a.chip('규모', '2~5인'), 500); a.tap(pg.locator('.filter-sheet__apply'), 1500)
     scene('v3_filter', s3)
-    a.open_filter(); pg.locator('.filter-sheet__reset').click(); pg.locator('.filter-sheet__apply').click(); a.wait(900)
+    a.open_filter(); pg.locator('.filter-sheet__reset').click(); pg.locator('.filter-sheet__apply').click(); a.wait(900); home()
     # 4. 후기 쓰기 — 이웃 후기는 있고 내 후기는 아직 없는 가게
     a.pin('온기식당').first.click(); a.wait(1300)
     def s4():
@@ -277,7 +284,7 @@ def video(p):
         a.tap(a.sheet().locator('.review-form__tags[aria-labelledby$="-party"] .review-form__tag', has_text='혼밥'), 450)
         a.tap(a.sheet().locator('.review-form__submit'), 1600)
     scene('v4_review', s4)
-    a.close_sheet()
+    a.close_sheet(); home()
     # 5. 카페 — 밤의 지도
     def s5(): a.mode('카페'); a.wait(700); a.close_pet(); a.tap(a.pin('느린 오후'), 1800)
     scene('v5_cafe', s5)
