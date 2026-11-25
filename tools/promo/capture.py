@@ -140,11 +140,12 @@ window.__touch = (x, y) => { const d = document.createElement('div');
   document.body.appendChild(d); requestAnimationFrame(() => { d.style.transform = 'scale(1.25)'; d.style.opacity = '0' }); setTimeout(() => d.remove(), 600) }
 """
 
-def open_app(p, scale):
+def open_app(p, scale, vclock=False):
     br = p.chromium.launch(args=['--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist'])
     ctx = br.new_context(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True, device_scale_factor=scale, locale='ko-KR', timezone_id='Asia/Seoul',
                          service_workers='block', user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
     ctx.add_init_script("localStorage.setItem('intermap.session', JSON.stringify(%s));" % json.dumps(ME) + TOUCH)
+    if vclock: ctx.add_init_script(open(os.path.join(HERE, 'vclock.js'), encoding='utf-8').read())
     pg = ctx.new_page(); state = new_state(); errors = []
     pg.on('pageerror', lambda e: errors.append(str(e)[:200]))
     def other(route):
@@ -170,26 +171,28 @@ def open_app(p, scale):
     return br, pg, state, errors
 
 class App:
-    def __init__(self, pg): self.pg = pg; self.cdp = pg.context.new_cdp_session(pg)
-    def swipe(self, x0, y0, x1, y1, ms=420, steps=18, hold=0):
-        pt = lambda x, y: {'touchPoints': [{'x': round(x), 'y': round(y)}]}
+    def __init__(self, pg): self.pg = pg; self.cdp = pg.context.new_cdp_session(pg); self.rec = None
+    def wait(self, ms):
+        if self.rec and self.rec.on: self.rec.frames(round(ms * 30 / 1000))
+        else: self.pg.wait_for_timeout(ms)
+    def swipe(self, x0, y0, x1, y1, ms=420, hold=0, after=300):
+        """손가락으로 쓸기 (실제 터치 이벤트). 끝에서 잠깐 멈췄다 떼면 관성이 붙지 않는다"""
+        steps = max(4, round(ms * 30 / 1000)); pt = lambda x, y: {'touchPoints': [{'x': round(x), 'y': round(y)}]}
         self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', **pt(x0, y0)})
         for i in range(1, steps + 1):
-            self.wait(ms // steps); self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', **pt(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps)})
+            self.wait(ms / steps); k = i / steps; k = k * k * (3 - 2 * k)   # 천천히 시작해 천천히 멈춘다
+            self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', **pt(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k)})
         if hold: self.wait(hold)
-        self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); self.wait(300)
-    def wait(self, ms): self.pg.wait_for_timeout(ms)
+        self.cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); self.wait(after)
     def tap(self, loc, after=600):
         loc = loc.first; loc.scroll_into_view_if_needed(); b = loc.bounding_box()
         x, y = b['x'] + b['width'] / 2, b['y'] + b['height'] / 2
-        self.pg.evaluate('([x, y]) => window.__touch(x, y)', [x, y]); self.wait(140); loc.click(); self.wait(after)
+        self.pg.evaluate('([x, y]) => window.__touch(x, y)', [x, y]); self.wait(133); loc.click(); self.wait(after)
+    def type(self, text):
+        for i, ch in enumerate(text): self.pg.keyboard.insert_text(ch); self.wait(67 if i % 2 else 33)
     def pin(self, name): return self.pg.locator(f'button.map-pin[aria-label^="{name}"]')
     def view(self, lat, lng, zoom, wait=1600):
         self.pg.evaluate("([lat, lng, z]) => window.__map.morph(new naver.maps.LatLng(lat, lng), z)", [lat, lng, zoom]); self.wait(wait)
-    def drag(self, x0, y0, x1, y1, steps=24):
-        m = self.pg.mouse; m.move(x0, y0); m.down()
-        for i in range(1, steps + 1): m.move(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps); self.wait(16)
-        m.up(); self.wait(500)
     def mode(self, label): self.tap(self.pg.locator('.topbar__mode', has_text=label), 1200)
     def sheet(self): return self.pg.locator('.restaurant-sheet-overlay--open')
     def close_sheet(self): self.tap(self.sheet().get_by_role('button', name='닫기'), 700)
@@ -200,36 +203,24 @@ class App:
         return self.pg.locator('.filter-sheet__section', has=self.pg.locator('.filter-sheet__label', has_text=title)).locator('.filter-sheet__chip, .filter-sheet__segment, .filter-sheet__tile', has_text=label)
 
 class Rec:
-    """화면 변화를 프레임으로 받아 30fps 영상으로 엮는다 (프레임은 바뀔 때만 오므로 도착 시각으로 길이를 준다)"""
-    def __init__(self, pg):
-        self.pg = pg; self.cdp = pg.context.new_cdp_session(pg); self.frames = []; self.on = False
-        self.cdp.on('Page.screencastFrame', self._frame)
-    def _frame(self, e):
-        if self.on: self.frames.append((time.time(), e['data']))
-        try: self.cdp.send('Page.screencastFrameAck', {'sessionId': e['sessionId']})
-        except Exception: pass
-    def start(self):
-        self.frames = []; self.on = True
-        self.cdp.send('Page.startScreencast', {'format': 'jpeg', 'quality': 92, 'everyNthFrame': 1})
-        self.pg.wait_for_timeout(250)
-    def stop(self, name):
-        self.pg.wait_for_timeout(200); end = time.time(); self.on = False; self.cdp.send('Page.stopScreencast')
-        d = os.path.join(OUT, 'frames_' + name); os.makedirs(d, exist_ok=True); lines = ['ffconcat version 1.0']
-        for i, (t, data) in enumerate(self.frames):
-            f = os.path.join(d, f'{i:05d}.jpg'); open(f, 'wb').write(base64.b64decode(data))
-            nxt = self.frames[i + 1][0] if i + 1 < len(self.frames) else end
-            lines += [f"file '{os.path.abspath(f)}'", f'duration {max(nxt - t, 0.001):.4f}']
-        if self.frames: lines.append(f"file '{os.path.abspath(os.path.join(d, f'{len(self.frames) - 1:05d}.jpg'))}'")
-        open(os.path.join(d, 'list.txt'), 'w').write('\n'.join(lines) + '\n')
-        dur = end - self.frames[0][0] if self.frames else 0
-        t0 = self.frames[0][0] if self.frames else end; ts = [t for t, _ in self.frames] + [end]
-        gaps = [f'{ts[i] - t0:.1f}+{ts[i + 1] - ts[i]:.1f}' for i in range(len(ts) - 1) if ts[i + 1] - ts[i] > 0.45]
-        print(f'{name}: {len(self.frames)} frames, {dur:.1f}s, still {gaps}'); sys.stdout.flush()
-        out = os.path.join(OUT, name + '.mp4.part.mp4')
-        r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', os.path.join(d, 'list.txt'), '-vf', 'fps=30,scale=780:1688:flags=lanczos,format=yuv420p',
-                            '-c:v', 'libx264', '-crf', '14', '-preset', 'veryfast', '-movflags', '+faststart', out])
-        if r.returncode == 0: os.replace(out, os.path.join(OUT, name + '.mp4'))
-        subprocess.run(['rm', '-rf', d])
+    """화면 속 시계를 1/30초씩 넘기며 한 장씩 찍는다 (vclock.js) — 그리는 데 얼마가 걸리든 매 프레임이 온전히 남는다"""
+    def __init__(self, pg): self.pg = pg; self.cdp = pg.context.new_cdp_session(pg); self.on = False
+    def start(self, name):
+        self.name = name; self.n = 0; self.t = time.time(); self.dir = os.path.join(OUT, 'frames_' + name); os.makedirs(self.dir, exist_ok=True)
+        self.pg.evaluate('window.__vt.manual(true)'); self.on = True
+    def frames(self, n):
+        for _ in range(max(1, n)):
+            self.pg.evaluate('window.__vt.step(1000 / 30)')
+            data = self.cdp.send('Page.captureScreenshot', {'format': 'jpeg', 'quality': 93, 'optimizeForSpeed': True})['data']
+            open(os.path.join(self.dir, f'{self.n:05d}.jpg'), 'wb').write(base64.b64decode(data)); self.n += 1
+    def stop(self):
+        self.on = False; self.pg.evaluate('window.__vt.manual(false)')
+        print(f'{self.name}: {self.n} frames = {self.n / 30:.2f}s (찍는 데 {time.time() - self.t:.0f}s)'); sys.stdout.flush()
+        out = os.path.join(OUT, self.name + '.mp4')
+        r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', '30', '-i', os.path.join(self.dir, '%05d.jpg'), '-vf', 'scale=780:1688:flags=lanczos,format=yuv420p',
+                            '-c:v', 'libx264', '-crf', '14', '-preset', 'veryfast', '-movflags', '+faststart', out + '.part.mp4'])
+        if r.returncode == 0: os.replace(out + '.part.mp4', out)
+        subprocess.run(['rm', '-rf', self.dir])
 
 def ready(a, warm=False):
     a.close_pet()
@@ -261,55 +252,53 @@ def stills(p):
     print('stills errors', errors); br.close()
 
 def video(p):
-    br, pg, state, errors = open_app(p, 2); a = App(pg); rec = Rec(pg)
+    br, pg, state, errors = open_app(p, 2, vclock=True); a = App(pg); rec = Rec(pg); a.rec = rec
     ready(a, warm=True); home = lambda: a.view(C_LAT, C_LNG, ZOOM, 1500)
     def scene(name, run):
         try:
-            rec.start(); a.wait(250); run(); rec.stop(name)
+            rec.start(name); run(); rec.stop()
         except Exception as e:
-            print('SCENE FAILED', name, str(e)[:300]); sys.stdout.flush(); pg.screenshot(path=os.path.join(OUT, 'fail_' + name + '.png'))
-            try: rec.stop(name + '_partial')
+            print('SCENE FAILED', name, str(e)[:300]); sys.stdout.flush(); rec.on = False; pg.screenshot(path=os.path.join(OUT, 'fail_' + name + '.png'))
+            try: pg.evaluate('window.__vt.manual(false)')
             except Exception: pass
-    # 1. 지도 — 이웃이 다녀온 곳 (조금 비켜난 자리에서 시작해 지도를 밀어 본다)
+    # 장면 길이는 compose.py의 SCENES와 맞춘다 (끝에 여유 프레임을 조금 더 찍는다)
+    # 1. 지도 — 이웃이 다녀온 곳 (조금 비켜난 자리에서 시작해 지도를 밀어 본다) · 3.2초
     a.view(C_LAT - 14 / 117200, C_LNG - 26 / 93100, ZOOM, 1800)
-    def s1(): a.wait(800); (None if FAKE else a.swipe(250, 560, 198, 532, 640, 26, hold=160)); a.wait(1500)
+    def s1(): a.wait(800); (a.wait(800) if FAKE else a.swipe(250, 560, 198, 532, 700, hold=170, after=100)); a.wait(1700)
     scene('v1_map', s1)
     home()
-    # 2. 가게 시트 — 별점과 후기 (손잡이를 올려 펼친다)
+    # 2. 가게 시트 — 별점과 후기 (손잡이를 올려 펼친다) · 4.3초
     def s2():
-        a.tap(a.pin('스시 담'), 1300); g = a.sheet().locator('.restaurant-sheet__grab').first.bounding_box()
-        a.swipe(195, g['y'] + g['height'] / 2, 195, g['y'] - 330, 380); a.wait(1900)
+        a.wait(500); a.tap(a.pin('스시 담'), 1150); g = a.sheet().locator('.restaurant-sheet__grab').first.bounding_box()
+        a.swipe(195, g['y'] + g['height'] / 2, 195, g['y'] - 330, 400, after=100); a.wait(2300)
     scene('v2_sheet', s2)
     a.close_sheet(); home()
-    # 3. 필터 — 업종·규모
-    def s3(): a.open_filter(); a.tap(a.chip('업종', '일식'), 400); a.tap(a.chip('규모', '2~5인'), 500); a.tap(pg.locator('.filter-sheet__apply'), 1500)
+    # 3. 필터 — 업종·규모 · 3.7초
+    def s3(): a.wait(400); a.tap(pg.locator('.topbar__chip--filter'), 700); a.tap(a.chip('업종', '일식'), 400); a.tap(a.chip('규모', '2~5인'), 470); a.tap(pg.locator('.filter-sheet__apply'), 1500)
     scene('v3_filter', s3)
     a.open_filter(); pg.locator('.filter-sheet__reset').click(); pg.locator('.filter-sheet__apply').click(); a.wait(900); home()
-    # 4. 후기 쓰기 — 이웃 후기는 있고 내 후기는 아직 없는 가게
+    # 4. 후기 쓰기 — 이웃 후기는 있고 내 후기는 아직 없는 가게 · 4.4초
     a.pin('온기식당').first.click(); a.wait(1300)
     def s4():
-        a.tap(a.sheet().get_by_role('button', name='후기 쓰기'), 800)
-        a.sheet().locator('.review-form__text').click(); pg.keyboard.type('반찬이 정갈하고 밥이 맛있어요', delay=45); a.wait(250)
-        a.tap(a.sheet().locator('.review-form__tags[aria-labelledby$="-party"] .review-form__tag', has_text='혼밥'), 450)
+        a.wait(400); a.tap(a.sheet().get_by_role('button', name='후기 쓰기'), 730)
+        a.sheet().locator('.review-form__text').click(); a.wait(100); a.type('반찬이 정갈하고 밥이 맛있어요'); a.wait(200)
+        a.tap(a.sheet().locator('.review-form__tags[aria-labelledby$="-party"] .review-form__tag', has_text='혼밥'), 400)
         a.tap(a.sheet().locator('.review-form__submit'), 1600)
     scene('v4_review', s4)
     a.close_sheet(); home()
-    # 5. 카페 — 밤의 지도
-    def s5(): a.mode('카페'); a.wait(700); a.close_pet(); a.tap(a.pin('느린 오후'), 1800)
+    # 5. 카페 — 밤의 지도 · 3.9초
+    def s5(): a.wait(400); a.tap(pg.locator('.topbar__mode', has_text='카페'), 1400); a.tap(a.pin('느린 오후'), 2000)
     scene('v5_cafe', s5)
     a.close_sheet(); a.mode('맛집')
-    # 6. 어디 갈래? — 투표
+    # 6. 어디 갈래? — 투표 · 3.9초
     pg.locator('.topbar__me').click(); a.wait(900); pg.get_by_role('tab', name=re.compile('어디 갈래')).click(); a.wait(500)
-    def s6(): a.tap(pg.locator('.my-page__poll'), 1300); a.tap(pg.locator('.poll-option__pick').nth(0), 600); a.tap(pg.locator('.poll-sheet .modal-sheet__btn--primary'), 1700)
+    def s6(): a.wait(330); a.tap(pg.locator('.my-page__poll'), 1000); a.tap(pg.locator('.poll-option__pick').nth(0), 530); a.tap(pg.locator('.poll-sheet .modal-sheet__btn--primary'), 1800)
     scene('v6_poll', s6)
     pg.locator('.poll-sheet').get_by_role('button', name='닫기').first.click(); a.wait(700)
-    # 7. 월간 결산 카드
+    # 7. 월간 결산 카드 · 4.3초
     pg.get_by_role('tab', name=re.compile('이 달의 결산')).click(); a.wait(500)
-    def s7(): a.tap(pg.locator('.my-page__row--recap'), 2000); a.tap(pg.locator('.recap-flip:not(.recap-flip--loading)'), 3200)
+    def s7(): a.wait(330); a.tap(pg.locator('.my-page__row--recap'), 1500); a.tap(pg.locator('.recap-flip:not(.recap-flip--loading)'), 2500)
     scene('v7_recap', s7)
-    pg.locator('.recap-sheet').get_by_role('button', name='닫기').first.click(); a.wait(900)
-    def s7b(): a.tap(pg.locator('.my-page__row--recap'), 2200); a.tap(pg.locator('.recap-themes__swatch').nth(2), 1300); a.tap(pg.locator('.recap-themes__swatch').nth(0), 1500)
-    scene('v7b_recap', s7b)
     print('video errors', errors); br.close()
 
 with sync_playwright() as p:
