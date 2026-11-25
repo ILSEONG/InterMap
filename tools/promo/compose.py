@@ -15,9 +15,11 @@ BG, INK, SOFT = (254, 245, 234), (28, 28, 30), (107, 107, 112)   # 배경은 앱
 font = lambda w, px: ImageFont.truetype(FONTS + f'Pretendard-{w}.otf', px)
 BEAT = music.BEAT
 
-# 도입부 — 왜 이 앱인가 (두 문장, 합쳐서 8박)
-INTRO = ['누가 썼는지 모르는 후기,\n믿어도 될지 고민되죠?', '인터맵에서는\n내가 믿는 이웃의 후기만 봐요']
-INTRO_BEATS, END_BEATS = 8, 4
+# 도입부 — 왜 이 앱인가. 어두운 화면에서 "별점 믿고 갔다가 속은 경험"을 던지고, 밝은 화면으로 넘어가며 답을 준다
+HOOK = ['별점 4.9 믿고 갔는데', '알고 보니 광고였다']
+ANSWER = '이제 인터맵에서\n내가 믿는 이웃의 후기만 봐요'
+INTRO_STEPS = {'full': (4, 4, 4), 'preview': (2, 2, 4)}   # 편집별로 세 화면의 길이(박)
+END_BEATS = 4
 # 장면: (찍은 영상, 문구, 스크린샷, 홍보영상에서의 길이(박), 앱 미리보기에서의 길이(박) — 0이면 뺀다)
 SCENES = [
     ('v1_map', '이웃이 다녀온 맛집을\n지도에서 한눈에 봐요', 's1_map', 5, 5),
@@ -86,14 +88,32 @@ def part(name, build):
     return out
 
 SIZE = (1080, 1920); BGC = '0x%02x%02x%02x' % BG
-def intro_part():
-    sec = INTRO_BEATS * BEAT; half = sec / 2; caps = []
-    for i, text in enumerate(INTRO):
-        f = os.path.join(TMP, f'intro{i}.png'); caption(SIZE, text, 70).save(f); caps.append(f)
-    # 첫 문장은 처음부터 보이고(첫 화면이 비지 않게), 절반 지점에서 둘째 문장으로 넘어간다
-    fc = (f"[1:v]loop=-1:1,fps=30,format=rgba,fade=out:st={half - 0.38:.2f}:d=0.3:alpha=1[a];[2:v]loop=-1:1,fps=30,format=rgba,fade=in:st={half:.2f}:d=0.35:alpha=1[b];"
-          f"[0:v][a]overlay=0:0[x];[x][b]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
-    return part('intro', lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', f'color=c={BGC}:s=1080x1920:r=30', '-i', caps[0], '-i', caps[1], '-filter_complex', fc, '-map', '[v]', *ENC, o]))
+DARK, STAR, DIM = (28, 28, 30), (255, 159, 10), (86, 86, 92)
+def star_row(d, cx, cy, r, color, k):
+    """별 다섯 개 (k배로 크게 그린 뒤 줄여서 가장자리를 매끈하게)"""
+    import math
+    for i in range(5):
+        x0 = cx + (i - 2) * r * 2.5
+        pts = [(k * (x0 + (r if j % 2 == 0 else r * 0.46) * math.sin(j * math.pi / 5)), k * (cy - (r if j % 2 == 0 else r * 0.46) * math.cos(j * math.pi / 5))) for j in range(10)]
+        d.polygon(pts, fill=color)
+
+def hook_card(step):
+    """어두운 도입 화면. step 0: 별점과 첫 문장 / step 1: 별이 꺼지고 둘째 문장이 나온다"""
+    k = 3; im = Image.new('RGB', (SIZE[0] * k, SIZE[1] * k), DARK); d = ImageDraw.Draw(im)
+    star_row(d, SIZE[0] / 2, 742, 36, STAR if step == 0 else DIM, k)
+    im = im.resize(SIZE, Image.LANCZOS); d = ImageDraw.Draw(im)
+    for text, f, y, col in ((HOOK[0], font('Bold', 66), 842, (255, 255, 255) if step == 0 else (142, 142, 147)), (HOOK[1], font('ExtraBold', 84), 952, (255, 255, 255))):
+        if text == HOOK[1] and step == 0: continue
+        d.text(((SIZE[0] - d.textlength(text, font=f)) / 2, y), text, font=f, fill=col)
+    return im
+
+def intro_part(name):
+    b1, b2, b3 = INTRO_STEPS[name]; t1, t2, sec = b1 * BEAT, (b1 + b2) * BEAT, (b1 + b2 + b3) * BEAT; f = [os.path.join(TMP, f'intro{i}.png') for i in range(3)]
+    hook_card(0).save(f[0]); hook_card(1).convert('RGBA').save(f[1])
+    ans = Image.new('RGBA', SIZE, BG + (255,)); cap = caption(SIZE, ANSWER, 70); ans.paste(cap, (0, 0), cap); ans.save(f[2])
+    fc = (f"[0:v]loop=-1:1,fps=30,format=yuv420p[a];[1:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t1 - 0.1:.2f}:d=0.22:alpha=1[b];[2:v]loop=-1:1,fps=30,format=rgba,fade=in:st={t2 - 0.05:.2f}:d=0.1:alpha=1[c];"
+          f"[a][b]overlay=0:0[x];[x][c]overlay=0:0,trim=duration={sec},format=yuv420p[v]")
+    return part('intro_' + name, lambda o: run(['ffmpeg', '-y', '-loglevel', 'error', '-i', f[0], '-i', f[1], '-i', f[2], '-filter_complex', fc, '-map', '[v]', *ENC, o]))
 
 def scene_part(i, clip, text, beats):
     px, top, box, r = LAYOUT[SIZE]; x, y, w, h = box; sec = beats * BEAT
@@ -112,15 +132,15 @@ def end_part():
 def cut(name, col, out, crop=None):
     """한 편을 만든다: 도입부 + 장면들 + 끝 화면, 그 길이에 맞춘 음악"""
     px, top, box, r = LAYOUT[SIZE]; base(SIZE, box, r).save(os.path.join(TMP, 'base.png')); rounded(box[2:], r).save(os.path.join(TMP, 'mask.png'))
-    parts = [intro_part()] + [scene_part(i, s[0], s[1], s[col]) for i, s in enumerate(SCENES) if s[col]] + [end_part()]
+    intro = sum(INTRO_STEPS[name]); parts = [intro_part(name)] + [scene_part(i, s[0], s[1], s[col]) for i, s in enumerate(SCENES) if s[col]] + [end_part()]
     body = sum(s[col] for s in SCENES)
     lst = os.path.join(TMP, name + '.txt'); open(lst, 'w').write(''.join(f"file '{os.path.abspath(p)}'\n" for p in parts))
     joined = os.path.join(TMP, name + '_joined.mp4'); run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', joined])
-    wav = os.path.join(TMP, name + '.wav'); music.make(wav, INTRO_BEATS, body, END_BEATS)
+    wav = os.path.join(TMP, name + '.wav'); music.make(wav, intro, body, END_BEATS)
     m = re.search(r'I:\s+(-?[0-9.]+) LUFS', run(['ffmpeg', '-hide_banner', '-i', wav, '-af', 'ebur128', '-f', 'null', '-']).stderr.split('Summary')[-1]); gain = LOUDNESS - float(m.group(1))
     video = ['-c:v', 'copy'] if not crop else ['-vf', crop, '-r', '30', '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.0']
     run(['ffmpeg', '-y', '-loglevel', 'error', '-i', joined, '-i', wav, '-map', '0:v', '-map', '1:a', *video, '-af', f'volume={gain:.2f}dB', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-shortest', '-movflags', '+faststart', out])
-    print(f'{os.path.basename(out)}: {dur(out):.2f}s (도입 {INTRO_BEATS}박 + 본편 {body}박 + 끝 {END_BEATS}박, 음악 {gain:+.1f}dB)'); sys.stdout.flush()
+    print(f'{os.path.basename(out)}: {dur(out):.2f}s (도입 {intro}박 + 본편 {body}박 + 끝 {END_BEATS}박, 음악 {gain:+.1f}dB)'); sys.stdout.flush()
 
 def video():
     cut('full', 3, os.path.join(DST, '인터맵_홍보영상_1080x1920.mp4'))
