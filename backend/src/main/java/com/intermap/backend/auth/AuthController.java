@@ -467,7 +467,8 @@ public class AuthController {
     }
 
     // 비밀번호를 잊었을 때 이메일 인증번호로 로그인 (비밀번호 찾기 대용). newPassword가 오면 비밀번호도 바꾼다 —
-    // 비밀번호가 새어도 주인이 바꿀 수 있게. 토큰이 새로 발급돼 다른 기기 세션은 끊긴다.
+    // 비밀번호가 새어도 주인이 바꿀 수 있게. 비밀번호를 바꾸면 다른 기기의 로그인은 전부 끊는다
+    // (비밀번호를 안 바꾸는 인증번호 로그인은 다른 기기를 건드리지 않는다).
     @PostMapping("/api/auth/login-code")
     public ResponseEntity<?> loginWithCode(@RequestBody CodeRequest request) {
         String email = normalizeEmail(request.email());
@@ -486,6 +487,8 @@ public class AuthController {
         if (newPassword != null) {
             user.changePassword(encoder.encode(newPassword));
             state.remove(LOGIN_FAIL_KIND, String.valueOf(user.getId()));
+            // 남이 예전 비밀번호로 들어와 있었다면 여기서 쫓겨난다 — 이 기기는 바로 아래에서 새로 로그인한다
+            sessions.closeAll(user);
         }
         AuthResponse session = signIn(user);
         forgetCode(email);

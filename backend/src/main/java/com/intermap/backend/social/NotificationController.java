@@ -9,6 +9,7 @@ import com.intermap.backend.auth.UserAvatarRepository;
 import com.intermap.backend.moderation.Blocks;
 import com.intermap.backend.moderation.Report;
 import com.intermap.backend.moderation.ReportRepository;
+import com.intermap.backend.review.ReviewAudience;
 import com.intermap.backend.review.ReviewComment;
 import com.intermap.backend.review.ReviewCommentRepository;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 // 알림 목록. 따로 쌓아 두지 않고 이미 있는 기록(댓글·팔로우·팔로우 요청)에서 그때그때 모은다 —
 // 댓글이 지워지거나 요청이 취소되면 알림도 같이 사라져 "눌렀더니 없는 글" 같은 일이 없다.
@@ -62,12 +64,14 @@ public class NotificationController {
     private final Blocks blocks;
     private final ReportRepository reports;
     private final Sessions sessions;
+    private final ReviewAudience audience;
 
     public NotificationController(AuthController auth, AppUserRepository users, FollowRepository follows,
                                   FollowRequestRepository requests, ReviewCommentRepository comments,
                                   UserAvatarRepository avatars, Blocks blocks, ReportRepository reports,
-                                  Sessions sessions) {
+                                  Sessions sessions, ReviewAudience audience) {
         this.sessions = sessions;
+        this.audience = audience;
         this.auth = auth;
         this.users = users;
         this.follows = follows;
@@ -112,8 +116,11 @@ public class NotificationController {
 
         // 내 댓글에 달린 답글을 먼저 — 내 후기에 달린 답글이면 "댓글"로 한 번 더 알리지 않는다
         Set<Long> replyIds = new HashSet<>();
+        // 댓글을 단 뒤 팔로우를 끊어 이제 볼 수 없게 된 후기의 답글은 알리지 않는다 (가게 이름·답글 내용이 새지 않게)
+        Predicate<AppUser> visible = audience.visibleAuthors(me);
         for (ReviewComment c : comments.findRepliesToSince(me, from)) {
             replyIds.add(c.getId());
+            if (!visible.test(c.getReview().getAuthor())) continue;
             if (hidden.contains(c.getAuthor().getId()) || reported.contains(c.getId())) continue;
             items.add(commentItem("REPLY", c, avatarUrls));
         }

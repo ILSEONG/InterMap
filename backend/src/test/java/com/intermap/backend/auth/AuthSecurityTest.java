@@ -36,6 +36,7 @@ class AuthSecurityTest {
     @Autowired ReviewController reviewController;
     @Autowired AppUserRepository users;
     @Autowired RestaurantRepository restaurants;
+    @Autowired com.intermap.backend.restaurant.RestaurantController restaurantController;
     @Autowired ReviewRepository reviews;
     @MockitoBean MailService mail;
 
@@ -53,6 +54,46 @@ class AuthSecurityTest {
         ArgumentCaptor<String> code = ArgumentCaptor.forClass(String.class);
         verify(mail).sendVerificationCode(eq(email), code.capture());
         return code.getValue();
+    }
+
+    @Test
+    void changingPasswordByCodeSignsOutOtherDevices() {
+        String email = uniqueEmail();
+        AppUser u = user(email, "old-password-1");
+        String stolen = "Bearer " + auth.signIn(u).token();
+        String legacy = UUID.randomUUID().toString();
+        u.issueToken(legacy);
+        users.save(u);
+        assertEquals(u.getId(), auth.currentUser(stolen).getId());
+        assertEquals(u.getId(), auth.currentUser("Bearer " + legacy).getId());
+
+        // 비밀번호를 안 바꾸는 인증번호 로그인은 다른 기기를 건드리지 않는다
+        String code = sentCode(email);
+        var plain = (AuthController.AuthResponse) auth.loginWithCode(new AuthController.CodeRequest(email, code, null)).getBody();
+        assertEquals(u.getId(), auth.currentUser(stolen).getId());
+
+        // 비밀번호를 바꾸면 그전의 로그인은 전부 끊기고, 지금 받은 토큰만 남는다
+        org.mockito.Mockito.clearInvocations(mail);
+        String again = sentCode(email);
+        var changed = (AuthController.AuthResponse) auth.loginWithCode(
+                new AuthController.CodeRequest(email, again, "new-password-1")).getBody();
+        assertNull(auth.currentUser(stolen), "예전 비밀번호로 들어와 있던 기기는 끊긴다");
+        assertNull(auth.currentUser("Bearer " + plain.token()));
+        assertNull(auth.currentUser("Bearer " + legacy), "예전 방식 토큰도 끊긴다");
+        assertEquals(u.getId(), auth.currentUser("Bearer " + changed.token()).getId());
+        assertEquals(HttpStatus.OK, auth.login(new AuthController.LoginRequest(email, "new-password-1")).getStatusCode());
+    }
+
+    @Test
+    void mapBoundsMustBeNumbers() {
+        double nan = Double.NaN;
+        assertEquals(HttpStatus.BAD_REQUEST, restaurantController.list(nan, 37.6, 126.9, 127.0, null, null, null).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST,
+                restaurantController.list(37.5, Double.POSITIVE_INFINITY, 126.9, 127.0, null, null, null).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST,
+                restaurantController.summary(37.5, 37.6, nan, 127.0, 12, null, null, null).getStatusCode());
+        assertEquals(HttpStatus.OK, restaurantController.list(37.50, 37.55, 126.95, 127.0, null, null, null).getStatusCode());
+        assertEquals(HttpStatus.OK, restaurantController.summary(37.5, 37.6, 126.9, 127.0, 12, null, null, null).getStatusCode());
     }
 
     @Test
