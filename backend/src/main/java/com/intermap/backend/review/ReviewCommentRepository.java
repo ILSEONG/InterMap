@@ -37,7 +37,7 @@ public interface ReviewCommentRepository extends JpaRepository<ReviewComment, Lo
 
     // 알림 — 남이 내 댓글에 단 답글. 내가 볼 수 없는 비공개 답글은 뺀다 (ReviewComment.visibleTo와 같은 규칙:
     // 비공개 답글은 내가 그 후기를 썼거나, 내 원댓글이 비공개일 때만 보인다)
-    @EntityGraph(attributePaths = {"author", "review"})
+    @EntityGraph(attributePaths = {"author", "review.author"})
     @Query("select c from ReviewComment c where c.author <> :owner and c.createdAt >= :from"
             + " and c.parentId in (select m.id from ReviewComment m where m.author = :owner)"
             + " and (c.secret is null or c.secret = false or c.review.author = :owner"

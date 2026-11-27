@@ -206,6 +206,8 @@ class SocialControllerTest {
         AppUser friend = user("friend");
         Review mine = reviews.save(new Review(me, "모퉁이떡볶이", "분식", "서울 어딘가 1", 4.5, "맛있어요", null));
         Review theirs = reviews.save(new Review(friend, "솥밥집", "한식", "서울 어딘가 2", 4.0, "좋아요", null));
+        // 친구 후기를 볼 수 있어야(팔로우) 거기 달린 답글도 알림으로 온다
+        follows.save(new Follow(me, friend));
         // 친구가 내 후기에 댓글, 내가 답글(내 것은 알리지 않음), 친구가 내 답글... 이 아니라 내 댓글에 답글
         ReviewComment first = comments.save(new ReviewComment(mine, friend, null, "저도 가볼래요"));
         comments.save(new ReviewComment(mine, me, first.getId(), "꼭 가보세요"));

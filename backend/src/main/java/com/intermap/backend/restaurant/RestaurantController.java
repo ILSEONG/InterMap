@@ -73,7 +73,9 @@ public class RestaurantController {
             @RequestParam(required = false) String cuisine,
             @RequestParam(required = false) String exceptCuisine) {
         boolean hasBox = minLat != null && maxLat != null && minLng != null && maxLng != null;
-        if (hasBox && (maxLat - minLat > MAX_BOX_DEG || maxLng - minLng > MAX_BOX_DEG)) {
+        // NaN·무한대는 크기 비교를 전부 통과해 버린다 — 숫자가 아니면 먼저 거절한다
+        if (hasBox && (!finite(minLat, maxLat, minLng, maxLng)
+                || maxLat - minLat > MAX_BOX_DEG || maxLng - minLng > MAX_BOX_DEG)) {
             return ResponseEntity.badRequest().build();
         }
         List<ListItem> items;
@@ -92,6 +94,11 @@ public class RestaurantController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
                 .body(items);
+    }
+
+    private static boolean finite(double... values) {
+        for (double v : values) if (!Double.isFinite(v)) return false;
+        return true;
     }
 
     // 좌표 보정 진행 상황 — 운영 관리자만. 가게 표를 세 번 훑는 무거운 조회(1~2초)라 아무나 부르게 두지 않는다
@@ -128,7 +135,7 @@ public class RestaurantController {
             @RequestParam(required = false) String cafeKind,
             @RequestParam(required = false) String exceptCuisine) {
         double cellDeg = 360.0 * CLUSTER_PIXEL_DISTANCE / (256.0 * Math.pow(2, zoom));
-        if (zoom < 0 || zoom > 20 || (maxLat - minLat) / cellDeg * ((maxLng - minLng) / cellDeg) > MAX_CELLS) {
+        if (!finite(minLat, maxLat, minLng, maxLng) || zoom < 0 || zoom > 20 || (maxLat - minLat) / cellDeg * ((maxLng - minLng) / cellDeg) > MAX_CELLS) {
             return ResponseEntity.badRequest().build();
         }
         // DB group by — 낮은 줌에서 bbox가 서울 전체를 덮어도 행을 안 올린다. 폐업 가게는 건수에서 뺀다.

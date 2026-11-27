@@ -5,7 +5,10 @@ import com.intermap.backend.auth.AppUser;
 import com.intermap.backend.auth.AppUserRepository;
 import com.intermap.backend.social.Follow;
 import com.intermap.backend.social.FollowRepository;
+import com.intermap.backend.social.NotificationController;
 import com.intermap.backend.social.SocialController;
+import com.intermap.backend.push.PushService;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,6 +21,11 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 // 후기 공개 범위 (PRODUCT.md): 로그아웃이면 주인장 후기만, 로그인하면 나 + 팔로우한 사람 + 주인장.
 // 댓글·사진도 같은 기준 — 서버가 아예 안 보낸다.
@@ -33,6 +41,8 @@ class ReviewVisibilityTest {
     @Autowired ReviewCommentRepository comments;
     @Autowired ReviewPhotoRepository photos;
     @Autowired FollowRepository follows;
+    @Autowired NotificationController notifications;
+    @MockitoBean PushService push;
 
     private AppUser user(String name) {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
@@ -115,6 +125,9 @@ class ReviewVisibilityTest {
         assertTrue(commentIds(me).contains(made.id()), "쓴 사람은 본다");
         assertTrue(commentIds(writer).contains(made.id()), "후기를 쓴 사람은 본다");
         assertFalse(commentIds(friend).contains(made.id()), "같은 후기를 보는 다른 사람에게는 안 간다");
+        assertEquals(HttpStatus.BAD_REQUEST, commentController.create(bearer(friend),
+                new ReviewCommentController.CreateRequest(review.getId(), "끼어들기", made.id())).getStatusCode(),
+                "볼 수 없는 비공개 댓글에는 답글을 달 수 없다");
 
         // 후기를 쓴 사람이 비공개 댓글에 답하면 — 체크하지 않아도 비공개, 원댓글을 쓴 사람은 본다
         var answer = (ReviewCommentController.Item) commentController.create(bearer(writer),
@@ -138,6 +151,34 @@ class ReviewVisibilityTest {
                 "볼 수 없는 비공개 답글은 알림에도 안 뜬다");
         assertTrue(comments.findRepliesToSince(me, from).stream().anyMatch(c -> c.getId().equals(answer.id())),
                 "내 비공개 댓글에 달린 답글은 알림에 뜬다");
+    }
+
+    // 댓글을 단 뒤 팔로우를 끊으면 그 후기는 더 볼 수 없다 — 거기 달리는 답글도 알림·푸시로 오지 않는다
+    @Test
+    void repliesStopReachingMeOnceICannotSeeTheReview() {
+        AppUser writer = user("writer");
+        AppUser me = user("me");
+        AppUser friend = user("friend");
+        Follow mine = follows.save(new Follow(me, writer));
+        follows.save(new Follow(friend, writer));
+        Review review = review(writer);
+        var open = (ReviewCommentController.Item) commentController.create(bearer(me),
+                new ReviewCommentController.CreateRequest(review.getId(), "여기 좋죠", null)).getBody();
+
+        commentController.create(bearer(friend), new ReviewCommentController.CreateRequest(review.getId(), "저도요", open.id()));
+        verify(push, times(1)).send(eq(me), anyString(), anyString(), any());
+        assertEquals(1, replyNotices(me), "볼 수 있는 동안은 답글 알림이 온다");
+
+        follows.delete(mine);
+        follows.flush();
+        commentController.create(bearer(friend), new ReviewCommentController.CreateRequest(review.getId(), "또 가요", open.id()));
+        verify(push, times(1)).send(eq(me), anyString(), anyString(), any());
+        assertEquals(0, replyNotices(me), "볼 수 없게 된 후기의 답글은 알림에 안 뜬다");
+    }
+
+    private long replyNotices(AppUser viewer) {
+        var response = (NotificationController.Response) notifications.list(bearer(viewer)).getBody();
+        return response.items().stream().filter(i -> i.type().equals("REPLY")).count();
     }
 
     @Test

@@ -128,7 +128,9 @@ public class ReviewCommentController {
         ReviewComment parent = null;
         if (request.parentId() != null) {
             parent = repository.findById(request.parentId()).orElse(null);
-            if (parent == null || !parent.getReview().getId().equals(review.getId()) || parent.getParentId() != null) {
+            // 내가 볼 수 없는 비공개 댓글에는 답글도 못 단다 — 있는지조차 알려주지 않는다
+            if (parent == null || !parent.getReview().getId().equals(review.getId()) || parent.getParentId() != null
+                    || !parent.visibleTo(user, null)) {
                 return ResponseEntity.badRequest().body(new AuthController.ErrorResponse("답글을 달 댓글을 찾지 못했어요."));
             }
             // 원댓글 작성자와 차단 관계여도 답글을 달 수 없다
@@ -144,11 +146,13 @@ public class ReviewCommentController {
         boolean secret = Boolean.TRUE.equals(request.secret()) || (parent != null && parent.isSecret());
         ReviewComment saved = repository.save(new ReviewComment(review, user, request.parentId(), text, secret));
         // 푸시 알림 — 답글이면 원댓글 쓴 사람에게, 그 밖엔 후기 쓴 사람에게 (같은 사람이면 답글로 한 번만, 내가 나에게는 안 보낸다).
-        // 비공개 답글은 볼 수 있는 사람에게만 알린다 (공개 댓글에 단 비공개 답글은 그 댓글을 쓴 사람에게 안 보인다)
+        // 비공개 답글은 볼 수 있는 사람에게만 알린다 (공개 댓글에 단 비공개 답글은 그 댓글을 쓴 사람에게 안 보인다).
+        // 원댓글을 쓴 사람이 이제 이 후기를 볼 수 없으면(팔로우를 끊었다) 알리지 않는다
         AppUser parentAuthor = parent == null ? null : parent.getAuthor();
         AppUser reviewAuthor = review.getAuthor();
         Map<String, String> data = Map.of("type", parent == null ? "COMMENT" : "REPLY", "reviewId", String.valueOf(review.getId()));
-        if (parentAuthor != null && !parentAuthor.getId().equals(user.getId()) && saved.visibleTo(parentAuthor, parent)) {
+        if (parentAuthor != null && !parentAuthor.getId().equals(user.getId()) && saved.visibleTo(parentAuthor, parent)
+                && audience.visibleAuthors(parentAuthor).test(reviewAuthor)) {
             push.send(parentAuthor, user.getNickname() + "님이 내 댓글에 답글을 남겼어요", text, data);
         }
         if (!reviewAuthor.getId().equals(user.getId())
