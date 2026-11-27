@@ -70,7 +70,17 @@ def shaker(vel):
 def snap(vel):
     t = tt(int(0.12 * SR)); return fade(signal.sosfilt(BP, RNG.standard_normal(len(t))) * np.exp(-t * 36) * vel, 0.001, 0.03)
 
-def make(out, intro, body, end):
+def glass(seed):              # 유리창이 깨지는 소리 — 깨지는 순간의 넓은 소음 + 둔탁한 충격 + 흩어져 떨어지는 조각들
+    n = int(2.0 * SR); t = tt(n); y = np.zeros(n); rng = np.random.default_rng(seed)
+    y += 1.0 * signal.sosfilt(signal.butter(2, [1400, 7500], 'bandpass', fs=SR, output='sos'), rng.standard_normal(n)) * np.exp(-t * 34)
+    y += 0.55 * np.sin(2 * np.pi * np.cumsum(60 + 110 * np.exp(-t * 30)) / SR) * np.exp(-t * 20)
+    for k in range(80):
+        f = rng.uniform(1800, 8000); at = abs(rng.normal(0, 0.13)) if k < 50 else rng.uniform(0.2, 1.15)
+        a = rng.uniform(0.12, 0.5) * np.exp(-at * 1.6); i = int(at * SR); tk = t[:n - i]
+        y[i:] += a * np.sin(2 * np.pi * f * tk + rng.uniform(0, 6.28)) * np.exp(-tk * rng.uniform(16, 55)) * (1 - np.exp(-tk * 2500))
+    return fade(y / np.abs(y).max(), 0.0005, 0.25)
+
+def make(out, intro, body, end, shatter_at=None):
     assert body % 4 == 0 and intro % 4 == 0
     total = (intro + body + end) * BEAT; N = int((total + 3) * SR)
     dry = np.zeros((N, 2)); send = np.zeros((N, 2))
@@ -119,6 +129,14 @@ def make(out, intro, body, end):
         ir = signal.sosfilt(lp, RNG.standard_normal(n)) * np.exp(-t * 3.4); ir[:int(0.012 * SR)] = 0; ir /= np.sqrt((ir ** 2).sum())
         wet[:, c] = signal.fftconvolve(send[:, c], ir)[:N]
     mix = dry + 0.5 * wet
+    if shatter_at is not None:
+        # 깨지는 소리가 묻히지 않게 그 순간 음악을 낮췄다가 서서히 되돌린다
+        i = int(shatter_at * SR); env = np.ones(N); hold, back = int(0.6 * SR), int(1.4 * SR)
+        env[i:i + hold] = 0.22; env[i + hold:i + hold + back] = 0.22 + 0.78 * (0.5 - 0.5 * np.cos(np.pi * np.arange(back) / back))[:max(0, N - i - hold)][:len(env[i + hold:i + hold + back])]
+        k = int(0.01 * SR); env[i - k:i] = np.linspace(1, 0.22, k)
+        mix *= env[:, None]
+        for c, seed in enumerate((11, 23)):
+            g = glass(seed)[:N - i]; mix[i:i + len(g), c] += 0.95 * g; mix[i:i + len(g), 1 - c] += 0.45 * g
     mix = signal.sosfilt(signal.butter(2, 38, 'highpass', fs=SR, output='sos'), mix, axis=0)
     air = signal.sosfilt(signal.butter(1, 3200, 'highpass', fs=SR, output='sos'), mix, axis=0); mix = mix + 0.55 * air
     mix = mix[:int(total * SR)]

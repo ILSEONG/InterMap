@@ -141,7 +141,7 @@ def cut(name, col, out, crop=None):
     body = sum(s[col] for s in SCENES)
     lst = os.path.join(TMP, name + '.txt'); open(lst, 'w').write(''.join(f"file '{os.path.abspath(p)}'\n" for p in parts))
     joined = os.path.join(TMP, name + '_joined.mp4'); run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', joined])
-    wav = os.path.join(TMP, name + '.wav'); music.make(wav, intro, body, END_BEATS)
+    wav = os.path.join(TMP, name + '.wav'); music.make(wav, intro, body, END_BEATS, shatter_at=INTRO_STEPS[name][0] * BEAT)   # '알고 보니 광고였다'가 뜨는 순간
     m = re.search(r'I:\s+(-?[0-9.]+) LUFS', run(['ffmpeg', '-hide_banner', '-i', wav, '-af', 'ebur128', '-f', 'null', '-']).stderr.split('Summary')[-1]); gain = LOUDNESS - float(m.group(1))
     video = ['-c:v', 'copy'] if not crop else ['-vf', crop, '-r', '30', '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.0']
     run(['ffmpeg', '-y', '-loglevel', 'error', '-i', joined, '-i', wav, '-map', '0:v', '-map', '1:a', *video, '-af', f'volume={gain:.2f}dB', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-shortest', '-movflags', '+faststart', out])

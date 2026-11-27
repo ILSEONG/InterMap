@@ -49,35 +49,41 @@ def review(rid, name, who, rating, text, tags=None, hours=30, menu=None):
             'author': {'id': who['id'], 'name': who['nickname'], 'owner': False, 'avatar': None}, 'rating': rating, 'text': text, 'menu': menu,
             'tags': tags or [], 'createdAt': iso(hours=hours), 'photoIds': [], 'photoUrls': [], 'photoRatios': []}
 
+def comment(cid, rid, who, text, hours):
+    return {'id': cid, 'reviewId': rid, 'parentId': None, 'author': {'id': who['id'], 'name': who['nickname'], 'owner': False, 'avatar': None}, 'text': text, 'createdAt': iso(hours=hours)}
+
 def new_state():
     return {'reviews': [
-        review(501, '스시 담', HANEUL, 4.8, '초밥이 두툼하고 밥이 따뜻해요. 점심 특선이 알차요.', ['SMALL'], 3, '점심 특선'),
-        review(502, '스시 담', DOYUN, 4.5, '조용해서 둘이 가기 좋았어요. 예약하고 가세요.', ['SMALL'], 52, '모둠 초밥'),
-        review(503, '스시 담', ME, 4.6, '계란말이가 정말 맛있어요.', ['SOLO'], 120),
-        review(504, '온기식당', SEOA, 4.4, '집밥이 생각날 때 가는 곳. 반찬이 매일 바뀌어요.', ['SOLO'], 20, '오늘의 백반'),
-        review(505, '화로 한 점', MINJAE, 4.7, '회식 장소로 딱이에요. 여섯 명 자리도 넉넉해요.', ['LARGE'], 70, '모둠 구이'),
-        review(506, '파스타 온', HANEUL, 4.2, '크림 파스타가 꾸덕해요. 창가 자리 추천.', ['SMALL'], 96),
-        review(507, '마라 한 그릇', DOYUN, 4.0, '맵기를 고를 수 있어서 좋아요.', ['SOLO'], 140),
-        review(508, '골목 분식', ME, 4.3, '떡볶이는 여기가 제일이에요.', ['SMALL'], 200),
-        review(509, '든든국밥', MINJAE, 4.5, '해장은 여기서. 아침 일찍 열어요.', ['SOLO'], 30),
-        review(521, '느린 오후', SEOA, 4.7, '콘센트 자리가 많아서 작업하기 좋아요.', ['WORK', 'SOLO'], 6),
-        review(522, '느린 오후', HANEUL, 4.5, '라테가 고소해요. 오후엔 자리가 금방 차요.', ['TASTE'], 60),
-        review(523, '소금빵 연구소', DOYUN, 4.6, '갓 나온 소금빵은 꼭 드세요.', ['SWEETS', 'SMALL'], 28),
-        review(524, '달 아래 커피', ME, 4.4, '늦게까지 열어서 밤에 가기 좋아요.', ['MOOD'], 80),
-        review(525, '겨울 디저트', MINJAE, 4.3, '여럿이 수다 떨기 좋은 넓은 자리.', ['TALK', 'LARGE'], 100),
-        review(526, '창가 자리', HANEUL, 4.5, '창밖을 보면서 쉬기 좋아요.', ['MOOD', 'SOLO'], 110),
-        review(527, '오늘의 원두', DOYUN, 4.8, '원두를 고를 수 있어요. 드립 커피 추천.', ['TASTE'], 130),
-        review(528, '모퉁이 베이커리', MINJAE, 4.2, '크루아상이 바삭해요.', ['SWEETS'], 150),
+        review(501, '스시 담', HANEUL, 4.8, '지우야 여기 꼭 가 봐. 점심 특선이 진짜 알차.', ['SMALL'], 3, '점심 특선'),
+        review(502, '스시 담', DOYUN, 4.5, '하늘이 말 듣고 갔는데 인정. 예약은 하고 가.', ['SMALL'], 52, '모둠 초밥'),
+        review(503, '스시 담', ME, 4.6, '둘 다 추천해서 다녀옴. 계란말이가 제일 맛있었어.', ['SOLO'], 120),
+        review(504, '온기식당', SEOA, 4.4, '집밥 생각날 때 가는 곳. 다음엔 다 같이 가자!', ['SOLO'], 20, '오늘의 백반'),
+        review(505, '화로 한 점', MINJAE, 4.7, '우리 다음 모임은 여기서 하자. 여섯 명도 넉넉해.', ['LARGE'], 70, '모둠 구이'),
+        review(506, '파스타 온', HANEUL, 4.2, '크림 파스타 꾸덕해. 가면 창가 자리 잡아.', ['SMALL'], 96),
+        review(507, '마라 한 그릇', DOYUN, 4.0, '매운 거 못 먹는 서아도 갈 수 있음. 맵기 고를 수 있어.', ['SOLO'], 140),
+        review(508, '골목 분식', ME, 4.3, '우리 동네 떡볶이는 여기가 1등.', ['SMALL'], 200),
+        review(509, '든든국밥', MINJAE, 4.5, '어제 늦게까지 논 사람은 여기로. 아침 일찍 열어.', ['SOLO'], 30),
+        review(521, '느린 오후', SEOA, 4.7, '콘센트 많아서 과제하기 좋아. 주말에 같이 갈 사람?', ['WORK', 'SOLO'], 6),
+        review(522, '느린 오후', HANEUL, 4.5, '라테가 고소해. 오후엔 자리 금방 차니까 일찍 가.', ['TASTE'], 60),
+        review(523, '소금빵 연구소', DOYUN, 4.6, '갓 나온 소금빵은 무조건 먹어. 내가 보장함.', ['SWEETS', 'SMALL'], 28),
+        review(524, '달 아래 커피', ME, 4.4, '늦게까지 열어서 밤에 수다 떨기 좋아.', ['MOOD'], 80),
+        review(525, '겨울 디저트', MINJAE, 4.3, '넷이서 세 시간 떠들었는데 눈치 안 주더라.', ['TALK', 'LARGE'], 100),
+        review(526, '창가 자리', HANEUL, 4.5, '혼자 쉬기 좋은 곳. 나만 알고 싶었는데 알려 준다.', ['MOOD', 'SOLO'], 110),
+        review(527, '오늘의 원두', DOYUN, 4.8, '원두를 고를 수 있어. 커피 좋아하는 서아 취향일 듯.', ['TASTE'], 130),
+        review(528, '모퉁이 베이커리', MINJAE, 4.2, '크루아상 바삭해. 가는 사람 내 것도 사 와.', ['SWEETS'], 150),
     ], 'comments': [
-        {'id': 1, 'reviewId': 501, 'parentId': None, 'author': {'id': 8, 'name': '도윤', 'owner': False, 'avatar': None}, 'text': '이번 주말에 같이 가요!', 'createdAt': iso(hours=2)},
-    ], 'posts': [], 'votes': {1: ['하늘', '도윤'], 2: ['서아'], 3: []}, 'mine': []}
+        comment(1, 501, DOYUN, '이번 주말에 같이 갈래?', 2),
+        comment(2, 501, SEOA, '나도 끼워 줘!', 1),
+        comment(3, 504, MINJAE, '토요일 점심 어때?', 5),
+        comment(4, 521, HANEUL, '나 갈래. 일요일?', 3),
+    ], 'posts': [], 'votes': {1: ['하늘', '도윤'], 2: ['서아', '민재'], 3: []}, 'mine': []}
 
 POLL_OPTS = [(1, '스시 담', '일식', 4.6, 3), (2, '화로 한 점', '고기', 4.7, 1), (3, '파스타 온', '양식', 4.2, 1)]
 def poll_view(state):
     opts = [{'id': i, 'name': n, 'category': c, 'address': BY[n]['roadAddress'], 'note': None, 'votes': len(state['votes'][i]), 'voters': state['votes'][i], 'rating': r, 'reviewCount': k}
             for i, n, c, r, k in POLL_OPTS]
     people = {v for vs in state['votes'].values() for v in vs}
-    return {'token': 'demo-poll', 'title': '금요일 저녁 어디 갈래?', 'creator': {'id': 4, 'name': '지우'}, 'createdAt': iso(hours=5), 'closesAt': iso(hours=-19), 'closed': False,
+    return {'token': 'demo-poll', 'title': '이번 주 금요일, 우리 어디서 볼까?', 'creator': {'id': 4, 'name': '지우'}, 'createdAt': iso(hours=5), 'closesAt': iso(hours=-19), 'closed': False,
             'mine': True, 'options': opts, 'myChoices': state['mine'], 'myName': '지우', 'voterCount': len(people), 'winnerIds': []}
 def recap():
     month = (now() + datetime.timedelta(hours=9)).strftime('%Y-%m')
@@ -119,8 +125,8 @@ def make_handler(state):
         if path == '/api/comments' and m == 'GET': return ok(route, state['comments'])
         if path == '/api/me/social': return ok(route, {'following': [HANEUL, DOYUN, SEOA, MINJAE], 'followers': [HANEUL, DOYUN, MINJAE], 'requests': [], 'requested': [], 'manualApproval': False})
         if path == '/api/me/notifications': return ok(route, {'items': [], 'unread': 0})
-        if path == '/api/me/polls': return ok(route, [{'token': 'demo-poll', 'title': '금요일 저녁 어디 갈래?', 'createdAt': iso(hours=5), 'closesAt': iso(hours=-19), 'closed': False, 'mine': True,
-                                                       'voterCount': 3, 'leader': '스시 담', 'cafe': False}])
+        if path == '/api/me/polls': return ok(route, [{'token': 'demo-poll', 'title': '이번 주 금요일, 우리 어디서 볼까?', 'createdAt': iso(hours=5), 'closesAt': iso(hours=-19), 'closed': False, 'mine': True,
+                                                       'voterCount': 4, 'leader': '스시 담', 'cafe': False}])
         if path == '/api/me/recap': return ok(route, recap())
         if path.startswith('/api/polls/'):
             if m == 'POST' and path.endswith('/votes'):
@@ -246,7 +252,7 @@ def stills(p):
     # 후기 쓰기 화면 (등록은 하지 않는다)
     pg.locator('.recap-sheet').get_by_role('button', name='닫기').first.click(); a.wait(800); pg.locator('.my-page__close').first.click(); a.wait(900)
     a.view(C_LAT, C_LNG, ZOOM, 1500); a.pin('온기식당').first.click(); a.wait(1300); a.sheet().get_by_role('button', name='후기 쓰기').first.click(); a.wait(900)
-    a.sheet().locator('.review-form__text').click(); pg.keyboard.type('반찬이 정갈하고 밥이 맛있어요'); a.wait(200)
+    a.sheet().locator('.review-form__text').click(); pg.keyboard.type('서아 말대로 반찬이 진짜 맛있다'); a.wait(200)
     a.sheet().locator('.review-form__tags[aria-labelledby$="-party"] .review-form__tag', has_text='혼밥').first.click(); a.wait(300)
     pg.evaluate("document.activeElement && document.activeElement.blur()"); a.wait(400); shot('s7_review')
     print('stills errors', errors); br.close()
@@ -281,7 +287,7 @@ def video(p):
     a.pin('온기식당').first.click(); a.wait(1300)
     def s4():
         a.wait(400); a.tap(a.sheet().get_by_role('button', name='후기 쓰기'), 730)
-        a.sheet().locator('.review-form__text').click(); a.wait(100); a.type('반찬이 정갈하고 밥이 맛있어요'); a.wait(200)
+        a.sheet().locator('.review-form__text').click(); a.wait(100); a.type('서아 말대로 반찬이 진짜 맛있다'); a.wait(200)
         a.tap(a.sheet().locator('.review-form__tags[aria-labelledby$="-party"] .review-form__tag', has_text='혼밥'), 400)
         a.tap(a.sheet().locator('.review-form__submit'), 1600)
     scene('v4_review', s4)
