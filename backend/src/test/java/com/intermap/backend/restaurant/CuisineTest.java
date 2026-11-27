@@ -118,4 +118,23 @@ class CuisineTest {
         assertTrue(Cuisine.isCafeKind("BAKERY"));
         assertFalse(Cuisine.isCafeKind("CAFE"));
     }
+
+    // 휴게음식점으로 등록한 식당들 — 상가 소분류가 '그 외 기타 간이 음식점'이라 이름으로 잡아야 한다
+    @Test
+    void lightMealsAreFiled() {
+        assertEquals("KOREAN", Cuisine.of("샤브토랑 대학로점", "그 외 기타 간이 음식점", "기타 휴게음식점"));
+        assertEquals("CHINESE", Cuisine.of("용가회전 훠궈 샤브샤브", null, "기타"), "'샤브'는 약한 낱말이라 훠궈를 못 이긴다");
+        assertEquals("NOODLE", Cuisine.of("등촌샤브칼국수", "그 외 기타 간이 음식점", "기타 휴게음식점"));
+        assertEquals("SNACK", Cuisine.of("이삭토스트 종각역점", "토스트/샌드위치/샐러드", "기타 휴게음식점"));
+        assertEquals("SNACK", Cuisine.of("써브웨이 답십리역점", "피자", "패스트푸드"));
+        assertEquals("CAFE", Cuisine.of("카페 샌드위치하우스", null, "기타 휴게음식점"), "카페가 먼저 걸린다");
+        assertEquals("WESTERN", Cuisine.of("샐러디 강남점", "피자", "기타 휴게음식점"), "샐러드·포케는 양식에 둔다");
+        assertEquals("WESTERN", Cuisine.of("포케올데이", "토스트/샌드위치/샐러드", "일반조리판매"));
+        assertEquals("WESTERN", Cuisine.of("슬로우캘리", "토스트/샌드위치/샐러드", "일반조리판매"), "이름에 낱말이 없으면 상가 소분류로");
+        assertEquals("PIZZA_BURGER", Cuisine.of("번패티번", "버거", "패스트푸드"));
+        assertEquals("PIZZA_BURGER", Cuisine.of("타마", "피자", "기타 휴게음식점"));
+        assertEquals("CAFE", Cuisine.of("서울호떡", "그 외 기타 간이 음식점", "일반조리판매"));
+        assertEquals("CHINESE", Cuisine.of("오한수 우육면가", "분류 안된 외국식 음식점", "한식"));
+        assertNull(Cuisine.of("가로판매점", "그 외 기타 간이 음식점", "기타 휴게음식점"));
+    }
 }
