@@ -1,3 +1,13 @@
+// 메이븐 중앙 저장소가 Render 빌드 서버(여럿이 같이 쓰는 IP)의 요청을 429로 막을 때가 있어 배포가 실패했다.
+// 구글이 운영하는 중앙 저장소 미러를 먼저 보고, 거기 없는 것만 원래 저장소에서 받는다
+pluginManagement {
+	repositories {
+		maven { url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
+		gradlePluginPortal()
+		mavenCentral()
+	}
+}
+
 plugins {
 	// JDK 17이 설치돼 있지 않은 환경에서 toolchain이 자동으로 내려받도록 한다
 	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
