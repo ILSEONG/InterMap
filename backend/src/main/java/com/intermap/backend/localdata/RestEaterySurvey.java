@@ -37,6 +37,8 @@ public class RestEaterySurvey implements ApplicationRunner {
     private static final Duration START_DELAY = Duration.ofMinutes(10);
     private static final Duration PAUSE = Duration.ofMinutes(30);
     private static final int TRIES = 6;
+    private static final int FETCH_TRIES = 5;
+    private static final Duration FETCH_PAUSE = Duration.ofSeconds(40);
     // 상가와 짝지어지면 받을 업태. 편의점·푸드트럭·키즈카페·철도역구내·극장·유원지는 짝이 있어도 받지 않는다
     static final Set<String> CANDIDATES = Set.of("기타 휴게음식점", "일반조리판매", "패스트푸드", "백화점");
     // 이 낱말이 든 가게는 어떻게 세어졌는지 따로 적는다 (빠진 걸 알게 된 가게)
@@ -110,7 +112,7 @@ public class RestEaterySurvey implements ApplicationRunner {
             }
             Tally tally = new Tally();
             for (String code : localCodes) {
-                count(client.fetchAllOpen(LocalDataClient.Service.REST_CAFE, code), knownMgtNos, knownNameAddrs, lookup::categoryOf, tally);
+                count(fetch(code), knownMgtNos, knownNameAddrs, lookup::categoryOf, tally);
             }
             report(tally);
             state.put("rest-survey", DONE_KEY, "done", Duration.ofDays(3650));
@@ -118,6 +120,23 @@ public class RestEaterySurvey implements ApplicationRunner {
         } catch (RuntimeException e) {
             log.warn("휴게음식점 세어 보기를 못 끝냈어요 — {}분 뒤에 다시 해요: {}", PAUSE.toMinutes(), LocalDataClient.safe(e.toString()));
             return false;
+        }
+    }
+
+    // 공공데이터포털은 응답이 자주 늦는다 — 구 하나가 늦었다고 25개 구를 처음부터 다시 받지 않게 그 구만 몇 번 더 불러 본다
+    private List<LocalDataClient.Row> fetch(String code) {
+        for (int i = 1; ; i++) {
+            try {
+                return client.fetchAllOpen(LocalDataClient.Service.REST_CAFE, code);
+            } catch (RuntimeException e) {
+                if (i == FETCH_TRIES) throw e;
+                try {
+                    Thread.sleep(FETCH_PAUSE.toMillis());
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
         }
     }
 
