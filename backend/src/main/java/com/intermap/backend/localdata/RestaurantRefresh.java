@@ -43,7 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   서버가 켜질 때 지난 목요일 22시 것을 아직 안 했으면 그때 돈다.
  * - 같은 자리에 같은 이름으로 다시 연 가게(주인만 바뀐 경우)는 가게도 후기도 남는다.
  * - 이름·주소가 바뀐 가게는 건드리지 않는다 — 후기가 상호+주소로 가게를 찾아서, 고치면 그 후기가 가게를 잃는다.
- * - 일반음식점 다음에 휴게음식점·제과점영업도 본다 (카페). 새 가게는 카페만 넣고, 폐업은 똑같이 지운다.
+ * - 일반음식점 다음에 휴게음식점·제과점영업도 본다. 새 가게는 카페와, 휴게음식점으로 등록한 식당(상가(상권)정보에
+ *   음식점으로 잡힌 곳 — RestaurantImportService.toEatery)만 넣고, 폐업은 똑같이 지운다.
  *   이 둘은 활용신청이 안 돼 있으면 못 부른다 — 그래도 일반음식점 최신화는 끝까지 한다.
  */
 @Service
@@ -75,6 +76,8 @@ public class RestaurantRefresh implements ApplicationRunner {
     private final TransactionTemplate tx;
     private final List<String> localCodes;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    // 상가(상권)정보 짝짓기 — 테스트에서 바꿔 끼운다
+    java.util.function.Supplier<RestaurantImportService.SbizMatcher> sbizSource = RestaurantImportService::loadSbiz;
 
     public RestaurantRefresh(LocalDataClient client, RestaurantRepository repository, GeocodeBackfill geocode,
                              ServerState state, ReviewRepository reviews, ReviewCleanup cleanup, TransactionTemplate tx,
@@ -191,6 +194,8 @@ public class RestaurantRefresh implements ApplicationRunner {
         int fetched = 0, added = 0, removed = 0, reviewsRemoved = 0;
         // 이번에 새로 넣은 가게의 상호+주소 — 같은 가게가 두 인허가(일반음식점과 제과점 …)에 다 있어도 한 번만 넣는다
         Set<String> adding = new HashSet<>();
+        // 상가 파일은 휴게음식점을 볼 때에야 올린다 (일반음식점만 받다 실패하면 올릴 일이 없다)
+        RestaurantImportService.SbizMatcher sbiz = null;
         for (LocalDataClient.Service service : LocalDataClient.Service.values()) {
             boolean cafeOnly = service != LocalDataClient.Service.GENERAL;
             try {
@@ -213,7 +218,7 @@ public class RestaurantRefresh implements ApplicationRunner {
 
                     // 2) 새로 연 가게: 관리번호도, 상호+주소도 처음 보는 영업중 행만 넣는다.
                     //    상호+주소가 같은 가게가 이번에 지워지는 것이면(같은 자리에 다시 연 가게) 새로 넣는다.
-                    //    휴게음식점·제과점에서는 카페만 넣는다 (편의점·패스트푸드는 받지 않는다)
+                    //    휴게음식점·제과점에서는 카페와, 상가(상권)정보에 음식점으로 잡힌 휴게음식점만 넣는다 (편의점·PC방은 받지 않는다)
                     List<Restaurant> add = new ArrayList<>();
                     for (LocalDataClient.Row row : rows) {
                         if (!row.isOpen()) continue;
@@ -223,6 +228,11 @@ public class RestaurantRefresh implements ApplicationRunner {
                         if (sameNameAddr != null && !remove.contains(sameNameAddr)) continue;
                         if (adding.contains(key)) continue;
                         Restaurant restaurant = cafeOnly ? RestaurantImportService.toCafe(service, row) : RestaurantImportService.toRestaurant(row);
+                        // 휴게음식점으로 등록한 식당 — 상가(상권)정보에 음식점으로 잡힌 곳만
+                        if (restaurant == null && service == LocalDataClient.Service.REST_CAFE) {
+                            if (sbiz == null) sbiz = sbizSource.get();
+                            restaurant = RestaurantImportService.toEatery(row, sbiz);
+                        }
                         if (restaurant == null) continue;
                         adding.add(key);
                         add.add(restaurant);

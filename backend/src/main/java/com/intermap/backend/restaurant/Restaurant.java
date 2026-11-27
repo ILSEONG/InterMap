@@ -93,6 +93,13 @@ public class Restaurant {
     public String getCuisine() { return cuisine; }
     public String getCafeKind() { return cafeKind; }
 
+    /** 상가(상권)정보에서 짝지은 소분류를 적고, 그걸로 업종과 카페 종류를 다시 정한다 (CuisineBackfill이 하는 일과 같다) */
+    public void applySbiz(String sbizCategory) {
+        this.sbizCategory = sbizCategory;
+        this.cuisine = Cuisine.of(name, sbizCategory, category);
+        this.cafeKind = Cuisine.cafeKind(this.cuisine, name, sbizCategory, category);
+    }
+
     public void markStatus(Status status, String mgtNo) {
         this.status = status;
         this.localDataMgtNo = mgtNo;

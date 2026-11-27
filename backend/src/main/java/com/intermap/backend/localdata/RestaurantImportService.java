@@ -2,6 +2,7 @@ package com.intermap.backend.localdata;
 
 import com.intermap.backend.restaurant.Restaurant;
 import com.intermap.backend.restaurant.RestaurantRepository;
+import com.intermap.backend.restaurant.SbizLookup;
 import org.locationtech.proj4j.CRSFactory;
 import org.locationtech.proj4j.CoordinateTransform;
 import org.locationtech.proj4j.CoordinateTransformFactory;
@@ -49,6 +50,9 @@ public class RestaurantImportService {
 
     // 카페로 치지 않는 휴게음식점 업태 — 이름에 '카페'가 들어가도 넣지 않는다
     private static final Set<String> NOT_CAFE_CATEGORIES = Set.of("편의점", "키즈카페");
+
+    // 식당일 수 있는 휴게음식점 업태 (toEatery). 편의점·푸드트럭·키즈카페·철도역구내·극장은 상가와 짝지어져도 받지 않는다
+    static final Set<String> EATERY_CATEGORIES = Set.of("기타 휴게음식점", "일반조리판매", "패스트푸드", "백화점");
 
     private final LocalDataClient client;
     private final RestaurantRepository repository;
@@ -175,6 +179,33 @@ public class RestaurantImportService {
         if (NOT_CAFE_CATEGORIES.contains(category)) return null;
         Restaurant restaurant = toRestaurant(row, category);
         return restaurant != null && "CAFE".equals(restaurant.getCuisine()) ? restaurant : null;
+    }
+
+    /** 상가(상권)정보에서 같은 건물·같은 이름의 음식점을 찾는 일 (SbizLookup). 짝이 없으면 null */
+    public interface SbizMatcher {
+        String categoryOf(String name, String roadAddress, String lotAddress);
+    }
+
+    /** 서버에 실린 상가 파일로 짝을 찾는다 (13만 행을 메모리에 올린다 — 쓰고 나면 놓아 줄 것). 파일이 없으면 아무것도 짝짓지 않는다 */
+    static SbizMatcher loadSbiz() {
+        SbizLookup lookup = new SbizLookup();
+        return lookup.isEmpty() ? (name, road, lot) -> null : lookup::categoryOf;
+    }
+
+    /**
+     * 휴게음식점 인허가 행으로 식당을 만든다 — 카페는 아니지만 밥집인 곳 (1인 샤브·분식·김밥·토스트·버거 …를 휴게음식점으로 등록한 가게).
+     * 업태만으로 받으면 PC방·매점·스터디카페가 섞이므로, 상가(상권)정보에 같은 건물·같은 이름의 음식점으로 잡힌 곳만 받는다.
+     * 받는 업태가 아니거나, 좌표가 없거나, 상가에서 짝을 못 찾으면 null.
+     */
+    static Restaurant toEatery(LocalDataClient.Row row, SbizMatcher sbiz) {
+        String category = blankToNull(row.category()) == null ? null : row.category().trim();
+        if (category == null || !EATERY_CATEGORIES.contains(category)) return null;
+        Restaurant restaurant = toRestaurant(row, category);
+        if (restaurant == null) return null;
+        String matched = sbiz.categoryOf(row.bplcNm(), row.rdnWhlAddr(), row.lotnoAddr());
+        if (matched == null) return null;
+        restaurant.applySbiz(matched);
+        return restaurant;
     }
 
     private static String blankToNull(String s) {
