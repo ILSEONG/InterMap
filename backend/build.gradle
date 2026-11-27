@@ -14,6 +14,8 @@ java {
 }
 
 repositories {
+	// 중앙 저장소 미러를 먼저 (settings.gradle의 설명 참고)
+	maven { url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
 	mavenCentral()
 }
 
